@@ -1,0 +1,12 @@
+/* Local font faces for the Frutiger Aero design system.
+   Selawik: Microsoft's open-source metric match for Segoe UI (SIL OFL 1.1).
+   M PLUS Rounded 1c and Michroma: Google Fonts, SIL OFL 1.1 (latin subsets). */
+@font-face { font-family: "Selawik"; font-weight: 300; font-style: normal; font-display: swap; src: url("fonts/selawkl.ttf") format("truetype"); }
+@font-face { font-family: "Selawik"; font-weight: 350; font-style: normal; font-display: swap; src: url("fonts/selawksl.ttf") format("truetype"); }
+@font-face { font-family: "Selawik"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/selawk.ttf") format("truetype"); }
+@font-face { font-family: "Selawik"; font-weight: 600; font-style: normal; font-display: swap; src: url("fonts/selawksb.ttf") format("truetype"); }
+@font-face { font-family: "Selawik"; font-weight: 700; font-style: normal; font-display: swap; src: url("fonts/selawksb.ttf") format("truetype"); }
+@font-face { font-family: "M PLUS Rounded 1c"; font-weight: 300; font-style: normal; font-display: swap; src: url("fonts/MPLUSRounded1c-300-latin.woff2") format("woff2"); }
+@font-face { font-family: "M PLUS Rounded 1c"; font-weight: 400 500; font-style: normal; font-display: swap; src: url("fonts/MPLUSRounded1c-500-latin.woff2") format("woff2"); }
+@font-face { font-family: "M PLUS Rounded 1c"; font-weight: 600 700; font-style: normal; font-display: swap; src: url("fonts/MPLUSRounded1c-700-latin.woff2") format("woff2"); }
+@font-face { font-family: "Michroma"; font-weight: 400; font-style: normal; font-display: swap; src: url("fonts/Michroma-400-latin.woff2") format("woff2"); }

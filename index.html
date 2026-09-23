@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Aerium</title>
+<meta name="description" content="Aerium: a Frutiger Aero operating system playground that runs in your browser.">
+<meta name="theme-color" content="#0a4f9c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='g' cx='.5' cy='1.05' r='1'%3E%3Cstop offset='0' stop-color='%23bff4ff'/%3E%3Cstop offset='.45' stop-color='%232cb6ea'/%3E%3Cstop offset='1' stop-color='%230b3d73'/%3E%3C/radialGradient%3E%3C/defs%3E%3Ccircle cx='32' cy='32' r='29' fill='url(%23g)'/%3E%3Cpath d='M6 40 C 18 24, 34 50, 58 22' stroke='%23fff' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M10 49 C 24 37, 40 56, 56 35' stroke='%238fe05a' stroke-width='4' fill='none' stroke-linecap='round'/%3E%3Cellipse cx='30' cy='18' rx='18' ry='9' fill='%23fff' opacity='.5'/%3E%3C/svg%3E">
+
+<!-- Frutiger Aero design system -->
+<link rel="stylesheet" href="design-system/fonts.css">
+<link rel="stylesheet" href="design-system/tokens.css">
+<link rel="stylesheet" href="design-system/components.css">
+<!-- Aerium shell -->
+<link rel="stylesheet" href="src/css/base.css">
+<link rel="stylesheet" href="src/css/ui.css">
+<link rel="stylesheet" href="src/css/window.css">
+<link rel="stylesheet" href="src/css/shell.css">
+<!-- Apps -->
+<link rel="stylesheet" href="src/apps/notepad/notepad.css">
+<link rel="stylesheet" href="src/apps/utilities/utilities.css">
+<link rel="stylesheet" href="src/apps/paint/paint.css">
+<link rel="stylesheet" href="src/apps/mediaplayer/mediaplayer.css">
+<link rel="stylesheet" href="src/apps/messenger/messenger.css">
+<link rel="stylesheet" href="src/apps/browser/browser.css">
+<link rel="stylesheet" href="src/apps/games/games.css">
+<link rel="stylesheet" href="src/apps/explorer/explorer.css">
+<link rel="stylesheet" href="src/apps/controlpanel/controlpanel.css">
+<link rel="stylesheet" href="src/apps/gadgets/gadgets.css">
+<link rel="stylesheet" href="src/apps/channels/channels.css">
+<link rel="stylesheet" href="src/apps/screensavers/screensavers.css">
+<link rel="stylesheet" href="src/apps/aquarium/aquarium.css">
+</head>
+<body>
+<div id="ae-root">
+  <div id="ae-wallpaper"></div>
+  <div id="ae-desktop">
+    <div id="ae-icons"></div>
+    <div id="ae-gadgets"></div>
+    <div id="ae-windows"></div>
+  </div>
+  <div id="ae-taskbar"></div>
+</div>
+<div id="ae-overlays"></div>
+<div id="ae-notify"></div>
+<div id="ae-screens"></div>
+<noscript><p style="color:#fff;font:16px sans-serif;padding:40px">Aerium needs JavaScript to run.</p></noscript>
+
+<!-- Core -->
+<script src="src/generated/assets.js"></script>
+<script src="src/core/util.js"></script>
+<script src="src/core/store.js"></script>
+<script src="src/core/sound.js"></script>
+<script src="src/core/music.js"></script>
+<script src="src/core/vfs.js"></script>
+<script src="src/core/theme.js"></script>
+<script src="src/core/ui.js"></script>
+<script src="src/core/wm.js"></script>
+<script src="src/core/apps.js"></script>
+<script src="src/core/notify.js"></script>
+<!-- Shell -->
+<script src="src/shell/desktop.js"></script>
+<script src="src/shell/taskbar.js"></script>
+<script src="src/shell/startmenu.js"></script>
+<script src="src/shell/effects.js"></script>
+<script src="src/shell/screensaver.js"></script>
+<script src="src/shell/boot.js"></script>
+<!-- Wallpapers -->
+<script src="src/wallpapers/fish.js"></script>
+<script src="src/wallpapers/aquarium.js"></script>
+<script src="src/wallpapers/animated.js"></script>
+<!-- Apps -->
+<script src="src/apps/notepad/notepad.js"></script>
+<script src="src/apps/utilities/calculator.js"></script>
+<script src="src/apps/utilities/cmd.js"></script>
+<script src="src/apps/utilities/taskmgr.js"></script>
+<script src="src/apps/utilities/stickynotes.js"></script>
+<script src="src/apps/paint/brushes.js"></script>
+<script src="src/apps/paint/paint.js"></script>
+<script src="src/apps/mediaplayer/visualizers.js"></script>
+<script src="src/apps/mediaplayer/mediaplayer.js"></script>
+<script src="src/apps/messenger/emoticons.js"></script>
+<script src="src/apps/messenger/bots.js"></script>
+<script src="src/apps/messenger/messenger.js"></script>
+<script src="src/apps/browser/sites.js"></script>
+<script src="src/apps/browser/sites2.js"></script>
+<script src="src/apps/browser/sites3.js"></script>
+<script src="src/apps/browser/browser.js"></script>
+<script src="src/apps/games/games.js"></script>
+<script src="src/apps/games/minesweeper.js"></script>
+<script src="src/apps/games/solitaire.js"></script>
+<script src="src/apps/games/pairs.js"></script>
+<script src="src/apps/games/bubblepop.js"></script>
+<script src="src/apps/games/extra.js"></script>
+<script src="src/apps/explorer/explorer.js"></script>
+<script src="src/apps/explorer/photos.js"></script>
+<script src="src/apps/controlpanel/controlpanel.js"></script>
+<script src="src/apps/controlpanel/personalize.js"></script>
+<script src="src/apps/controlpanel/system.js"></script>
+<script src="src/apps/controlpanel/welcome.js"></script>
+<script src="src/apps/controlpanel/help.js"></script>
+<script src="src/apps/gadgets/gadgets.js"></script>
+<script src="src/apps/channels/channels.js"></script>
+<script src="src/apps/screensavers/screensavers.js"></script>
+<script src="src/apps/aquarium/aquarium-app.js"></script>
+<!-- Start -->
+<script src="src/main.js"></script>
+</body>
+</html>

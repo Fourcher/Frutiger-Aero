@@ -1,0 +1,18 @@
+/* Notepad */
+.np { display: flex; flex-direction: column; }
+.np-edit { flex: 1; min-height: 0; display: flex; }
+.np-text {
+  flex: 1; min-width: 0; resize: none; border: 0; outline: none; margin: 0; padding: 4px 6px;
+  background: var(--surface-raised); color: var(--ink);
+  font: 400 14px/1.35 Consolas, "Lucida Console", monospace;
+  tab-size: 8; white-space: pre-wrap;
+}
+.np-text[wrap="off"] { white-space: pre; overflow: auto; }
+.np-status { justify-content: flex-end; }
+.np-replace { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; }
+.np-replace .fa-field input { min-width: 0; width: 100%; }
+.np-font { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; font-size: 12.5px; }
+.np-font label { display: grid; grid-template-columns: 50px 1fr; align-items: center; gap: 8px; }
+.np-font fieldset { border: 1px solid var(--divider); border-radius: 4px; padding: 8px 10px; margin: 0; }
+.np-font legend { color: var(--ink-muted); padding: 0 4px; }
+.np-font-sample { height: 54px; display: grid; place-items: center; overflow: hidden; }

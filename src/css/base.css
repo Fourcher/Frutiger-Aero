@@ -1,0 +1,77 @@
+/* Aerium base: reset, root layers, glass variables, scrollbars. */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+html {
+  --taskbar-h: 40px;
+  --glass-h: 207; --glass-s: 92%; --glass-l: 70%; --glass-a: .5; --glass-a-inactive: .3; --glass-blur: 9px;
+  --glass-line: rgba(0, 0, 0, .55);
+  --glass-tint: hsla(var(--glass-h), var(--glass-s), var(--glass-l), var(--glass-a));
+  --glass-streaks:
+    linear-gradient(to bottom, rgba(255,255,255,.44) 0, rgba(255,255,255,.14) 26px, rgba(255,255,255,0) 64px),
+    linear-gradient(112deg, rgba(255,255,255,0) 0 21%, rgba(255,255,255,.16) 21% 23.5%, rgba(255,255,255,0) 23.5% 37%, rgba(255,255,255,.11) 37% 44%, rgba(255,255,255,0) 44% 66%, rgba(255,255,255,.08) 66% 67.6%, rgba(255,255,255,0) 67.6%);
+  --ui-font: var(--font-aero);
+  background: #000;
+}
+body {
+  font: 400 12.5px/1.4 var(--ui-font);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+html.cursor-custom, html.cursor-custom body { cursor: var(--cursor-default); }
+input, textarea, [contenteditable="true"], .ae-selectable { user-select: text; -webkit-user-select: text; }
+::selection { background: var(--selection); }
+button { font: inherit; color: inherit; }
+img { -webkit-user-drag: none; }
+[hidden] { display: none !important; }
+body.ae-dragging, body.ae-dragging * { user-select: none !important; }
+body.ae-dragging iframe { pointer-events: none; }
+
+/* ---------- root layers ---------- */
+#ae-root { position: fixed; inset: 0; overflow: hidden; }
+#ae-wallpaper { position: absolute; inset: 0; overflow: hidden; background: #0a4f86; }
+.wp-layer { position: absolute; inset: 0; transition: opacity .8s ease; background-repeat: no-repeat; background-position: center; background-size: cover; }
+.wp-layer canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.wp-fit-fill { background-size: cover; }
+.wp-fit-fit { background-size: contain; background-color: #000; }
+.wp-fit-stretch { background-size: 100% 100%; }
+.wp-fit-tile { background-size: auto; background-repeat: repeat; background-position: 0 0; }
+.wp-fit-center { background-size: auto; background-color: #1b3a5c; }
+#ae-desktop { position: absolute; left: 0; top: 0; right: 0; bottom: var(--taskbar-h); }
+#ae-icons { position: absolute; inset: 0; }
+#ae-gadgets { position: absolute; inset: 0; pointer-events: none; }
+#ae-gadgets > * { pointer-events: auto; }
+#ae-windows { position: absolute; inset: 0; pointer-events: none; }
+#ae-windows > * { pointer-events: auto; }
+#ae-overlays { position: fixed; inset: 0; pointer-events: none; z-index: 90000; }
+#ae-overlays > * { pointer-events: auto; }
+#ae-notify { position: fixed; right: 0; bottom: 0; width: 0; height: 0; z-index: 85000; }
+#ae-screens { position: fixed; inset: 0; z-index: 200000; pointer-events: none; }
+#ae-screens > * { pointer-events: auto; }
+
+/* ---------- scrollbars ---------- */
+::-webkit-scrollbar { width: 16px; height: 16px; }
+::-webkit-scrollbar-track { background: linear-gradient(to right, var(--surface-sunken), var(--surface) 30%, var(--surface) 70%, var(--surface-sunken)); }
+::-webkit-scrollbar-track:horizontal { background: linear-gradient(to bottom, var(--surface-sunken), var(--surface) 30%, var(--surface) 70%, var(--surface-sunken)); }
+::-webkit-scrollbar-thumb {
+  border: 1px solid var(--hairline); border-radius: 3px;
+  background: linear-gradient(to right, var(--pearl-100), var(--pearl-300) 50%, var(--pearl-500) 50%, var(--pearl-300));
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.55);
+}
+::-webkit-scrollbar-thumb:horizontal { background: linear-gradient(to bottom, var(--pearl-100), var(--pearl-300) 50%, var(--pearl-500) 50%, var(--pearl-300)); }
+::-webkit-scrollbar-thumb:hover { border-color: var(--accent); background: linear-gradient(to right, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
+::-webkit-scrollbar-thumb:horizontal:hover { background: linear-gradient(to bottom, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
+::-webkit-scrollbar-corner { background: var(--surface); }
+* { scrollbar-color: var(--pearl-500) var(--surface-sunken); }
+
+/* Reduced effects / no transparency */
+html.no-transparency .win, html.no-transparency #ae-taskbar, html.no-transparency .startmenu { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+html.fx-lite * { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .wp-layer { transition: none; }
+}

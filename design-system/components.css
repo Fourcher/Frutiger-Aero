@@ -1,0 +1,185 @@
+/* Frutiger Aero design system components (from the design system bundle). Fonts load from fonts.css. */
+
+/* ---------- Tone plumbing: each tone maps to a highlight, body and rim ---------- */
+.fa-tone-aqua  { --t-hi: var(--aqua-100);  --t-mid: var(--aqua-300);  --t-body: var(--aqua-500);  --t-rim: var(--aqua-700); }
+.fa-tone-water { --t-hi: var(--water-300); --t-mid: var(--water-300); --t-body: var(--water-500); --t-rim: var(--water-700); }
+.fa-tone-grass { --t-hi: var(--grass-100); --t-mid: var(--grass-300); --t-body: var(--grass-500); --t-rim: var(--grass-700); }
+.fa-tone-sun   { --t-hi: var(--sun-300);   --t-mid: var(--sun-300);   --t-body: var(--sun-500);   --t-rim: var(--sun-700); }
+.fa-tone-red   { --t-hi: var(--danger-bg); --t-mid: var(--danger-bg); --t-body: var(--danger); --t-rim: var(--danger-fg); }
+.fa-tone-pearl { --t-hi: var(--pearl-100); --t-mid: var(--pearl-300); --t-body: var(--pearl-500); --t-rim: var(--hairline); --t-label: var(--on-pearl); }
+
+.fa-focus:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- Scene: the sky every Aero screen lives in ---------- */
+.fa-scene { position: relative; overflow: hidden; isolation: isolate; color: var(--ink);
+  background: linear-gradient(to bottom, var(--sky-top) 0%, var(--sky-mid) 55%, var(--sky-bottom) 100%); }
+.fa-scene-water { background: linear-gradient(to bottom, var(--water-300) 0%, var(--water-500) 40%, var(--water-700) 100%); }
+.fa-scene-art { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
+.fa-scene-content { position: relative; padding: var(--space-12); }
+.fa-rib-stop-a { stop-color: #ffffff; stop-opacity: 0; }
+.fa-rib-stop-b { stop-color: #ffffff; stop-opacity: .85; }
+[data-theme="dark"] .fa-rib-stop-b { stop-color: var(--aurora-green); stop-opacity: .7; }
+[data-theme="technozen"] .fa-rib-stop-b { stop-color: var(--aqua-300); stop-opacity: .55; }
+.fa-hill-a { stop-color: var(--grass-300); } .fa-hill-b { stop-color: var(--grass-500); } .fa-hill-c { stop-color: var(--grass-700); }
+[data-theme="dark"] .fa-hill-a, [data-theme="dark"] .fa-hill-b { stop-color: var(--surface-raised); }
+[data-theme="dark"] .fa-hill-c { stop-color: var(--surface-sunken); }
+.fa-sun-core { stop-color: #ffffff; } .fa-sun-glow { stop-color: var(--horizon-glow); }
+[data-theme="dark"] .fa-flare { display: none; }
+.fa-bubble-rim { fill: none; stroke: #ffffff; stroke-opacity: .7; }
+.fa-bubble-body { fill: #ffffff; fill-opacity: .07; }
+.fa-bubble-spec { fill: #ffffff; fill-opacity: .8; }
+.fa-drift { animation: fa-drift 24s ease-in-out infinite alternate; transform-origin: center; }
+.fa-rise { animation: fa-rise 14s linear infinite; }
+@keyframes fa-drift { from { transform: translateX(-3%); } to { transform: translateX(3%); } }
+@keyframes fa-rise { from { transform: translateY(0); opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } to { transform: translateY(-40%); opacity: 0; } }
+
+/* ---------- Gel button ---------- */
+.fa-btn { position: relative; overflow: hidden; font: 400 13px/18px var(--font-aero); color: var(--t-label, var(--on-gloss));
+  padding: var(--space-2) var(--space-6); border-radius: var(--radius-pill); border: 1px solid var(--t-rim); cursor: pointer;
+  background:
+    radial-gradient(120% 70% at 50% 110%, rgba(255,255,255,.75), rgba(255,255,255,0) 60%),
+    linear-gradient(to bottom, var(--t-hi) 0%, var(--t-mid) var(--gloss-line), var(--t-body) var(--gloss-line), var(--t-body) 100%);
+  box-shadow: var(--shadow-gloss); transition: box-shadow .2s, filter .2s; }
+.fa-btn::before { content: ""; position: absolute; left: 6px; right: 6px; top: 1px; height: var(--shine-height);
+  border-radius: var(--radius-pill); background: linear-gradient(to bottom, rgba(255,255,255,.9), rgba(255,255,255,.15)); pointer-events: none; }
+.fa-btn > span { position: relative; }
+.fa-btn-lg { font-size: 15px; line-height: 22px; padding: 11px 32px; }
+.fa-btn:hover { box-shadow: var(--shadow-gloss), var(--glow-aqua); filter: saturate(1.1) brightness(1.03); }
+.fa-btn.fa-tone-grass:hover { box-shadow: var(--shadow-gloss), var(--glow-grass); }
+.fa-btn:active { filter: brightness(.93); box-shadow: var(--shadow-inset); }
+.fa-btn:disabled { filter: grayscale(.9) opacity(.55); cursor: default; box-shadow: none; }
+
+/* ---------- Orb ---------- */
+.fa-orb { --size: 48px; position: relative; width: var(--size); height: var(--size); border-radius: 50%; border: 1px solid var(--t-rim);
+  display: inline-grid; place-items: center; cursor: pointer; padding: 0; color: var(--on-gloss);
+  background: radial-gradient(circle at 50% 115%, var(--t-hi) 0%, var(--t-body) 45%, var(--t-rim) 100%);
+  box-shadow: var(--shadow-orb); transition: box-shadow .25s, transform .25s; }
+.fa-orb::before { content: ""; position: absolute; left: 14%; right: 14%; top: 4%; height: var(--shine-height);
+  border-radius: 50% / 60% 60% 40% 40%; background: linear-gradient(to bottom, rgba(255,255,255,.95), rgba(255,255,255,.1)); pointer-events: none; }
+.fa-orb::before { z-index: 0; opacity: .55; }
+.fa-orb > * { position: relative; z-index: 1; width: 66%; height: 66%; object-fit: contain; filter: drop-shadow(0 1px 1px rgba(11,42,74,.35)); }
+.fa-orb::after { content: ""; position: absolute; z-index: 2; left: 18%; right: 18%; top: 5%; height: 36%; border-radius: 50%;
+  background: linear-gradient(to bottom, rgba(255,255,255,.7), rgba(255,255,255,0)); pointer-events: none; }
+.fa-orb-sm { --size: 32px; } .fa-orb-lg { --size: 72px; }
+.fa-orb:hover { box-shadow: var(--shadow-orb), 0 0 0 1px var(--t-rim), var(--glow-aurora); }
+.fa-orb:active { transform: scale(.96); }
+
+/* ---------- Toggle ---------- */
+.fa-toggle { display: inline-flex; align-items: center; gap: var(--space-3); font: 400 13px/18px var(--font-aero); color: var(--ink); cursor: pointer; background: none; border: 0; padding: 2px; }
+.fa-toggle-track { position: relative; width: 52px; height: 28px; border-radius: var(--radius-pill); border: 1px solid var(--hairline);
+  background: linear-gradient(to bottom, var(--pearl-500), var(--pearl-300)); box-shadow: var(--shadow-inset); transition: background .25s; }
+.fa-toggle[aria-checked="true"] .fa-toggle-track { border-color: var(--grass-700);
+  background: linear-gradient(to bottom, var(--grass-300) 0%, var(--grass-500) 60%, var(--grass-300) 100%); box-shadow: var(--shadow-inset), var(--glow-grass); }
+.fa-toggle-knob { position: absolute; top: 2px; left: 2px; width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--hairline);
+  background: radial-gradient(circle at 50% 115%, #ffffff, var(--pearl-300) 50%, var(--pearl-500)); box-shadow: var(--shadow-orb); transition: left .25s cubic-bezier(.3,1.4,.5,1); }
+.fa-toggle-knob::before { content: ""; position: absolute; left: 18%; right: 18%; top: 6%; height: 45%; border-radius: 50%; background: linear-gradient(#fff, rgba(255,255,255,.2)); }
+.fa-toggle[aria-checked="true"] .fa-toggle-knob { left: 26px; }
+
+[data-theme="dark"] .fa-toggle-track, [data-theme="dark"] .fa-progress { background: linear-gradient(to bottom, var(--surface-sunken), var(--surface-raised)); }
+
+/* ---------- Search field ---------- */
+.fa-search { display: inline-flex; align-items: center; gap: var(--space-1); padding: 3px 3px 3px var(--space-4); min-width: 280px;
+  border-radius: var(--radius-pill); border: 1px solid var(--hairline); background: var(--surface-raised);
+  box-shadow: var(--shadow-inset), 0 0 0 3px var(--glass); transition: box-shadow .2s; }
+.fa-search:focus-within { box-shadow: var(--shadow-inset), var(--glow-aqua); border-color: var(--accent); }
+.fa-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; font: 400 15px/22px var(--font-aero); color: var(--ink); }
+.fa-search input::placeholder { color: var(--ink-subtle); }
+.fa-search .fa-orb { --size: 30px; }
+
+/* ---------- Text field ---------- */
+.fa-field { display: inline-flex; flex-direction: column; gap: var(--space-1); font: 400 13px/18px var(--font-aero); color: var(--ink); }
+.fa-field input { font: 400 15px/22px var(--font-aero); color: var(--ink); background: var(--surface-raised); min-width: 220px;
+  border: 1px solid var(--hairline); border-radius: var(--radius-sm); padding: 6px var(--space-3); box-shadow: var(--shadow-inset); outline: 0; }
+.fa-field input::placeholder { color: var(--ink-subtle); }
+.fa-field input:focus { border-color: var(--accent); box-shadow: var(--shadow-inset), var(--glow-aqua); }
+.fa-field input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.fa-field-help { font-size: 12px; line-height: 16px; color: var(--ink-muted); }
+
+/* ---------- Progress ---------- */
+.fa-progress { position: relative; height: 14px; border-radius: var(--radius-pill); border: 1px solid var(--hairline); overflow: hidden;
+  background: linear-gradient(to bottom, var(--pearl-500), var(--pearl-300)); box-shadow: var(--shadow-inset); }
+.fa-progress-fill { position: relative; height: 100%; overflow: hidden; border-radius: var(--radius-pill); transition: width .4s;
+  background: linear-gradient(to bottom, var(--t-hi) 0%, var(--t-mid) var(--gloss-line), var(--t-body) var(--gloss-line), var(--t-mid) 100%); box-shadow: inset 0 0 0 1px var(--t-rim); }
+.fa-progress-fill::after { content: ""; position: absolute; inset: 0; width: 45%;
+  background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,.7), rgba(255,255,255,0)); animation: fa-sheen 2.4s ease-in-out infinite; }
+@keyframes fa-sheen { from { transform: translateX(-120%); } to { transform: translateX(260%); } }
+
+/* ---------- Glass panel ---------- */
+.fa-panel { position: relative; overflow: hidden; border-radius: var(--radius-lg); padding: var(--space-4); color: var(--ink);
+  background: var(--glass); backdrop-filter: blur(var(--blur-glass)) saturate(1.3); -webkit-backdrop-filter: blur(var(--blur-glass)) saturate(1.3);
+  border: 1px solid var(--glass-edge); box-shadow: inset 0 0 0 1px var(--glass-edge), var(--shadow-panel); }
+.fa-panel::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 44%; pointer-events: none;
+  background: linear-gradient(to bottom, var(--glass-shine), transparent); border-radius: var(--radius-lg) var(--radius-lg) 50% 50% / var(--radius-lg) var(--radius-lg) 18px 18px; }
+.fa-panel > * { position: relative; }
+.fa-panel-title { margin: 0 0 var(--space-3) var(--space-1); font: 300 22px/28px var(--font-aero); color: var(--ink); }
+.fa-panel-body { background: var(--surface-raised); border-radius: var(--radius-md); padding: var(--space-4); font: 400 15px/22px var(--font-aero);
+  box-shadow: 0 0 0 1px var(--divider); }
+.fa-panel-foot { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-3); }
+
+/* ---------- Tile (Technozen channel) ---------- */
+.fa-tile { position: relative; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
+  width: 168px; height: 112px; border-radius: var(--radius-md); cursor: pointer; font: 500 14px/18px var(--font-zen); color: var(--ink);
+  background: repeating-linear-gradient(to bottom, var(--surface-raised) 0 2px, var(--pinstripe) 2px 4px);
+  border: 1px solid var(--hairline); box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-edge); transition: box-shadow .2s, transform .2s; }
+.fa-tile img { width: 48px; height: 48px; }
+.fa-tile:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: var(--glow-aqua), var(--shadow-card); }
+.fa-tile:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+
+/* ---------- Badge ---------- */
+.fa-badge { display: inline-flex; align-items: center; gap: var(--space-1); padding: 2px 10px; border-radius: var(--radius-pill);
+  font: 600 11px/16px var(--font-aero); color: var(--t-label, var(--on-gloss)); border: 1px solid var(--t-rim);
+  background: linear-gradient(to bottom, var(--t-hi) 0%, var(--t-mid) var(--gloss-line), var(--t-body) var(--gloss-line), var(--t-body) 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9); }
+.fa-burst { position: relative; display: inline-grid; place-items: center; width: 76px; height: 76px; transform: rotate(-12deg);
+  font: 600 15px/16px var(--font-aero); color: var(--on-gloss); text-align: center; }
+.fa-burst svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 2px 3px rgba(11,42,74,.3)); }
+.fa-burst span { position: relative; }
+.fa-burst-a { stop-color: var(--t-hi); } .fa-burst-b { stop-color: var(--t-body); }
+.fa-burst-rim { stroke: var(--t-rim); }
+
+/* ---------- Alert (notification balloon) ---------- */
+.fa-alert { position: relative; display: flex; gap: var(--space-3); align-items: flex-start; max-width: 420px; padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); background: var(--s-bg); color: var(--s-fg); border: 1px solid var(--s-mark);
+  box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-edge); font: 400 13px/18px var(--font-aero); }
+.fa-alert::before { content: ""; position: absolute; inset: 0 0 55% 0; border-radius: var(--radius-md) var(--radius-md) 0 0; pointer-events: none;
+  background: linear-gradient(to bottom, var(--glass-shine), transparent); }
+.fa-alert > * { position: relative; }
+.fa-alert-icon { flex: none; width: 32px; height: 32px; }
+.fa-alert-title { font-weight: 600; font-size: 14px; line-height: 20px; }
+.fa-alert-close { margin-left: auto; flex: none; border: 0; background: none; color: var(--s-fg); font: 600 16px/1 var(--font-aero); cursor: pointer; padding: 2px 4px; border-radius: var(--radius-sm); }
+.fa-alert-balloon { border-radius: var(--radius-lg); background: var(--surface-overlay); color: var(--ink); border-color: var(--divider); box-shadow: var(--shadow-popover); }
+.fa-alert-balloon::after { content: ""; position: absolute; left: 28px; bottom: -9px; width: 16px; height: 16px; background: var(--surface-overlay);
+  transform: rotate(45deg); border-right: 1px solid var(--divider); border-bottom: 1px solid var(--divider); }
+.fa-status-info    { --s-bg: var(--info-bg);    --s-fg: var(--info-fg);    --s-mark: var(--info); }
+.fa-status-success { --s-bg: var(--success-bg); --s-fg: var(--success-fg); --s-mark: var(--success); }
+.fa-status-warning { --s-bg: var(--warning-bg); --s-fg: var(--warning-fg); --s-mark: var(--warning); }
+.fa-status-danger  { --s-bg: var(--danger-bg);  --s-fg: var(--danger-fg);  --s-mark: var(--danger); }
+
+/* ---------- Avatar (user tile) ---------- */
+.fa-avatar { --size: 64px; position: relative; display: inline-block; width: var(--size); height: var(--size); flex: none; box-sizing: border-box; }
+.fa-avatar img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.fa-avatar-framed { border-radius: calc(var(--size) * .16); padding: calc(var(--size) * .07);
+  background: linear-gradient(to bottom, var(--pearl-100) 0%, var(--pearl-300) 50%, var(--pearl-500) 50%, var(--pearl-300) 100%);
+  border: 1px solid var(--hairline); box-shadow: var(--shadow-card), inset 0 1px 0 var(--glass-edge); }
+.fa-avatar-framed img { border-radius: calc(var(--size) * .1); }
+.fa-avatar-sm { --size: 40px; } .fa-avatar-lg { --size: 96px; }
+.fa-avatar-dot { position: absolute; right: -3px; bottom: -3px; width: 30%; height: 30%; border-radius: 50%; border: 2px solid var(--surface-raised);
+  background: radial-gradient(circle at 50% 110%, var(--t-hi), var(--t-body) 50%, var(--t-rim)); box-shadow: 0 1px 2px rgba(0,0,0,.3); }
+
+/* ---------- Spinner ---------- */
+.fa-spinner { --size: 40px; position: relative; display: inline-block; width: var(--size); height: var(--size); }
+.fa-spinner i { position: absolute; left: 50%; top: 0; width: 18%; height: 18%; margin-left: -9%; border-radius: 50%;
+  background: radial-gradient(circle at 40% 30%, var(--water-300), var(--water-500) 60%, var(--water-700)); transform-origin: 50% calc(var(--size) / 2);
+  animation: fa-fade 1.2s linear infinite; }
+.fa-spinner b { position: absolute; inset: 30%; border-radius: 50%; background: radial-gradient(circle at 50% 115%, var(--aqua-100), var(--aqua-500) 50%, var(--aqua-900));
+  box-shadow: var(--glow-aurora); }
+.fa-spinner b::before { content: ""; position: absolute; left: 18%; right: 18%; top: 6%; height: 42%; border-radius: 50%; background: linear-gradient(#fff, rgba(255,255,255,.1)); }
+@keyframes fa-fade { from { opacity: 1; } to { opacity: .15; } }
+
+/* ---------- Y2K chrome text ---------- */
+.fa-y2k { font: 400 11px/16px var(--font-y2k); letter-spacing: .16em; text-transform: uppercase; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fa-drift, .fa-rise, .fa-progress-fill::after, .fa-spinner i { animation: none; }
+  .fa-progress-fill::after { display: none; }
+}

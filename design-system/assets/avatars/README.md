@@ -1,0 +1,1 @@
+Eight 96×96 framed user pictures in the style of the era's messenger apps: fish, flower, butterfly, dolphin, sun, globe, leaf and music. The pearl frame is built in, so pass them to Avatar without `frame`. They work on all three themes.
