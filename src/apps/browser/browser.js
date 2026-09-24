@@ -170,7 +170,9 @@
     return url;
   }
   const REAL_TLD = /\.(com|net|org|edu|gov|io|co|uk|de|fr|jp|nl|es|it|ca|au|us|info|biz|tv|me|app|dev|ai|gg|fm|ly|xyz)$/i;
-  const looksReal = (host) => !!host && REAL_TLD.test(host) && !findSite(host);
+  const baseDomain = (host) => String(host || '').toLowerCase().split('.').slice(-2).join('.');
+  const ownDomain = (host) => W.sites.some((s) => [s.host].concat(s.aliases || []).some((x) => baseDomain(x) === baseDomain(host)));
+  const looksReal = (host) => !!host && REAL_TLD.test(host) && !findSite(host) && !ownDomain(host);
   function lev(a, b) {
     const m = a.length, n = b.length;
     if (!m || !n) return m + n;
@@ -397,6 +399,7 @@
       if (!o.background || !active) activate(tab);
       navigate(tab, url || newTabUrl(), { noSound: o.noSound });
       layoutTabs();
+      if (!url && tab === active) setTimeout(() => { if (!destroyed && active === tab && (win.el.contains(document.activeElement) || document.activeElement === document.body)) addrInput.focus(); }, 0);
       return tab;
     }
     const newTabUrl = () => (S.newTab === 'home' ? S.home || DEFAULT_HOME : S.newTab === 'blank' ? 'about:blank' : 'about:tabs');
@@ -416,6 +419,9 @@
       fireVisibility(tab, true);
       addrEdited = false;
       updateChrome();
+      // keep keyboard focus inside the window when the focused tab disappears
+      const ae = document.activeElement;
+      if (!ae || ae === document.body || (prev && prev.frame.contains(ae))) { try { tab.page.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }
     }
 
     function closeTab(tab) {
@@ -1307,8 +1313,10 @@
       const r = await A.ui.dialog({ parent: win, title: 'Add a Favorite', icon: 'icons/star', content, width: 420, buttons: [{ label: 'Add', default: true, value: 'add' }, { label: 'Cancel', cancel: true, value: null }] });
       if (r !== 'add') return;
       const entry = { title: name.input.value.trim() || url, url };
-      if (folder.value === 'links') setLinks(getLinks().concat([entry]));
-      else setFavorites(getFavorites().concat([entry]));
+      // same address already saved in that folder: rename it instead of adding a duplicate
+      const merge = (arr) => (arr.some((f) => f.url === url) ? arr.map((f) => (f.url === url ? entry : f)) : arr.concat([entry]));
+      if (folder.value === 'links') setLinks(merge(getLinks()));
+      else setFavorites(merge(getFavorites()));
       A.sound.play('ding');
       addFavBtn.classList.remove('hz-pulse'); void addFavBtn.offsetWidth; addFavBtn.classList.add('hz-pulse');
     }
@@ -1422,10 +1430,15 @@
       A.sound.play('recycle');
       A.ui.messageBox({ parent, title: 'Delete Browsing History', icon: 'success', message: 'Your browsing history has been deleted. Nobody will ever know how many times you visited TubeView today.' });
     }
+    // Clone into an inert document so rewriting img src does not make the live page fetch anything.
+    function inertClone(node) {
+      const inert = document.implementation.createHTMLDocument('');
+      return inert.importNode(node, true);
+    }
     function viewSource() {
       const tab = active;
       if (!tab || !tab.doc) return;
-      const clone = tab.doc.cloneNode(true);
+      const clone = inertClone(tab.doc);
       clone.querySelectorAll('[data-href]').forEach((a) => { a.setAttribute('href', a.dataset.href); a.removeAttribute('data-href'); a.removeAttribute('role'); a.removeAttribute('tabindex'); });
       clone.querySelectorAll('img').forEach((im) => { im.setAttribute('src', 'images/' + (im.dataset.asset ? im.dataset.asset.split('/').pop() + '.gif' : 'spacer.gif')); im.removeAttribute('data-asset'); });
       let src = clone.innerHTML.replace(/blob:[^"')\s]+/g, 'images/spacer.gif').replace(/data:image\/[^"')\s]+/g, 'images/pic.gif');
@@ -1439,6 +1452,7 @@
         parent: win, title: 'Source of: ' + displayUrl(tab.url), icon: 'icons/notepad', width: 680, content: h('div.hz-srcwrap', null, ta),
         buttons: [{ label: 'Copy all', value: 'copy', onClick: () => { copyText(ta.value); return false; } }, { label: 'Close', default: true, cancel: true }],
       });
+      setTimeout(() => { try { ta.setSelectionRange(0, 0); ta.scrollTop = 0; } catch (e) { /* ignore */ } }, 0);
     }
     function prettyHTML(html) {
       const out = [];
@@ -1515,7 +1529,7 @@
       const safe = (tab.title || 'Page').replace(/[\\/:*?"<>|]/g, '').slice(0, 50).trim() || 'Page';
       const p = await A.ui.fileDialog({ mode: 'save', parent: win, folder: '/Documents', filename: safe + '.htm', exts: ['htm'], filterLabel: 'Webpage, HTML only (*.htm)' });
       if (!p) return;
-      const clone = tab.doc.cloneNode(true);
+      const clone = inertClone(tab.doc);
       clone.querySelectorAll('canvas, script, iframe').forEach((n) => n.remove());
       clone.querySelectorAll('[data-href]').forEach((a) => { a.setAttribute('href', resolveHref(a.dataset.href, tab.url)); a.removeAttribute('data-href'); });
       clone.querySelectorAll('img').forEach((im) => { if (im.dataset.asset) im.setAttribute('src', 'asset:' + im.dataset.asset); });

@@ -981,7 +981,10 @@
   function fsPopup(ctx, kind) {
     if (kind === 'winner') {
       ctx.title('YOU ARE A WINNER!!!');
-      const root = ctx.html(`<div class="web-fs web-fs-popup"><div class="web-fs-win">${K.burst('WINNER!', { size: 110, font: 18, c1: '#fff45c', c2: '#ff3a3a', rim: '#a00', spin: true })}<h1 class="web-fs-rain">YOU HAVE WON!!!</h1><p>You have been selected to receive a <b>FREE FISHBOWL!!!</b></p><a class="web-fs-dl" href="/claim"><span>CLAIM</span>MY PRIZE</a><p class="web-fs-small">This offer expires in <b class="wk-blink">00:59</b>. Not really.</p></div></div>`);
+      const root = ctx.html(`<div class="web-fs web-fs-popup"><div class="web-fs-win">${K.burst('WINNER!', { size: 110, font: 18, c1: '#fff45c', c2: '#ff3a3a', rim: '#a00', spin: true })}<h1 class="web-fs-rain">YOU HAVE WON!!!</h1><p>You have been selected to receive a <b>FREE FISHBOWL!!!</b></p><a class="web-fs-dl" href="/claim"><span>CLAIM</span>MY PRIZE</a><p class="web-fs-small">This offer expires in <b class="wk-blink web-fs-count">00:59</b>. Not really.</p></div></div>`);
+      const cd = root.querySelector('.web-fs-count');
+      let left = 59;
+      ctx.every(1000, () => { left = left > 1 ? left - 1 : 59; cd.textContent = '00:' + String(left).padStart(2, '0'); });
       return root;
     }
     if (kind === 'speed') {
@@ -1401,10 +1404,10 @@
   function afWire(ctx, root) { root.querySelectorAll('.web-af-joke').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ctx.dialog({ title: 'AeroFans', icon: 'icons/chat', message: 'This part of the forum is being moved to a new server. Please do not double post.' }); })); }
   function afIndex(ctx) {
     ctx.title('AeroFans Community Forums - Index');
-    const inner = AF_FORUMS.map(([cat, forums]) => `<table class="web-af-table"><tr><th class="web-af-cat" colspan="4">${esc(cat)}</th></tr><tr class="web-af-sub"><td>Forum</td><td>Topics</td><td>Posts</td><td>Last post</td></tr>${forums.map(([id, name, desc, topics]) => {
+    const inner = AF_FORUMS.map(([cat, forums]) => `<table class="web-af-table web-af-idx"><colgroup><col><col style="width:12%"><col style="width:12%"><col style="width:26%"></colgroup><tr><th class="web-af-cat" colspan="4">${esc(cat)}</th></tr><tr class="web-af-sub"><td>Forum</td><td>Topics</td><td>Posts</td><td>Last post</td></tr>${forums.map(([id, name, desc, topics]) => {
       const posts = topics.reduce((n, t) => n + AF_TOPICS[t].posts.length + ctx.store.get('aerofans.replies.' + t, []).length, 0);
       const last = topics.length ? AF_TOPICS[topics[0]] : null;
-      return `<tr><td class="web-af-forum">${K.img(topics.length ? 'icons/chat' : 'icons/document', 'web-af-ficon')}<div><a href="/viewforum?f=${id}"><b>${esc(name)}</b></a><br><small>${esc(desc)}</small></div></td><td>${topics.length || (id === 'news' ? 1 : 0)}</td><td>${posts || (id === 'news' ? 1 : 0)}</td><td><small>${last ? `<a href="/viewtopic?t=${topics[0]}">${esc(last.title.slice(0, 26))}...</a><br>by ${esc(last.posts[last.posts.length - 1][0])}` : id === 'news' ? 'Forum rules<br>by TwilightTim' : 'No posts'}</small></td></tr>`;
+      return `<tr><td class="web-af-forum"><div class="web-af-fwrap">${K.img(topics.length ? 'icons/chat' : 'icons/document', 'web-af-ficon')}<div><a href="/viewforum?f=${id}"><b>${esc(name)}</b></a><br><small>${esc(desc)}</small></div></div></td><td>${topics.length || (id === 'news' ? 1 : 0)}</td><td>${posts || (id === 'news' ? 1 : 0)}</td><td><small>${last ? `<a href="/viewtopic?t=${topics[0]}">${esc(last.title.slice(0, 26))}...</a><br>by ${esc(last.posts[last.posts.length - 1][0])}` : id === 'news' ? 'Forum rules<br>by TwilightTim' : 'No posts'}</small></td></tr>`;
     }).join('')}</table>`).join('');
     afWire(ctx, ctx.html(afFrame(ctx, '', inner)));
   }
@@ -1476,10 +1479,12 @@
 .web-af-user a { color: #fff; }
 .web-af-crumbs { padding: 6px 10px; background: #f5f9fc; border: 1px solid #a6c2dc; border-top: 0; margin-bottom: 10px; font-weight: 700; }
 .web-af-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; background: #fff; border: 1px solid #a6c2dc; }
+.web-af-idx { table-layout: fixed; }
+.web-af-idx td { overflow-wrap: anywhere; }
 .web-af-table td { padding: 7px 8px; border-top: 1px solid #dbe6f0; vertical-align: middle; }
 .web-af-cat { text-align: left; padding: 6px 10px; color: #fff; background: linear-gradient(#4a90d9, #1f5fa0); }
 .web-af-sub td { background: #eaf2f9; font-weight: 700; color: #3a5a7a; font-size: .92em; }
-.web-af-forum { display: flex; gap: 10px; align-items: center; }
+.web-af-fwrap { display: flex; gap: 10px; align-items: center; }
 .web-af-ficon { width: 32px; height: 32px; }
 .web-af-h2 { color: #105289; margin: 4px 0 10px; font: 700 1.4em "Trebuchet MS", sans-serif; }
 .web-af-pollbadge { padding: 0 4px; font-size: .8em; font-weight: 700; color: #fff; background: #e08a00; border-radius: 3px; }
