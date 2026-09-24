@@ -1465,8 +1465,8 @@
       range.setEnd(hit.node, hit.i + lastFind.length);
       sel.removeAllRanges();
       sel.addRange(range);
-      const el = hit.node.parentElement;
-      if (el) el.scrollIntoView({ block: 'center' });
+      const rr = range.getBoundingClientRect(), pr = tab.page.getBoundingClientRect();
+      tab.page.scrollTop += rr.top - pr.top - pr.height / 2;
     }
     function sendToDesktop() {
       const tab = active;

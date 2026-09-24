@@ -73,33 +73,28 @@
     };
   }
 
-  // Soft glow: a chain of half-size copies of an opaque (black) canvas. The
-  // 1/4 and 1/8 copies are shown as screen-blended layers, scaled up by the
-  // compositor, so the glow costs three tiny draws a frame.
-  function makeBloom(root, opacities) {
-    const cs = [canvas(1, 1), canvas(1, 1), canvas(1, 1)];
-    const xs = cs.map((c) => c.getContext('2d', { alpha: false }));
-    if (root) {
-      [1, 2].forEach((i) => {
-        cs[i].className = 'ss-layer ss-glow';
-        cs[i].style.opacity = opacities ? opacities[i - 1] : 0.6;
-        root.appendChild(cs[i]);
-      });
-    }
+  // Soft glow for additive scenes drawn on opaque black: each frame the scene
+  // is copied (on the GPU) into a half-size canvas that the compositor blurs
+  // and screens on top with a CSS filter. Nothing is ever read back from the
+  // GPU, so it stays cheap. degrade() hides it on machines that struggle.
+  function makeGlow(root, opacity, spread) {
+    const c = h('canvas.ss-layer.ss-glow');
+    c.style.opacity = opacity;
+    root.appendChild(c);
+    const x = c.getContext('2d', { alpha: false });
+    let on = true;
     return {
-      run(src, w, hh) {
-        let prev = src;
-        for (let i = 0; i < 3; i++) {
-          const f = 2 << i;
-          fitCanvas(cs[i], w, hh, 1 / f);
-          const x = xs[i];
-          x.globalCompositeOperation = 'copy';
-          x.imageSmoothingEnabled = true;
-          x.drawImage(prev, 0, 0, cs[i].width, cs[i].height);
-          prev = cs[i];
-        }
-        return cs;
+      resize(S) {
+        // keep it large enough to stay GPU-backed alongside the main canvas
+        fitCanvas(c, S.w, S.h, S.preview ? S.sx : Math.max(0.4, S.sx * 0.5));
+        c.style.filter = `blur(${Math.max(1.2, S.s * (spread || 0.011)).toFixed(1)}px)`;
       },
+      run(src) {
+        if (!on) return;
+        x.globalCompositeOperation = 'copy';
+        x.drawImage(src, 0, 0, c.width, c.height);
+      },
+      off() { on = false; c.style.display = 'none'; },
     };
   }
 
@@ -641,9 +636,713 @@
     });
   }
 
+  // ============================================================ shared sprites
+  const cross3 = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+
+  // A soft round glow (white, tint it with 'lighter' + alpha).
+  function glowSprite(size, core) {
+    const c = canvas(size, size), x = c.getContext('2d'), m = size / 2;
+    const g = x.createRadialGradient(m, m, 0, m, m, m);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(core || 0.15, 'rgba(255,255,255,0.5)');
+    g.addColorStop(0.45, 'rgba(255,255,255,0.12)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.fillRect(0, 0, size, size);
+    return c;
+  }
+  // Colored glow: a tinted version of the soft glow.
+  function tintGlow(size, rgb, core) {
+    const c = glowSprite(size, core), x = c.getContext('2d');
+    x.globalCompositeOperation = 'source-atop';
+    const m = size / 2, g = x.createRadialGradient(m, m, 0, m, m, m);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.2, rgba(rgb, 1));
+    g.addColorStop(1, rgba(rgb, 1));
+    x.fillStyle = g;
+    x.fillRect(0, 0, size, size);
+    return c;
+  }
+
+  // ============================================================ 2. Ribbons
+  // Glowing ribbons that fly and twist through 3D space over black. Each is a
+  // strip of quads with its own slowly shifting color, lit by its twist (full
+  // face-on, a white glint when it catches the light, dim edge-on) and fading
+  // from the tail. The camera sways a little for depth.
+  function createRibbons(container, opts) {
+    const preview = !!opts.preview;
+    const STRIDE = 13, LIFE = preview ? 6.5 : 8.5, CHUNK = 10;
+    const HALF = norm3([-0.4, -0.6, 1.7]);
+    const styles = new Map();
+    let ribbons = [], spark = null, glow = null, proj = new Float32Array(4096), shade = new Float32Array(4096);
+
+    // Colors are premultiplied by their fade (additive blending), then cached as strings.
+    function styleOf(r, g, b) {
+      r = r > 255 ? 255 : r | 0; g = g > 255 ? 255 : g | 0; b = b > 255 ? 255 : b | 0;
+      const key = (r << 16) | (g << 8) | b;
+      let s = styles.get(key);
+      if (!s) {
+        if (styles.size > 40000) styles.clear();
+        s = `rgb(${r},${g},${b})`;
+        styles.set(key, s);
+      }
+      return s;
+    }
+
+    function start(S, rb, t, delay) {
+      const s = S.s;
+      rb.pts = []; rb.head = 0; rb.acc = 0;
+      rb.p = [rand(-0.3, 0.3) * S.w, rand(-0.25, 0.25) * S.h, rand(-0.2, 0.2) * s];
+      const U = norm3([rand(-1, 1), rand(-1, 1), rand(-0.5, 0.5)]);
+      const Sd = norm3(cross3(U, Math.abs(U[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]));
+      rb.U = U; rb.S = Sd; rb.N = cross3(U, Sd);
+      rb.hue = rand(0, 360);
+      rb.hueRate = rand(10, 20) * (Math.random() < 0.5 ? -1 : 1);
+      rb.width = s * rand(0.0065, 0.012);
+      rb.speed = s * rand(0.36, 0.5);
+      rb.t0 = t + delay;
+      rb.t1 = rb.t0 + rand(6, 11);
+      rb.f = [rand(0.25, 0.55), rand(0.6, 1.2), rand(0.2, 0.5), rand(0.55, 1.1), rand(0.25, 0.7)];
+      rb.ph = rb.f.map(() => rand(0, TAU));
+    }
+
+    function fly(S, rb, dt, t) {
+      const f = rb.f, ph = rb.ph, U = rb.U, Sd = rb.S, N = rb.N, p = rb.p;
+      const yaw = 1.3 * (Math.sin(t * f[0] + ph[0]) + 0.55 * Math.sin(t * f[1] + ph[1]));
+      const pitch = 1.15 * (Math.sin(t * f[2] + ph[2]) + 0.55 * Math.sin(t * f[3] + ph[3]));
+      const twist = 2.9 * Math.sin(t * f[4] + ph[4]);
+      let ux = U[0] + (Sd[0] * yaw + N[0] * pitch) * dt;
+      let uy = U[1] + (Sd[1] * yaw + N[1] * pitch) * dt;
+      let uz = U[2] + (Sd[2] * yaw + N[2] * pitch) * dt;
+      // Stay on screen: turn back toward the middle outside an ellipsoid.
+      const e = (p[0] / (0.4 * S.w)) ** 2 + (p[1] / (0.36 * S.h)) ** 2 + (p[2] / (0.3 * S.s)) ** 2;
+      if (e > 0.75) {
+        const k = Math.min(3.5, (e - 0.75) * 3) * dt, inv = 1 / (Math.hypot(p[0], p[1], p[2]) || 1);
+        ux -= p[0] * inv * k; uy -= p[1] * inv * k; uz -= p[2] * inv * k;
+      }
+      const ul = Math.hypot(ux, uy, uz) || 1;
+      U[0] = ux / ul; U[1] = uy / ul; U[2] = uz / ul;
+      const c = Math.cos(twist * dt), sn = Math.sin(twist * dt);
+      let sx = Sd[0] * c + N[0] * sn, sy = Sd[1] * c + N[1] * sn, sz = Sd[2] * c + N[2] * sn;
+      const d = sx * U[0] + sy * U[1] + sz * U[2];
+      sx -= d * U[0]; sy -= d * U[1]; sz -= d * U[2];
+      const sl = Math.hypot(sx, sy, sz) || 1;
+      Sd[0] = sx / sl; Sd[1] = sy / sl; Sd[2] = sz / sl;
+      const n = cross3(U, Sd);
+      N[0] = n[0]; N[1] = n[1]; N[2] = n[2];
+      const step = rb.speed * dt;
+      p[0] += U[0] * step; p[1] += U[1] * step; p[2] += U[2] * step;
+      rb.acc += step;
+      const spacing = Math.max(1.2, S.s * 0.006);
+      if (rb.acc >= spacing) {
+        rb.acc %= spacing;
+        const col = hsl(rb.hue + rb.hueRate * (t - rb.t0), 0.8, 0.6), w = rb.width;
+        rb.pts.push(p[0], p[1], p[2], Sd[0] * w, Sd[1] * w, Sd[2] * w, N[0], N[1], N[2], col[0], col[1], col[2], t);
+      }
+    }
+
+    function draw(S, t) {
+      const ctx = S.ctx, k = S.sx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, S.canvas.width, S.canvas.height);
+      ctx.globalCompositeOperation = 'lighter';
+      const yaw = 0.38 * Math.sin(t * 0.045), pitch = 0.14 * Math.sin(t * 0.063 + 1);
+      const cyw = Math.cos(yaw), syw = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+      const m00 = cyw, m02 = syw, m10 = sp * syw, m11 = cp, m12 = -sp * cyw, m20 = -cp * syw, m21 = sp, m22 = cp * cyw;
+      const D = S.s * 1.7, ox = (S.w / 2) * k, oy = (S.h / 2) * k, near = D * 0.25;
+      for (const rb of ribbons) {
+        const P = rb.pts, n = (P.length - rb.head) / STRIDE;
+        if (n >= 2) {
+          if (proj.length < n * 4) { proj = new Float32Array(n * 8); shade = new Float32Array(n * 8); }
+          // Project both edges of every point and light it: bright face-on,
+          // dim edge-on, a white glint toward the light; premultiplied by its fade.
+          for (let i = 0, o = rb.head; i < n; i++, o += STRIDE) {
+            const x = P[o], y = P[o + 1], z = P[o + 2], a = P[o + 3], b = P[o + 4], c = P[o + 5];
+            let X = x - a, Y = y - b, Z = z - c;
+            let ps = (D / Math.max(near, D - (m20 * X + m21 * Y + m22 * Z))) * k;
+            proj[i * 4] = ox + (m00 * X + m02 * Z) * ps;
+            proj[i * 4 + 1] = oy + (m10 * X + m11 * Y + m12 * Z) * ps;
+            X = x + a; Y = y + b; Z = z + c;
+            ps = (D / Math.max(near, D - (m20 * X + m21 * Y + m22 * Z))) * k;
+            proj[i * 4 + 2] = ox + (m00 * X + m02 * Z) * ps;
+            proj[i * 4 + 3] = oy + (m10 * X + m11 * Y + m12 * Z) * ps;
+            const al = 1 - smooth(LIFE * 0.2, LIFE, t - P[o + 12]);
+            const nx = P[o + 6], ny = P[o + 7], nz = P[o + 8];
+            const qx = m00 * nx + m02 * nz, qy = m10 * nx + m11 * ny + m12 * nz, qz = m20 * nx + m21 * ny + m22 * nz;
+            const spec = Math.pow(Math.abs(qx * HALF[0] + qy * HALF[1] + qz * HALF[2]), 12) * 220 * al;
+            const lit = (0.2 + 0.95 * Math.abs(qz)) * al;
+            shade[i * 4] = P[o + 9] * lit + spec;
+            shade[i * 4 + 1] = P[o + 10] * lit + spec;
+            shade[i * 4 + 2] = P[o + 11] * lit + spec;
+            shade[i * 4 + 3] = al;
+          }
+          // Fill the strip in chunks: one polygon each, shaded by a gradient
+          // along the chunk, so the twist lighting is smooth and cheap to draw.
+          for (let i0 = 0; i0 < n - 1; i0 += CHUNK) {
+            const i1 = Math.min(n - 1, i0 + CHUNK);
+            if (shade[i0 * 4 + 3] <= 0.004 && shade[i1 * 4 + 3] <= 0.004) continue;
+            const ax = (proj[i0 * 4] + proj[i0 * 4 + 2]) / 2, ay = (proj[i0 * 4 + 1] + proj[i0 * 4 + 3]) / 2;
+            const dx = (proj[i1 * 4] + proj[i1 * 4 + 2]) / 2 - ax, dy = (proj[i1 * 4 + 1] + proj[i1 * 4 + 3]) / 2 - ay;
+            const len2 = dx * dx + dy * dy;
+            let fill;
+            if (len2 < 4) {
+              const m = ((i0 + i1) >> 1) * 4;
+              fill = styleOf(shade[m], shade[m + 1], shade[m + 2]);
+            } else {
+              fill = ctx.createLinearGradient(ax, ay, ax + dx, ay + dy);
+              let last = 0;
+              for (let j = i0; j <= i1; j++) {
+                let u = (((proj[j * 4] + proj[j * 4 + 2]) / 2 - ax) * dx + ((proj[j * 4 + 1] + proj[j * 4 + 3]) / 2 - ay) * dy) / len2;
+                u = u < last ? last : u > 1 ? 1 : u;
+                last = u;
+                fill.addColorStop(u, styleOf(shade[j * 4], shade[j * 4 + 1], shade[j * 4 + 2]));
+              }
+            }
+            ctx.beginPath();
+            ctx.moveTo(proj[i0 * 4], proj[i0 * 4 + 1]);
+            for (let j = i0 + 1; j <= i1; j++) ctx.lineTo(proj[j * 4], proj[j * 4 + 1]);
+            for (let j = i1; j >= i0; j--) ctx.lineTo(proj[j * 4 + 2], proj[j * 4 + 3]);
+            ctx.closePath();
+            ctx.fillStyle = fill;
+            ctx.fill();
+          }
+        }
+        // the point of light spinning the ribbon out
+        if (t > rb.t0 && t < rb.t1 + 0.4) {
+          const p = rb.p, fade = clamp((rb.t1 + 0.4 - t) / 0.4, 0, 1) * clamp((t - rb.t0) / 0.3, 0, 1);
+          const ps = (D / Math.max(near, D - (m20 * p[0] + m21 * p[1] + m22 * p[2]))) * k;
+          const X = ox + (m00 * p[0] + m02 * p[2]) * ps, Y = oy + (m10 * p[0] + m11 * p[1] + m12 * p[2]) * ps;
+          const r = rb.width * 4.5 * ps;
+          ctx.globalAlpha = 0.75 * fade;
+          ctx.drawImage(spark, X - r, Y - r, r * 2, r * 2);
+          ctx.globalAlpha = 1;
+        }
+      }
+      glow.run(S.canvas);
+    }
+
+    return runScene(container, opts, {
+      cls: 'ss-ribbons',
+      alpha: false,
+      maxDpr: 1.5,
+      budget: 3.2e6,
+      setup(S) {
+        spark = glowSprite(64, 0.12);
+        glow = makeGlow(S.root, 0.9, 0.012);
+      },
+      degrade(S) { if (S.quality < 0.7) glow.off(); },
+      resize(S) {
+        glow.resize(S);
+        if (ribbons.length) return;
+        const n = preview ? 4 : 7;
+        for (let i = 0; i < n; i++) { const rb = {}; start(S, rb, S.t, i * 0.8); ribbons.push(rb); }
+      },
+      frame(S, dt, t) {
+        for (const rb of ribbons) {
+          if (t >= rb.t0 && t < rb.t1) fly(S, rb, dt, t);
+          while (rb.head < rb.pts.length && t - rb.pts[rb.head + 12] > LIFE) rb.head += STRIDE;
+          if (rb.head > STRIDE * 400) { rb.pts.splice(0, rb.head); rb.head = 0; }
+          if (t > rb.t1 && rb.head >= rb.pts.length) start(S, rb, t, rand(0.2, 1.4));
+        }
+        draw(S, t);
+      },
+      dispose() { ribbons = []; styles.clear(); },
+    });
+  }
+
+  // ============================================================ 3. Aurora
+  // Curtains of green, cyan and violet light over a starry sky, above dark
+  // mountains and a still lake that holds their reflection. Each curtain is a
+  // row of soft vertical rays that fold, ripple, scroll and slowly shimmer,
+  // brightest toward the middle of the sky. Only the aurora, twinkles and the
+  // reflection are redrawn each frame; everything else is painted once.
+  function curtainSprite(stops) {
+    const w = 12, hh = 256, c = canvas(w, hh), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, hh);
+    stops.forEach(([o, col]) => g.addColorStop(o, col));
+    x.fillStyle = g;
+    x.fillRect(0, 0, w, hh);
+    x.globalCompositeOperation = 'destination-in';
+    const hg = x.createLinearGradient(0, 0, w, 0);
+    hg.addColorStop(0, 'rgba(0,0,0,0)');
+    hg.addColorStop(0.5, 'rgba(0,0,0,1)');
+    hg.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = hg;
+    x.fillRect(0, 0, w, hh);
+    return c;
+  }
+  // Rows run from the top of a ray (0) to its bright lower edge (0.94) and a soft fade below.
+  const AURORA_INKS = [
+    [[0, 'rgba(140,60,255,0)'], [0.3, 'rgba(150,70,255,0.3)'], [0.58, 'rgba(40,190,230,0.55)'], [0.82, 'rgba(50,255,150,0.92)'], [0.94, 'rgba(185,255,200,1)'], [1, 'rgba(60,255,150,0)']],
+    [[0, 'rgba(90,80,255,0)'], [0.35, 'rgba(100,90,255,0.3)'], [0.65, 'rgba(40,170,255,0.6)'], [0.88, 'rgba(60,240,255,0.95)'], [0.94, 'rgba(200,250,255,1)'], [1, 'rgba(60,220,255,0)']],
+    [[0, 'rgba(210,70,220,0)'], [0.3, 'rgba(200,80,230,0.35)'], [0.6, 'rgba(60,220,190,0.5)'], [0.85, 'rgba(40,250,190,0.9)'], [0.94, 'rgba(200,255,230,1)'], [1, 'rgba(40,250,190,0)']],
+  ];
+
+  function createAurora(container, opts) {
+    const preview = !!opts.preview;
+    let sky, fx, aur, mtn, lake, front, sprites, mirrored, haze, star, starBig;
+    let curtains = [], twinkles = [], meteor = null, nextMeteor = rand(5, 12), yH = 0;
+    const N1 = noise1(11), N2 = noise1(23), N3 = noise1(37), NR = noise1(71);
+
+    function makeCurtains() {
+      const base = [
+        { y0: 0.5, h: 0.4, alpha: 0.42, ink: 0, spacing: 2.3 },
+        { y0: 0.4, h: 0.34, alpha: 0.26, ink: 1, spacing: 2.8 },
+        { y0: 0.58, h: 0.3, alpha: 0.24, ink: 2, spacing: 3 },
+      ];
+      return base.map((c, i) => Object.assign(c, {
+        seed: rand(0, 100),
+        a1: rand(0.035, 0.06), k1: rand(0.7, 1.2), w1: rand(0.012, 0.022), p1: rand(0, TAU),
+        a2: rand(0.012, 0.025), k2: rand(1.8, 2.8), w2: rand(0.02, 0.035), p2: rand(0, TAU),
+        fa: rand(0.022, 0.034), fk: rand(0.9, 1.4), fw: rand(0.008, 0.016) * (i % 2 ? -1 : 1), fp: rand(0, TAU),
+        nk: rand(4, 7), hk: rand(3, 5), scroll: rand(0.035, 0.06) * (i % 2 ? -1 : 1),
+        pulses: [],
+      }));
+    }
+
+    // Ridged noise: sharp peaks, soft valleys.
+    function ridge(xN, lo, amp, seed, sharp) {
+      const r = (f, o) => { const v = 1 - Math.abs(NR(xN * f + o) * 2 - 1); return sharp ? v * v : v; };
+      return lo - amp * (0.6 * r(2.6, seed) + 0.28 * r(7.3, seed * 2) + 0.12 * r(19, seed * 3));
+    }
+
+    function paintSky(S) {
+      const L = sky, x = L.ctx, W = S.w, H = S.h;
+      x.setTransform(L.sx, 0, 0, L.sy, 0, 0);
+      const g = x.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#010208');
+      g.addColorStop(0.45, '#020815');
+      g.addColorStop(0.7, '#041627');
+      g.addColorStop(0.8, '#072437');
+      g.addColorStop(1, '#03101c');
+      x.fillStyle = g;
+      x.fillRect(0, 0, W, H);
+      // a faint band of the galaxy
+      x.save();
+      x.translate(W * 0.45, yH * 0.42);
+      x.rotate(-0.55);
+      x.scale(W * 0.7, S.s * 0.12);
+      const mw = x.createRadialGradient(0, 0, 0, 0, 0, 1);
+      mw.addColorStop(0, 'rgba(150,170,255,0.07)');
+      mw.addColorStop(0.5, 'rgba(120,140,230,0.035)');
+      mw.addColorStop(1, 'rgba(120,140,230,0)');
+      x.fillStyle = mw;
+      x.beginPath();
+      x.arc(0, 0, 1, 0, TAU);
+      x.fill();
+      x.restore();
+      // stars, thinning toward the horizon; denser along the galaxy band
+      const rnd = A.util.seeded(4242);
+      const count = Math.min(1100, Math.round((W * H) / (preview ? 700 : 1900)));
+      const ca = Math.cos(-0.55), sa = Math.sin(-0.55);
+      for (let i = 0; i < count; i++) {
+        const sx = rnd() * W, sy = rnd() * yH;
+        const dx = sx - W * 0.45, dy = sy - yH * 0.42;
+        const across = Math.abs(-dx * sa + dy * ca) / (S.s * 0.12);
+        if (across > 1 && rnd() < 0.35) continue;
+        let a = Math.pow(rnd(), 2.2) * (0.35 + 0.65 * smooth(yH, yH * 0.55, sy));
+        const r = (0.35 + Math.pow(rnd(), 3) * 0.9) * (preview ? 0.6 : 1);
+        const tint = rnd();
+        x.fillStyle = tint < 0.15 ? `rgba(255,225,190,${a})` : tint < 0.35 ? `rgba(190,215,255,${a})` : `rgba(255,255,255,${a})`;
+        x.beginPath();
+        x.arc(sx, sy, r, 0, TAU);
+        x.fill();
+      }
+    }
+
+    function paintMountains(S) {
+      const L = mtn, x = L.ctx, W = S.w, H = S.h;
+      x.setTransform(L.sx, 0, 0, L.sy, 0, 0);
+      x.clearRect(0, 0, W, H);
+      const steps = Math.max(40, Math.round(W / 6));
+      const far = [], near = [];
+      for (let i = 0; i <= steps; i++) {
+        const xN = i / steps;
+        far.push(ridge(xN, H * 0.76, H * 0.15, 3, true));
+        near.push(ridge(xN, H * 0.79, H * 0.07, 9, false));
+      }
+      const range = (pts, top, bottom, rim) => {
+        x.beginPath();
+        x.moveTo(0, yH + 1);
+        pts.forEach((y, i) => x.lineTo((i / steps) * W, y));
+        x.lineTo(W, yH + 1);
+        x.closePath();
+        const g = x.createLinearGradient(0, H * 0.58, 0, yH);
+        g.addColorStop(0, top);
+        g.addColorStop(1, bottom);
+        x.fillStyle = g;
+        x.fill();
+        if (rim) {
+          x.beginPath();
+          pts.forEach((y, i) => (i ? x.lineTo((i / steps) * W, y + 0.5) : x.moveTo(0, y + 0.5)));
+          x.strokeStyle = rim;
+          x.lineWidth = preview ? 0.6 : 1;
+          x.stroke();
+        }
+      };
+      range(far, '#0b1c2b', '#06111b', 'rgba(110,230,190,0.13)');
+      range(near, '#040b12', '#02070b', 'rgba(90,200,170,0.07)');
+      // the lake: a darker, mirrored sky with the mountains reflected in it
+      const lg = x.createLinearGradient(0, yH, 0, H);
+      lg.addColorStop(0, '#08243a');
+      lg.addColorStop(0.35, '#041422');
+      lg.addColorStop(1, '#01060b');
+      x.fillStyle = lg;
+      x.fillRect(0, yH, W, H - yH);
+      const mirror = (pts, col) => {
+        x.beginPath();
+        x.moveTo(0, yH);
+        pts.forEach((y, i) => x.lineTo((i / steps) * W, yH + (yH - y) * 0.55));
+        x.lineTo(W, yH);
+        x.closePath();
+        x.fillStyle = col;
+        x.fill();
+      };
+      mirror(far, 'rgba(6,16,26,0.9)');
+      mirror(near, 'rgba(3,8,13,0.95)');
+      x.fillStyle = 'rgba(140,240,210,0.1)';
+      x.fillRect(0, yH - 0.5, W, preview ? 0.6 : 1);
+    }
+
+    function tree(x, bx, by, hh) {
+      const w = hh * 0.3, tiers = 7;
+      x.beginPath();
+      x.moveTo(bx - w * 0.06, by);
+      x.lineTo(bx - w * 0.06, by - hh * 0.12);
+      for (let i = 0; i < tiers; i++) {
+        const f = i / tiers, y = by - hh * (0.1 + 0.9 * f), tw = w * (1 - f) * 0.55 + w * 0.08;
+        x.lineTo(bx - tw, y);
+        x.lineTo(bx - tw * 0.35, y - hh * 0.07);
+      }
+      x.lineTo(bx, by - hh);
+      for (let i = tiers - 1; i >= 0; i--) {
+        const f = i / tiers, y = by - hh * (0.1 + 0.9 * f), tw = w * (1 - f) * 0.55 + w * 0.08;
+        x.lineTo(bx + tw * 0.35, y - hh * 0.07);
+        x.lineTo(bx + tw, y);
+      }
+      x.lineTo(bx + w * 0.06, by - hh * 0.12);
+      x.lineTo(bx + w * 0.06, by);
+      x.closePath();
+      x.fill();
+    }
+
+    function paintFront(S) {
+      const L = front, x = L.ctx, W = S.w, H = S.h;
+      x.setTransform(L.sx, 0, 0, L.sy, 0, 0);
+      x.clearRect(0, 0, W, H);
+      const wg = x.createLinearGradient(0, yH, 0, H);
+      wg.addColorStop(0, 'rgba(0,8,16,0.15)');
+      wg.addColorStop(1, 'rgba(0,4,8,0.6)');
+      x.fillStyle = wg;
+      x.fillRect(0, yH, W, H - yH);
+      const rnd = A.util.seeded(99);
+      x.fillStyle = 'rgba(170,230,255,0.035)';
+      for (let i = 0; i < (preview ? 6 : 26); i++) {
+        const y = yH + 3 + rnd() * (H - yH) * 0.8, w = W * (0.04 + rnd() * 0.14);
+        x.fillRect(rnd() * W, y, w, preview ? 0.5 : 1);
+      }
+      // near shore and pines
+      const shore = H * 0.955;
+      x.fillStyle = '#010305';
+      x.beginPath();
+      x.moveTo(0, H);
+      for (let i = 0; i <= 60; i++) {
+        const xN = i / 60, edge = Math.min(1, Math.abs(xN - 0.5) * 2.4);
+        x.lineTo(xN * W, shore - H * 0.03 * edge * edge - H * 0.006 * NR(xN * 20 + 5));
+      }
+      x.lineTo(W, H);
+      x.closePath();
+      x.fill();
+      const pines = (from, to, n, seed) => {
+        const r = A.util.seeded(seed);
+        for (let i = 0; i < n; i++) {
+          const xN = from + (to - from) * r();
+          const edge = Math.min(1, Math.abs(xN - 0.5) * 2.4);
+          const hh = H * (0.1 + 0.16 * r()) * (0.6 + 0.4 * edge);
+          tree(x, xN * W, shore - H * 0.03 * edge * edge + 2, hh);
+        }
+      };
+      pines(0, 0.17, preview ? 5 : 11, 7);
+      pines(0.84, 1, preview ? 4 : 9, 8);
+    }
+
+    function paintTwinkles(S) {
+      const rnd = A.util.seeded(777), n = preview ? 10 : 42;
+      twinkles = [];
+      for (let i = 0; i < n; i++) {
+        twinkles.push({ x: rnd() * S.w, y: rnd() * yH * 0.85, a: 0.35 + rnd() * 0.6, sp: 0.6 + rnd() * 2.2, ph: rnd() * TAU, big: rnd() < 0.18, r: (preview ? 3 : 5.5) * (0.7 + rnd() * 0.6) });
+      }
+    }
+
+    // Rays are drawn into the aurora layer, and mirrored (squashed toward the
+    // shore, rippling) straight into the lake layer: no pixels are copied.
+    function drawAurora(S, dt, t) {
+      const L = aur, ctx = L.ctx, aw = L.c.width, ah = L.c.height;
+      const W = lake.c.width, lx = lake.sx, ly = lake.sy, lk = lake.ctx, sq = 0.5;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, aw, ah);
+      ctx.globalCompositeOperation = 'lighter';
+      lk.setTransform(1, 0, 0, 1, 0, 0);
+      lk.globalCompositeOperation = 'source-over';
+      lk.globalAlpha = 1;
+      lk.fillStyle = '#000';
+      lk.fillRect(0, 0, W, lake.c.height);
+      lk.globalCompositeOperation = 'lighter';
+      const hy = yH / S.h;
+      for (const c of curtains) {
+        // occasional bright pulses that travel along a curtain
+        if (Math.random() < dt * 0.12 && c.pulses.length < 2) c.pulses.push({ s0: rand(0.1, 0.9), v: rand(-0.06, 0.06), t0: t, dur: rand(3, 6), amp: rand(0.5, 0.9) });
+        c.pulses = c.pulses.filter((p) => t - p.t0 < p.dur);
+        const n = Math.max(20, Math.round(aw / c.spacing)), rw = Math.max(1.6, (aw / n) * 2.8);
+        const sprite = sprites[c.ink], flipped = mirrored[c.ink];
+        // a broad haze behind the rays
+        const hz = haze[c.ink], hw = aw * 0.24;
+        for (let j = 0; j <= 10; j++) {
+          const s = j / 10, xN = s * 1.1 - 0.05 + c.fa * Math.sin(TAU * (c.fk * s + c.fw * t) + c.fp);
+          const dx = (xN - 0.5) / 0.36, env = Math.exp(-dx * dx);
+          const base = c.y0 + c.a1 * Math.sin(TAU * (c.k1 * s + c.w1 * t) + c.p1);
+          ctx.globalAlpha = clamp(env * (0.25 + 0.75 * N2(s * c.nk + t * c.scroll + c.seed)) * c.alpha * 0.34, 0, 1);
+          ctx.drawImage(hz, xN * aw - hw / 2, (base - c.h * 0.72) * ah, hw, c.h * ah * 0.95);
+        }
+        for (let i = 0; i <= n; i++) {
+          const s = i / n;
+          const ph1 = TAU * (c.fk * s + c.fw * t) + c.fp, ph2 = TAU * (c.fk * 2.3 * s - c.fw * 1.4 * t) + c.fp * 2;
+          const xN = s * 1.1 - 0.05 + c.fa * Math.sin(ph1) + c.fa * 0.5 * Math.sin(ph2);
+          if (xN < -0.03 || xN > 1.03) continue;
+          // Where the curtain folds, rays bunch up and it glows brighter, but never to a spike.
+          const dxds = 1.1 + c.fa * TAU * c.fk * (Math.cos(ph1) + 1.15 * Math.cos(ph2));
+          const fold = clamp(Math.abs(dxds) * 2.2, 0, 1);
+          const dx = (xN - 0.5) / 0.36;
+          const env = Math.exp(-dx * dx);
+          let I = env * (0.2 + 0.8 * Math.pow(N2(s * c.nk + t * c.scroll + c.seed), 1.7));
+          I *= 0.62 + 0.38 * N3(s * 55 + t * 0.3 + c.seed * 3);
+          I *= 1 + 0.1 * Math.sin(t * 1.4 + i * 0.41);
+          for (const p of c.pulses) {
+            const u = (t - p.t0) / p.dur, ds = (s - p.s0 - p.v * (t - p.t0)) / 0.05;
+            I += p.amp * env * Math.sin(Math.PI * u) * Math.exp(-ds * ds);
+          }
+          I *= c.alpha * fold;
+          if (I < 0.012) continue;
+          const base = c.y0 + c.a1 * Math.sin(TAU * (c.k1 * s + c.w1 * t) + c.p1) + c.a2 * Math.sin(TAU * (c.k2 * s - c.w2 * t) + c.p2);
+          const hh = c.h * (0.5 + 0.5 * N1(s * c.hk + t * 0.04 + c.seed));
+          ctx.globalAlpha = I > 1 ? 1 : I;
+          ctx.drawImage(sprite, xN * aw - rw / 2, (base - hh) * ah, rw, (hh / 0.94) * ah);
+          // the reflection: every other ray, upside down, squashed and rippling
+          if (i & 1) continue;
+          const top = hy + (hy - base - hh * 0.064) * sq;
+          if (top > 1) continue;
+          const wob = Math.sin(t * 1.1 + top * 40) * 0.004 * (1 + (top - hy) * 12);
+          lk.globalAlpha = (I > 1 ? 1 : I) * 0.55;
+          lk.drawImage(flipped, (xN + wob) * S.w * lx - rw * 1.2 * (W / aw), top * S.h * ly, rw * 2.4 * (W / aw), (hh / 0.94) * sq * S.h * ly);
+        }
+      }
+      ctx.globalAlpha = 1;
+      lk.globalAlpha = 1;
+    }
+
+    function drawFx(S, dt, t) {
+      const L = fx, ctx = L.ctx, k = L.sx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.clearRect(0, 0, L.c.width, L.c.height);
+      ctx.globalCompositeOperation = 'lighter';
+      for (const s of twinkles) {
+        const a = s.a * (0.55 + 0.45 * Math.sin(t * s.sp + s.ph));
+        const r = s.r * k;
+        ctx.globalAlpha = a;
+        ctx.drawImage(s.big ? starBig : star, s.x * k - r, s.y * k - r, r * 2, r * 2);
+      }
+      // a shooting star now and then
+      if (!meteor && t > nextMeteor) {
+        const dir = Math.random() < 0.5 ? -1 : 1, ang = rand(0.3, 0.6);
+        meteor = { x: rand(0.2, 0.8) * S.w, y: rand(0.04, 0.3) * yH, vx: dir * Math.cos(ang) * S.w * 0.75, vy: Math.sin(ang) * S.w * 0.75, age: 0, life: rand(0.6, 1) };
+        nextMeteor = t + rand(12, 28);
+      }
+      if (meteor) {
+        const m = meteor;
+        m.age += dt;
+        m.x += m.vx * dt; m.y += m.vy * dt;
+        const fade = Math.sin(Math.PI * clamp(m.age / m.life, 0, 1));
+        const len = 0.1;
+        const tx = m.x - m.vx * len, ty = m.y - m.vy * len;
+        const g = ctx.createLinearGradient(m.x * k, m.y * k, tx * k, ty * k);
+        g.addColorStop(0, `rgba(255,255,255,${0.9 * fade})`);
+        g.addColorStop(0.3, `rgba(170,230,255,${0.35 * fade})`);
+        g.addColorStop(1, 'rgba(170,230,255,0)');
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = g;
+        ctx.lineWidth = (preview ? 0.7 : 1.4) * k;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(m.x * k, m.y * k);
+        ctx.lineTo(tx * k, ty * k);
+        ctx.stroke();
+        if (m.age > m.life || m.y > yH) meteor = null;
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    return runScene(container, opts, {
+      cls: 'ss-aurora',
+      noMain: true,
+      maxDpr: 1.5,
+      budget: 3e6,
+      setup(S) {
+        sky = S.addLayer('ss-sky', { alpha: false });
+        fx = S.addLayer('ss-fx');
+        aur = S.addLayer('ss-aur', { alpha: false, scaleFn: (s) => Math.min(0.5, 760 / s.w) * (s.preview ? 1 : Math.max(0.7, s.quality)) });
+        mtn = S.addLayer('ss-mtn');
+        lake = S.addLayer('ss-lake', { alpha: false, scaleFn: (s) => (s.preview ? 0.6 : 0.3) });
+        front = S.addLayer('ss-front');
+        sprites = AURORA_INKS.map(curtainSprite);
+        mirrored = sprites.map((sp) => {
+          const c = canvas(sp.width, sp.height), x = c.getContext('2d');
+          x.translate(0, sp.height);
+          x.scale(1, -1);
+          x.drawImage(sp, 0, 0);
+          return c;
+        });
+        haze = [[60, 255, 150], [60, 190, 255], [90, 240, 200]].map((rgb) => tintGlow(64, rgb, 0.3));
+        star = glowSprite(24, 0.1);
+        starBig = glowSprite(32, 0.06);
+        const bx = starBig.getContext('2d');
+        bx.globalCompositeOperation = 'lighter';
+        bx.fillStyle = 'rgba(255,255,255,0.5)';
+        bx.fillRect(15.5, 2, 1, 28);
+        bx.fillRect(2, 15.5, 28, 1);
+        curtains = makeCurtains();
+      },
+      resize(S) {
+        yH = S.h * 0.8;
+        paintSky(S);
+        paintMountains(S);
+        paintFront(S);
+        paintTwinkles(S);
+      },
+      frame(S, dt, t) {
+        drawAurora(S, dt, t);
+        drawFx(S, dt, t);
+      },
+    });
+  }
+
+  // ============================================================ 4. Glass Shapes
+  // Two color-cycling polygons whose corners bounce around the screen,
+  // trailing echoes of where they've been. Lines are drawn like glass rods:
+  // a colored body with a white glint, a faint pane of glass across the
+  // newest shape, and a soft glow over everything.
+  function createMystify(container, opts) {
+    const preview = !!opts.preview;
+    const ECHOES = 11, LAG = 0.085;
+    let shapes = [], hist = [], glow = null;
+
+    function make(S, hue) {
+      const pts = [];
+      for (let i = 0; i < 4; i++) {
+        let a = rand(0, TAU);
+        // avoid nearly axis-aligned corners; they look stuck against the edges
+        while (Math.abs(Math.sin(2 * a)) < 0.35) a = rand(0, TAU);
+        const sp = S.s * rand(0.22, 0.36);
+        pts.push({ x: rand(0.1, 0.9) * S.w, y: rand(0.1, 0.9) * S.h, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp });
+      }
+      return { pts, hue, rate: rand(16, 26) };
+    }
+
+    function snapshot(t) {
+      const xy = new Float32Array(shapes.length * 8), hues = new Float32Array(shapes.length);
+      shapes.forEach((sh, i) => { sh.pts.forEach((p, j) => { xy[i * 8 + j * 2] = p.x; xy[i * 8 + j * 2 + 1] = p.y; }); hues[i] = sh.hue; });
+      hist.push({ t, xy, hues });
+      const keep = t - ECHOES * LAG - 0.3;
+      while (hist.length > 2 && hist[1].t < keep) hist.shift();
+    }
+    // The recorded frame closest to time tt (walking back from index i).
+    function at(tt, i) {
+      while (i > 0 && hist[i].t > tt) i--;
+      return i;
+    }
+
+    function draw(S, t) {
+      const ctx = S.ctx, k = S.sx, u = Math.max(0.55, S.s / 700);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, S.canvas.width, S.canvas.height);
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineJoin = 'round';
+      let idx = hist.length - 1;
+      for (let e = ECHOES - 1; e >= 0; e--) {
+        const i = at(t - e * LAG, idx);
+        const fr = hist[i];
+        const a = Math.pow(1 - e / ECHOES, 1.35);
+        for (let s = 0; s < shapes.length; s++) {
+          const xy = fr.xy, o = s * 8;
+          ctx.beginPath();
+          ctx.moveTo(xy[o], xy[o + 1]);
+          for (let j = 1; j < 4; j++) ctx.lineTo(xy[o + j * 2], xy[o + j * 2 + 1]);
+          ctx.closePath();
+          const col = hsl(fr.hues[s], 0.95, 0.6);
+          if (e === 0) {
+            ctx.globalAlpha = 0.07;
+            ctx.fillStyle = rgba(col, 1);
+            ctx.fill('evenodd');
+          }
+          ctx.globalAlpha = a;
+          ctx.strokeStyle = rgba(col, 1);
+          ctx.lineWidth = 2.4 * u;
+          ctx.stroke();
+          ctx.globalAlpha = a * (e < 3 ? 0.7 : 0.4);
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 0.7 * u;
+          ctx.stroke();
+        }
+      }
+      ctx.globalAlpha = 1;
+      glow.run(S.canvas);
+    }
+
+    return runScene(container, opts, {
+      cls: 'ss-mystify',
+      alpha: false,
+      maxDpr: 1.5,
+      budget: 3.2e6,
+      setup(S) { glow = makeGlow(S.root, 0.85, 0.01); },
+      degrade(S) { if (S.quality < 0.7) glow.off(); },
+      resize(S) {
+        glow.resize(S);
+        if (!shapes.length) shapes = [make(S, rand(170, 210)), make(S, rand(90, 130))];
+        for (const sh of shapes) for (const p of sh.pts) { p.x = clamp(p.x, 0, S.w); p.y = clamp(p.y, 0, S.h); }
+        hist = [];
+        snapshot(S.t);
+      },
+      frame(S, dt, t) {
+        const W = S.w, H = S.h;
+        for (const sh of shapes) {
+          sh.hue += sh.rate * dt;
+          for (const p of sh.pts) {
+            p.x += p.vx * dt; p.y += p.vy * dt;
+            if (p.x < 0) { p.x = -p.x; p.vx = Math.abs(p.vx); }
+            if (p.x > W) { p.x = 2 * W - p.x; p.vx = -Math.abs(p.vx); }
+            if (p.y < 0) { p.y = -p.y; p.vy = Math.abs(p.vy); }
+            if (p.y > H) { p.y = 2 * H - p.y; p.vy = -Math.abs(p.vy); }
+          }
+        }
+        snapshot(t);
+        draw(S, t);
+      },
+    });
+  }
+
   // ============================================================ register
   const REG = [
+    { id: 'aurora', name: 'Aurora', create: createAurora },
     { id: 'bubbles', name: 'Bubbles', overDesktop: true, create: createBubbles },
+    { id: 'mystify', name: 'Glass Shapes', create: createMystify },
+    { id: 'ribbons', name: 'Ribbons', create: createRibbons },
   ];
   REG.forEach((def) => {
     A.screensaver.register({

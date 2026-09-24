@@ -531,13 +531,13 @@
   function osc(ctx, type, f, t, stop) {
     const o = ctx.createOscillator();
     o.type = type;
-    o.frequency.value = f;
+    o.frequency.value = Math.min(f, ctx.sampleRate * 0.45);
     o.start(t);
     o.stop(stop);
     return o;
   }
   function gainNode(ctx, v) { const g = ctx.createGain(); g.gain.value = v; return g; }
-  function biquad(ctx, type, f, q) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = f; if (q != null) b.Q.value = q; return b; }
+  function biquad(ctx, type, f, q) { const b = ctx.createBiquadFilter(); b.type = type; b.frequency.value = Math.min(f, ctx.sampleRate * 0.45); if (q != null) b.Q.value = q; return b; }
   function noise(E, t, stop) {
     const s = E.ctx.createBufferSource();
     s.buffer = E.noise;
@@ -1117,13 +1117,16 @@
     o = o || {};
     const E = { ctx, rnd: U.seeded(99) };
     E.noise = makeNoise(ctx);
-    E.mix = gainNode(ctx, 0.8);
+    // Mix at unity into a gentle glue compressor, then trim so music peaks
+    // land around -8 dBFS at full player volume (the master adds makeup gain).
+    E.mix = gainNode(ctx, 1);
     E.comp = ctx.createDynamicsCompressor();
-    E.comp.threshold.value = -14;
-    E.comp.knee.value = 10;
-    E.comp.ratio.value = 2.6;
-    E.comp.attack.value = 0.012;
-    E.comp.release.value = 0.22;
+    E.comp.threshold.value = -17;
+    E.comp.knee.value = 12;
+    E.comp.ratio.value = 3;
+    E.comp.attack.value = 0.006;
+    E.comp.release.value = 0.2;
+    E.trim = gainNode(ctx, 0.42);
     E.eqIn = gainNode(ctx, 1);
     E.eq = EQ_BANDS.map(([f, type]) => { const b = biquad(ctx, type, f, 0.9); b.gain.value = 0; return b; });
     E.fade = gainNode(ctx, 1);
@@ -1134,7 +1137,7 @@
     E.analyser.minDecibels = -96;
     E.analyser.maxDecibels = -22;
     E.mute = gainNode(ctx, o.muted ? 0 : 1);
-    E.mix.connect(E.comp).connect(E.eqIn);
+    E.mix.connect(E.comp).connect(E.trim).connect(E.eqIn);
     let n = E.eqIn;
     E.eq.forEach((b) => { n.connect(b); n = b; });
     n.connect(E.fade).connect(E.vol).connect(E.analyser).connect(E.mute).connect(dest);
@@ -1396,7 +1399,7 @@
   // ---------------------------------------------------------------- Escalator Sunrise
   track({
     id: 'sky-mall', no: 1, title: 'Escalator Sunrise', artist: 'Sky Mall Orchestra', album: 'Upper Level', genre: 'Easy Listening', year: 2006,
-    bpm: 100, color: '#ff9f6b', swing: 0.14, tail: 3.2, gain: 1,
+    bpm: 100, color: '#ff9f6b', swing: 0.14, tail: 3.2, gain: 1.15,
     mix: {
       ep: { inst: 'ep', gain: 0.3, pan: -0.12, rev: 0.2, chorus: 0.5, autopan: 0.15, o: { bright: 1.35 } },
       eplead: { inst: 'ep', gain: 0.42, pan: 0.08, rev: 0.25, dly: 0.14, chorus: 0.3, o: { bright: 1.5 } },
@@ -1518,7 +1521,7 @@
   // ---------------------------------------------------------------- Aurora Drift
   track({
     id: 'aurora-drift', no: 1, title: 'Aurora Drift', artist: 'Aqua Pura', album: 'Northern Water', genre: 'Ambient', year: 2008,
-    bpm: 70, color: '#3ee6a0', swing: 0, tail: 6, gain: 1.15, delayBeats: 0.75,
+    bpm: 70, color: '#3ee6a0', swing: 0, tail: 6, gain: 1.3, delayBeats: 0.75,
     mix: {
       pad: { inst: 'pad', gain: 0.34, rev: 0.6, lp: 3200, o: { wave: 'warm', attack: 3, release: 4, cutoff: 500, cutoffEnd: 1700, lfo: 0.07, lfoDepth: 0.35 } },
       glass: { inst: 'pad', gain: 0.2, pan: 0.1, rev: 0.7, o: { wave: 'glass', attack: 2.5, release: 4, cutoff: 1500, cutoffEnd: 4200, lfo: 0.11 } },
@@ -1605,7 +1608,7 @@
   // ---------------------------------------------------------------- Hydration Station
   track({
     id: 'hydration-station', no: 1, title: 'Hydration Station', artist: 'DJ Hydrate', album: 'Fresh Mix', genre: 'Electronic', year: 2007,
-    bpm: 124, color: '#8fe05a', swing: 0.05, tail: 2.6, gain: 0.92, delayBeats: 0.75,
+    bpm: 124, color: '#8fe05a', swing: 0.05, tail: 2.6, gain: 1.27, delayBeats: 0.75,
     mix: {
       kick: { inst: 'kick', gain: 0.62, o: { f0: 150, f1: 47, decay: 0.3, click: 1 } },
       clap: { inst: 'clap', gain: 0.38, rev: 0.22 },
@@ -1735,7 +1738,7 @@
   // ---------------------------------------------------------------- Glass City
   track({
     id: 'glass-city', no: 1, title: 'Glass City', artist: 'The Glassmen', album: 'Glass City', genre: 'City Pop', year: 2008,
-    bpm: 110, color: '#5fb8ff', swing: 0.16, tail: 3, gain: 0.95,
+    bpm: 110, color: '#5fb8ff', swing: 0.16, tail: 3, gain: 1.2,
     mix: {
       ep: { inst: 'ep', gain: 0.26, pan: -0.25, rev: 0.16, chorus: 0.5, autopan: 0.12, o: { bright: 1.2 } },
       gtr: { inst: 'gtr', gain: 0.5, pan: 0.32, rev: 0.1 },
@@ -1844,7 +1847,7 @@
   // ---------------------------------------------------------------- Dolphin Dreams
   track({
     id: 'dolphin-dreams', no: 2, title: 'Dolphin Dreams', artist: 'Crystal Lagoon', album: 'Clear Skies', genre: 'Chill', year: 2007,
-    bpm: 85, color: '#1fb4d8', swing: 0.22, tail: 4.5, gain: 1.08,
+    bpm: 85, color: '#1fb4d8', swing: 0.22, tail: 4.5, gain: 1.14,
     mix: {
       ep: { inst: 'ep', gain: 0.34, pan: -0.15, rev: 0.25, chorus: 0.5, autopan: 0.3, lp: 1100, q: 1.4 },
       kal: { inst: 'kalimba', gain: 0.62, pan: 0.18, rev: 0.3, dly: 0.2 },
@@ -1954,7 +1957,7 @@
   // ---------------------------------------------------------------- Channels (loop)
   track({
     id: 'channels', no: 1, title: 'Channels', artist: 'Aerium Sound Team', album: 'Channels', genre: 'Ambient', year: 2006,
-    bpm: 72, color: '#9fd8f5', swing: 0.1, tail: 4.5, gain: 1.12, loopable: true,
+    bpm: 72, color: '#9fd8f5', swing: 0.1, tail: 4.5, gain: 1.33, loopable: true,
     mix: {
       pad: { inst: 'pad', gain: 0.3, rev: 0.55, o: { wave: 'glass', attack: 2.2, release: 3, cutoff: 1000, cutoffEnd: 2600, lfo: 0.08, lfoDepth: 0.25 } },
       ep: { inst: 'ep', gain: 0.44, pan: -0.1, rev: 0.35, dly: 0.14, chorus: 0.4, o: { bright: 0.9 } },
@@ -2065,7 +2068,7 @@
   // ---------------------------------------------------------------- video soundtracks (hidden)
   track({
     id: 'video:aquarium', hidden: true, title: 'Fish', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
-    bpm: 76, color: '#1fb4d8', swing: 0.1, tail: 3,
+    bpm: 76, color: '#1fb4d8', swing: 0.1, tail: 3, gain: 1.6,
     mix: {
       water: { inst: 'ocean', gain: 0.34, rev: 0.3, o: { lo: 220, hi: 700 } },
       bub: { inst: 'bubble', gain: 0.4, rev: 0.35, dly: 0.2 },
@@ -2107,7 +2110,7 @@
   });
   track({
     id: 'video:clouds', hidden: true, title: 'Clouds', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
-    bpm: 90, color: '#7cc8ff', swing: 0, tail: 3.5, gain: 1.05,
+    bpm: 90, color: '#7cc8ff', swing: 0, tail: 3.5, gain: 1.6,
     mix: {
       pad: { inst: 'pad', gain: 0.3, rev: 0.55, o: { wave: 'warm', attack: 2, release: 3, cutoff: 700, cutoffEnd: 2200 } },
       glass: { inst: 'pad', gain: 0.18, rev: 0.6, o: { wave: 'glass', attack: 2, release: 3, cutoff: 1800, cutoffEnd: 4000 } },
@@ -2494,11 +2497,13 @@
       const ctx = new Off(2, Math.ceil(sr * secs), sr);
       const e = buildEngine(ctx, ctx.destination, { volume: 1 });
       const sess = createSession(e, tr._def, from, { loop: false, at: 0 });
-      for (let i = sess.idx; i < C.events.length; i++) {
-        const ev = C.events[i];
-        if (ev.t >= from + secs) break;
-        trigger(sess, ev, Math.max(0, ev.t - from));
-      }
+      // Schedule progressively (like the live scheduler) so the graph stays small.
+      let idx = sess.idx;
+      const upTo = (t) => {
+        while (idx < C.events.length && C.events[idx].t < from + Math.min(t, secs)) { const ev = C.events[idx++]; trigger(sess, ev, Math.max(0, ev.t - from)); }
+      };
+      upTo(1.5);
+      for (let t = 1; t < secs; t += 1) ctx.suspend(t).then(() => { upTo(t + 1.5); ctx.resume(); });
       return ctx.startRendering();
     },
     _warnings: warnings,

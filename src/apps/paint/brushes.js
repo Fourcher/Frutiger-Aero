@@ -510,6 +510,7 @@
         s.s.bristles.push({
           ox: Math.cos(a) * r, oy: Math.sin(a) * r,
           color: shade(s.color, (s.rng() - 0.5) * 0.34),
+          dry: mix(shade(s.color, (s.rng() - 0.5) * 0.3), '#ffffff', 0.35),
           w: Math.max(1.5, (s.size / n) * 3.4 * (0.6 + s.rng() * 0.8)),
           load: 0.75 + s.rng() * 0.7,
         });
@@ -521,20 +522,19 @@
     seg(s, a, c, b) {
       const x = s.ctx, len = dist(a, c) + dist(c, b);
       x.globalCompositeOperation = 'source-over';
+      x.globalAlpha = 1;
       x.lineCap = 'butt';
       x.lineJoin = 'round';
       for (const br of s.s.bristles) {
         br.load -= len * 0.0011 * (0.4 + s.rng());
-        if (br.load <= 0 && s.rng() > 0.1) continue;
-        x.globalAlpha = clamp(0.5 + br.load * 0.5, 0.3, 1);
-        x.strokeStyle = br.color;
+        if (br.load <= 0 && s.rng() > 0.08) continue;
+        x.strokeStyle = br.load > 0.25 ? br.color : br.dry;
         x.lineWidth = br.w;
         x.beginPath();
         x.moveTo(a.x + br.ox, a.y + br.oy);
         x.quadraticCurveTo(c.x + br.ox, c.y + br.oy, b.x + br.ox, b.y + br.oy);
         x.stroke();
       }
-      x.globalAlpha = 1;
     },
     margin: (size) => size / 2 + 4,
   });

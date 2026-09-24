@@ -442,6 +442,7 @@
         cleanup(fn) { cleanups.push(fn); },
         bus(ev, fn) { cleanups.push(A.bus.on(ev, (...a) => { if (ctx.alive) fn(...a); })); },
         listen(target, ev, fn, o) { target.addEventListener(ev, fn, o); cleanups.push(() => target.removeEventListener(ev, fn, o)); },
+        winOn(ev, fn) { cleanups.push(win.on(ev, (...a) => { if (ctx.alive) fn(...a); })); },
       };
       ctx._cleanup = () => { ctx.alive = false; cleanups.splice(0).reverse().forEach((f) => { try { f(); } catch (e) { /* ignore */ } }); };
       return ctx;
@@ -497,7 +498,27 @@
         });
         crumbs.appendChild(arrow);
       });
-      requestAnimationFrame(() => { crumbs.scrollLeft = crumbs.scrollWidth; });
+      fitCrumbs(chain);
+    }
+    // Vista-style overflow: crumbs that don't fit collapse into a « menu.
+    function fitCrumbs(chain) {
+      const parts = Array.from(crumbs.querySelectorAll('.cp-crumb'));
+      const more = h('button.cp-crumb-more', { type: 'button', 'aria-label': 'Show more locations', 'data-tip': 'Show more locations', hidden: true }, '\u00ab');
+      crumbs.insertBefore(more, crumbs.firstChild);
+      const hidden = [];
+      const over = () => crumbs.scrollWidth > crumbs.clientWidth + 1;
+      for (let i = 0; i < parts.length - 1 && over(); i++) {
+        parts[i].hidden = true;
+        const arrow = parts[i].nextElementSibling;
+        if (arrow && arrow.classList.contains('cp-crumb-arrow')) arrow.hidden = true;
+        hidden.push(chain[i]);
+        more.hidden = false;
+      }
+      if (!hidden.length) { more.remove(); return; }
+      more.addEventListener('click', () => {
+        const r = more.getBoundingClientRect();
+        A.ui.menu(hidden.slice().reverse().map((pid) => { const d = K.resolve(pid); return { label: d.crumb || d.title, icon: K.ic(d.icon), onClick: () => go(pid) }; }), r.left, r.bottom + 2);
+      });
     }
 
     function renderSide(def, ctx) {
@@ -573,6 +594,8 @@
       el: win.body,
     };
     win.on('close', () => leave());
+    let crumbT = null;
+    win.on('resize', () => { clearTimeout(crumbT); crumbT = setTimeout(() => { if (hist[pos]) renderCrumbs(hist[pos].id); }, 60); });
     go(opts.start || 'cp:home', opts.params, { silent: true });
     return api;
   };
@@ -1081,7 +1104,7 @@
       return m ? '(UTC' + m[1] + m[2].padStart(2, '0') + ':' + (m[3] || '00') + ')' : '(UTC)';
     } catch (e) { return ''; }
   }
-  const zoneName = (zone) => { const z = ZONES.find((x) => x[0] === zone); return z ? z[1] : zone.replace(/_/g, ' ').replace(/\//g, ' / '); };
+  const zoneName = (zone) => { const z = ZONES.find((x) => x[0] === (zone === 'UTC' ? 'Etc/UTC' : zone)); return z ? z[1] : zone.replace(/_/g, ' ').replace(/\//g, ' / '); };
   const zoneLabel = (zone) => zoneOffset(zone) + ' ' + zoneName(zone);
   function zoneOptions(extra) {
     const list = ZONES.slice();

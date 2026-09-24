@@ -274,10 +274,10 @@
         procTable.innerHTML = '';
         list.forEach((p) => {
           const row = h('div.tm-procrow', { class: selectedProc === p.key && 'selected', dataset: { key: p.key } },
-            h('span.tm-td tm-td-l', null, A.img(p.win ? p.win.icon : imageIcon(p.image)), h('span', null, p.image)),
-            h('span.tm-td tm-td-l', null, p.user),
-            h('span.tm-td tm-td-r', null, String(Math.round(p.cpu)).padStart(2, '0')),
-            h('span.tm-td tm-td-r', null, Math.round(p.mem).toLocaleString('en-US') + ' K'));
+            h('span.tm-td.tm-td-l', null, A.img(p.win ? p.win.icon : imageIcon(p.image)), h('span', null, p.image)),
+            h('span.tm-td.tm-td-l', null, p.user),
+            h('span.tm-td.tm-td-r', null, String(Math.round(p.cpu)).padStart(2, '0')),
+            h('span.tm-td.tm-td-r', null, Math.round(p.mem).toLocaleString('en-US') + ' K'));
           row.addEventListener('click', () => { selectedProc = p.key; procTable.querySelectorAll('.tm-procrow').forEach((r) => r.classList.toggle('selected', r.dataset.key === p.key)); procBtn.disabled = false; });
           procTable.appendChild(row);
         });
@@ -318,7 +318,7 @@
 
       // ------------------------------------------------------------ Services
       function renderServices() {
-        const thead = h('div.tm-proc-head tm-svc-head', null, h('span.tm-th', null, 'Name'), h('span.tm-th', null, 'Description'), h('span.tm-th', null, 'Status'), h('span.tm-th', null, 'Startup'));
+        const thead = h('div.tm-proc-head.tm-svc-head', null, h('span.tm-th', null, 'Name'), h('span.tm-th', null, 'Description'), h('span.tm-th', null, 'Status'), h('span.tm-th', null, 'Startup'));
         const body = h('div.tm-proc-body');
         SERVICES.forEach(([name, desc, st, start]) => {
           body.appendChild(h('div.tm-svcrow', null,
@@ -339,15 +339,15 @@
         memBarCanvas = mkCanvas('tm-graph-sm');
         memHistCanvas = mkCanvas('tm-graph-lg');
         cpuNow = h('div.tm-readout');
-        const memNow = h('div.tm-readout tm-mem-now');
+        const memNow = h('div.tm-readout.tm-mem-now');
         perfStats = h('div.tm-perf-stats');
         content.append(h('div.tm-perf', null,
           h('div.tm-perf-row', null,
             h('div.tm-perf-box', null, h('div.tm-perf-title', null, 'CPU Usage'), h('div.tm-perf-meter', null, cpuCanvas, cpuNow)),
-            h('div.tm-perf-box tm-perf-wide', null, h('div.tm-perf-title', null, 'CPU Usage History'), cpuHistCanvas)),
+            h('div.tm-perf-box.tm-perf-wide', null, h('div.tm-perf-title', null, 'CPU Usage History'), cpuHistCanvas)),
           h('div.tm-perf-row', null,
             h('div.tm-perf-box', null, h('div.tm-perf-title', null, 'Memory'), h('div.tm-perf-meter', null, memBarCanvas, memNow)),
-            h('div.tm-perf-box tm-perf-wide', null, h('div.tm-perf-title', null, 'Physical Memory Usage History'), memHistCanvas)),
+            h('div.tm-perf-box.tm-perf-wide', null, h('div.tm-perf-title', null, 'Physical Memory Usage History'), memHistCanvas)),
           perfStats));
         perfStats._memNow = memNow;
         updatePerformance(usedMem(), (usedMem() / TOTAL_MEM) * 100);
@@ -397,13 +397,13 @@
       function renderUsers() {
         const table = h('div.tm-proc-wrap');
         table.append(
-          h('div.tm-proc-head tm-users-head', null, h('span.tm-th', null, 'User'), h('span.tm-th', null, 'ID'), h('span.tm-th', null, 'Status'), h('span.tm-th', null, 'Client Name')),
+          h('div.tm-proc-head.tm-users-head', null, h('span.tm-th', null, 'User'), h('span.tm-th', null, 'ID'), h('span.tm-th', null, 'Status'), h('span.tm-th', null, 'Client Name')),
           (() => {
             const body = h('div.tm-proc-body');
             const rows = [[user, '1', 'Active', A.store.get('user.avatar')], ['Guest', '2', 'Disconnected', 'avatars/avatar-globe']];
             rows.forEach(([nm, id, st, av], i) => {
               const row = h('div.tm-userrow', { class: i === 0 && 'selected' },
-                h('span.tm-td tm-td-l', null, h('span.fa-avatar.fa-avatar-sm', null, h('img', { src: A.asset(av), alt: '' })), h('span', null, nm)),
+                h('span.tm-td.tm-td-l', null, h('span.fa-avatar.fa-avatar-sm', null, h('img', { src: A.asset(av), alt: '' })), h('span', null, nm)),
                 h('span.tm-td', null, id), h('span.tm-td', { class: st === 'Active' ? 'tm-run' : 'tm-stop' }, st), h('span.tm-td', null, 'AERIUM-PC'));
               body.appendChild(row);
             });

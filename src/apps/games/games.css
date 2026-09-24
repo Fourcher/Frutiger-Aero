@@ -350,3 +350,59 @@
 .mnw-preview.mnw-garden { background: linear-gradient(to bottom, #9ad7ff, #c9f59b); }
 .mnw-mini { pointer-events: none; }
 [data-theme="dark"] .mnw-glass { --mnw-well: linear-gradient(to bottom, #cfe0f1, #b3cbe3); }
+
+/* ================================================================ Solitaire */
+.sol-stage {
+  --sol-felt-a: #38a84a; --sol-felt-b: #0f4f27;
+  background:
+    radial-gradient(ellipse 65% 50% at 30% 14%, rgba(255,255,255,.2), rgba(255,255,255,0) 62%),
+    radial-gradient(ellipse 130% 70% at 50% 125%, rgba(0,0,0,.34), rgba(0,0,0,0) 62%),
+    var(--sol-noise, none),
+    radial-gradient(ellipse 90% 80% at 50% 38%, var(--sol-felt-a), var(--sol-felt-b));
+}
+.sol-table { position: absolute; inset: 0; }
+.sol-slot {
+  position: absolute; left: 0; top: 0; width: var(--cw); height: var(--ch); display: grid; place-items: center;
+  border-radius: calc(var(--cw) * .075); border: 2px solid rgba(255,255,255,.28); background: rgba(0,25,10,.12);
+  box-shadow: inset 0 0 14px rgba(0,0,0,.2), 0 1px 0 rgba(255,255,255,.1); color: rgba(255,255,255,.3);
+  transition: box-shadow .2s;
+}
+.sol-slot-a, .sol-slot-k { font: 300 calc(var(--cw) * .46)/1 var(--font-aero); }
+.sol-slot-waste { opacity: .45; }
+.sol-redeal { display: none; width: 46%; height: 46%; color: rgba(255,255,255,.6); }
+.sol-redeal svg { width: 100%; height: 100%; }
+.sol-slot-stock.empty { cursor: pointer; }
+.sol-slot-stock.empty .sol-redeal { display: block; }
+.sol-slot-stock.empty:hover { box-shadow: inset 0 0 14px rgba(0,0,0,.2), 0 0 12px rgba(143,224,90,.6); }
+.sol-slot-stock.done .sol-redeal { opacity: .3; }
+.sol-card { position: absolute; left: 0; top: 0; width: var(--cw); height: var(--ch); perspective: 1000px; transition: transform .26s cubic-bezier(.2,.8,.3,1); will-change: transform; }
+.sol-card.up { cursor: grab; }
+.sol-instant .sol-card, .sol-card.dragging { transition: none; }
+.sol-card.dragging { cursor: grabbing; }
+.sol-inner { position: absolute; inset: 0; transform-style: preserve-3d; transition: transform .36s cubic-bezier(.3,.7,.3,1.15); }
+.sol-card.up .sol-inner { transform: rotateY(180deg); }
+.sol-instant .sol-inner { transition: none; }
+.sol-card.dragging .sol-inner { transform: rotateY(180deg) scale(1.045); transition: transform .12s; }
+.sol-front, .sol-back {
+  position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: calc(var(--cw) * .075);
+  -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  box-shadow: 0 1px 2px rgba(0,0,0,.35), 0 0 0 .5px rgba(0,0,0,.12);
+  transition: box-shadow .2s;
+}
+.sol-front { transform: rotateY(180deg); }
+.sol-back { background: #2a8fe0 var(--sol-back) center / 100% 100% no-repeat; }
+.sol-card.dragging .sol-front { box-shadow: 0 16px 28px rgba(0,0,0,.36), 0 4px 8px rgba(0,0,0,.25); }
+.sol-card.hint .sol-front, .sol-card.hint .sol-back { box-shadow: 0 0 0 2px #fff, 0 0 18px 6px rgba(120,210,255,.95); animation: sol-hint .6s ease-in-out infinite alternate; }
+.sol-card.hint-dst .sol-front, .sol-slot.hint-dst { box-shadow: 0 0 0 2px #fff6c2, 0 0 18px 6px rgba(255,214,46,.9); }
+.sol-card.drop-ok .sol-front, .sol-slot.drop-ok { box-shadow: 0 0 0 2px #ffffff, 0 0 16px 5px rgba(143,224,90,.95); }
+@keyframes sol-hint { to { filter: brightness(1.12); } }
+.sol-cascade { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 40; cursor: pointer; }
+.sol-skip { position: absolute; left: 50%; bottom: 12px; z-index: 41; transform: translateX(-50%); pointer-events: none; padding: 4px 14px; border-radius: 999px; background: rgba(0,20,10,.4); color: #fff; font-size: 12px; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); animation: sol-skip 1s ease-out both 1.5s; }
+@keyframes sol-skip { from { opacity: 0; } }
+.sol-status-tip { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sol-status .ae-status-cell { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sol-backs { grid-template-columns: repeat(4, 1fr); }
+.sol-back-preview { display: block; width: 62px; height: 87px; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,.3); }
+.sol-felts { grid-template-columns: repeat(4, 1fr); }
+.sol-felt-swatch { display: block; width: 76px; height: 50px; border-radius: 8px; box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 2px 5px rgba(0,0,0,.3); }
+.sol-card.sol-buried { visibility: hidden; }

@@ -138,7 +138,7 @@
 }
 .pt-panel { position: relative; display: flex; align-items: stretch; height: 100%; padding: 3px 2px 0; overflow: hidden; }
 .pt-panel[hidden] { display: none !important; }
-.pt-group { position: relative; flex: none; display: flex; flex-direction: column; padding: 0 5px; }
+.pt-group { position: relative; flex: none; display: flex; flex-direction: column; padding: 0 4px; }
 .pt-group + .pt-group::before {
   content: ""; position: absolute; left: 0; top: 4px; bottom: 5px; width: 1px;
   background: linear-gradient(to bottom, transparent, var(--pt-line) 18%, var(--pt-line) 82%, transparent);
@@ -210,8 +210,8 @@
 }
 .pt-small img { width: 16px; height: 16px; flex: none; }
 .pt-small .pt-caret { margin-left: 1px; }
-.pt-panel.pt-c1 .pt-small .pt-sl { display: none; }
-.pt-panel.pt-c1 .pt-small { padding: 0 4px; }
+.pt-panel.pt-c1 [data-g="clipboard"] .pt-small .pt-sl, .pt-panel.pt-c1 [data-g="image"] .pt-small .pt-sl, .pt-panel.pt-c2 .pt-shapeopts .pt-sl { display: none; }
+.pt-panel.pt-c1 [data-g="clipboard"] .pt-small, .pt-panel.pt-c1 [data-g="image"] .pt-small, .pt-panel.pt-c2 .pt-shapeopts .pt-small { padding: 0 4px; }
 .pt-tools { display: grid; grid-template-columns: repeat(3, 26px); grid-auto-rows: 26px; gap: 2px; }
 .pt-tool { display: grid; place-items: center; width: 26px; height: 26px; }
 .pt-tool img { width: 20px; height: 20px; }
@@ -230,6 +230,8 @@
 .pt-shp img { width: 18px; height: 18px; }
 .pt-gal-grid .pt-shp:nth-child(n+25) { display: none; }
 .pt-panel.pt-c2 .pt-gal-grid .pt-shp:nth-child(n+19) { display: none; }
+[data-theme="dark"] .pt-shp img, [data-theme="dark"] .pt-big[aria-label="Size"] img { filter: invert(1) hue-rotate(180deg) brightness(1.15) saturate(1.2); }
+[data-theme="dark"] .pt-gal { background: color-mix(in srgb, var(--surface-sunken) 70%, transparent); }
 .pt-gmore { width: 14px; margin-left: 2px; display: grid; place-items: center; border-left: 1px solid var(--divider) !important; border-radius: 0 2px 2px 0; }
 .pt-gmore .pt-caret { margin: 0; }
 .pt-shapeopts { display: flex; flex-direction: column; gap: 2px; }

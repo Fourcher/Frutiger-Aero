@@ -388,6 +388,8 @@
     return 'generic';
   }
 
+  // The shared VFS names a couple of types after a real product; keep the UI original.
+  const typeNameOf = (p) => String(fs.typeName(p) || '').replace(/^Windows Media /, 'Media ');
   function vfsItem(st) {
     const isFolder = st.type === 'folder';
     const it = {
@@ -395,7 +397,7 @@
       kind: isFolder ? 'folder' : 'file',
       name: isFolder ? st.name : labelFor(st.name), fullName: st.name,
       icon: fs.iconFor(st.path), thumb: isFolder ? null : fs.thumbFor(st.path),
-      ext: st.ext, size: st.size, modified: st.modified, typeName: fs.typeName(st.path),
+      ext: st.ext, size: st.size, modified: st.modified, typeName: typeNameOf(st.path),
       readonly: st.readonly, meta: st.meta, shortcut: st.ext === 'lnk',
     };
     if (it.shortcut) {
@@ -784,7 +786,7 @@
       if (it.shortcut) rows.push(['Target:', it.target ? prettyPath(it.target) : String(fs.read(path) || '').replace(/^app:/, '') + '.exe']);
       rows.push('-', ['Location:', it.recycled ? 'Recycle Bin' : prettyPath(fs.dirname(path))], ['Size:', bytesLong(size)], ['Size on disk:', bytesLong(onDisk)], '-');
       if (it.recycled) rows.push(['Original location:', prettyPath(it.origin ? fs.dirname(it.origin) : '')], ['Date deleted:', fmtDT(it.deleted)]);
-      rows.push(['Modified:', fmtDT(st && st.modified)], ['Accessed:', A.util.fmtLongDate(new Date()) + ', ' + A.util.fmtTime(new Date())]);
+      rows.push(['Modified:', fmtDT(st && st.modified)], ['Accessed:', 'Today, ' + A.util.fmtTime(new Date())]);
     } else {
       rows.push(['Type:', it.typeName || 'System Folder']);
       if (it.size) rows.push(['Size:', bytesLong(it.size)]);
@@ -1356,7 +1358,7 @@
     A.util.drag(splitter, {
       threshold: 0,
       onStart: () => { splitter.startW = navW; splitter.classList.add('dragging'); },
-      onMove: (e, dx) => { navW = clamp(splitter.startW + dx, 140, Math.min(360, win.body.clientWidth - 260)); navEl.style.width = navW + 'px'; layoutList(); fitCrumbs(); },
+      onMove: (e, dx) => { navW = clamp(splitter.startW + dx, 140, Math.min(360, win.body.clientWidth - 260)); navEl.style.width = navW + 'px'; layoutList(); fitCrumbs(); applyColWidths(); },
       onEnd: () => { splitter.classList.remove('dragging'); A.store.set('explorer.navWidth', navW); },
     });
 
@@ -1384,7 +1386,7 @@
         { separator: true },
         { label: 'Layout', submenu: [
           { label: 'Details Pane', checked: detailsOn, onClick: () => { detailsOn = !detailsOn; A.store.set('explorer.detailsPane', detailsOn); applyPanes(); renderDetails(); layoutList(); } },
-          { label: 'Navigation Pane', checked: navOn, onClick: () => { navOn = !navOn; A.store.set('explorer.navPane', navOn); applyPanes(); layoutList(); fitCrumbs(); } },
+          { label: 'Navigation Pane', checked: navOn, onClick: () => { navOn = !navOn; A.store.set('explorer.navPane', navOn); applyPanes(); layoutList(); fitCrumbs(); applyColWidths(); } },
         ] },
         { label: 'Folder and Search Options', icon: 'icons/settings', onClick: () => folderOptions(win) },
         { separator: true },
@@ -1478,9 +1480,11 @@
       const btns = [];
       const tool = (label, icon, onClick, tip) => h('button.ae-tool', { type: 'button', onclick: onClick, 'data-tip': tip || null }, icon ? A.img(icon) : null, label);
       if (L.kind === 'recycle') {
+        const none = !fs.recycleCount();
         btns.push(tool('Empty the Recycle Bin', 'icons/trash', () => emptyBin(win), 'Permanently delete everything in the Recycle Bin'));
         if (list.length) btns.push(tool(list.length === 1 ? 'Restore this item' : 'Restore the selected items', 'icons/sync', () => restoreItems(list)));
         else btns.push(tool('Restore all items', 'icons/sync', restoreAll, 'Put everything back where it came from'));
+        if (none) btns.forEach((b) => (b.disabled = true));
       } else if (L.kind === 'computer') {
         btns.push(tool('System properties', 'icons/computer', () => A.apps.launch('system')));
         btns.push(tool('Uninstall or change a program', 'icons/settings', () => jokes.uninstall(win)));
@@ -1596,13 +1600,30 @@
       itemsEl.style.gridTemplateRows = `repeat(${rows}, 22px)`;
     }
     function colWidth(id) { return clamp(view.widths[id] || COLS[id].width, 40, 600); }
+    // Default widths shrink the Name column so every column fits, until you size them yourself.
+    function applyColWidths() {
+      if (!view || view.mode !== 'details') return;
+      const cols = L.columns;
+      const w = {};
+      cols.forEach((id) => (w[id] = colWidth(id)));
+      const avail = content.clientWidth - 18;
+      const sum = () => cols.reduce((a, id) => a + w[id], 0);
+      if (!view.widths.name && sum() > avail && avail > 0) w.name = Math.max(150, w.name - (sum() - avail));
+      const auto = cols.filter((id) => id !== 'name' && !view.widths[id]);
+      if (auto.length && sum() > avail && avail > 0) {
+        const room = auto.reduce((a, id) => a + w[id] - 64, 0);
+        const cut = Math.min(room, sum() - avail);
+        auto.forEach((id) => (w[id] = Math.round(w[id] - (cut * (w[id] - 64)) / (room || 1))));
+      }
+      content.style.setProperty('--ex-cols', cols.map((id) => w[id] + 'px').join(' '));
+      content.style.setProperty('--ex-cols-w', cols.reduce((a, id) => a + w[id], 0) + 12 + 'px');
+    }
     function renderColHead() {
       const on = view.mode === 'details';
       colHead.hidden = !on;
       if (!on) return;
       const cols = L.columns;
-      content.style.setProperty('--ex-cols', cols.map((id) => colWidth(id) + 'px').join(' '));
-      content.style.setProperty('--ex-cols-w', cols.reduce((a, id) => a + colWidth(id), 0) + 12 + 'px');
+      applyColWidths();
       colHead.replaceChildren(...cols.map((id) => {
         const c = COLS[id];
         const sorted = view.sort.key === id;
@@ -1613,8 +1634,8 @@
         let startW = 0;
         A.util.drag(grip, {
           threshold: 0,
-          onStart: () => { startW = colWidth(id); },
-          onMove: (e, dx) => { view.widths[id] = clamp(Math.round(startW + dx), 40, 600); content.style.setProperty('--ex-cols', cols.map((k) => colWidth(k) + 'px').join(' ')); content.style.setProperty('--ex-cols-w', cols.reduce((a, k) => a + colWidth(k), 0) + 12 + 'px'); },
+          onStart: () => { startW = cell.getBoundingClientRect().width; if (id !== 'name' && !view.widths.name) view.widths.name = Math.round(colHead.firstChild.getBoundingClientRect().width); },
+          onMove: (e, dx) => { view.widths[id] = clamp(Math.round(startW + dx), 40, 600); applyColWidths(); },
           onEnd: () => saveView(L, view),
         });
         grip.addEventListener('dblclick', (e) => { e.stopPropagation(); delete view.widths[id]; renderContent(true); saveView(L, view); });
@@ -2596,7 +2617,7 @@
     setTimeout(() => { if (!closed && !win.el.contains(document.activeElement) || document.activeElement === win.el) content.focus({ preventScroll: true }); }, 60);
 
     return {
-      onResize() { layoutList(); fitCrumbs(); fitCommands(); },
+      onResize() { layoutList(); fitCrumbs(); fitCommands(); applyColWidths(); },
       onClose() {
         closed = true;
         cleanups.forEach((off) => { try { off(); } catch (e) { /* ignore */ } });

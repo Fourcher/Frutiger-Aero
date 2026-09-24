@@ -79,6 +79,14 @@
     bg.addColorStop(0, '#ffffff'); bg.addColorStop(0.62, '#f6f9fc'); bg.addColorStop(1, '#e3ecf5');
     c.fillStyle = bg; c.fill();
     c.lineWidth = 3; c.strokeStyle = '#8391a0'; c.stroke();
+    // soft glossy sheen on the card stock, under the ink so ranks stay crisp
+    c.save();
+    rr(c, 2, 2, 246, 346, 18); c.clip();
+    const sh = c.createLinearGradient(0, 0, 0, 150);
+    sh.addColorStop(0, 'rgba(220,238,252,.55)'); sh.addColorStop(1, 'rgba(220,238,252,0)');
+    c.fillStyle = sh;
+    c.beginPath(); c.moveTo(0, 0); c.lineTo(250, 0); c.lineTo(250, 96); c.quadraticCurveTo(125, 138, 0, 96); c.closePath(); c.fill();
+    c.restore();
     const label = RANKS[rank];
     const txt = (x, y, rot) => {
       c.save(); c.translate(x, y); if (rot) c.rotate(Math.PI); if (label === '10') c.scale(0.76, 1);
@@ -92,13 +100,11 @@
     if (rank === 1) drawAce(c, suit);
     else if (rank > 10) drawCourt(c, suit, rank);
     else LAYOUT[rank].forEach(([x, y]) => drawPip(c, suit, x, y, rank <= 3 ? 56 : rank >= 9 ? 46 : 50, y > 176));
-    // soft glossy sheen over the upper half
+    // a thin bright edge along the top, like light catching laminated card
     c.save();
     rr(c, 2, 2, 246, 346, 18); c.clip();
-    const sh = c.createLinearGradient(0, 0, 0, 160);
-    sh.addColorStop(0, 'rgba(255,255,255,.5)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
-    c.fillStyle = sh;
-    c.beginPath(); c.moveTo(0, 0); c.lineTo(250, 0); c.lineTo(250, 104); c.quadraticCurveTo(125, 146, 0, 104); c.closePath(); c.fill();
+    c.strokeStyle = 'rgba(255,255,255,.9)'; c.lineWidth = 3;
+    c.beginPath(); c.moveTo(20, 5.5); c.lineTo(230, 5.5); c.stroke();
     c.restore();
   }
 
@@ -412,7 +418,7 @@
       // ---------------------------------------------------------- state
       const cards = [];
       let stock = [], waste = [], found = [[], [], [], []], tab = [[], [], [], [], [], [], []];
-      let score = 0, moves = 0, passes = 0, started = false, over = false, busy = false, penaltyAt = 0;
+      let score = 0, moves = 0, passes = 0, started = false, over = false, busy = false, penaltyAt = 0, penalties = 0;
       let history = [];
       let geo = null;
       let drag = null;
@@ -424,6 +430,7 @@
         timeEl.textContent = K.fmt(s);
         if (opts.timed && opts.scoring === 'standard' && started && !over && s > 0 && s % 10 === 0 && s !== penaltyAt) {
           penaltyAt = s;
+          penalties += 2;
           score = Math.max(0, score - 2);
           updateStatus();
         }
@@ -532,7 +539,7 @@
       function positions() {
         const g = geo, out = [];
         let z = 1;
-        stock.forEach((c, i) => out.push([c, g.colX(0) + Math.min(i, 12) * -0.0, g.top - Math.floor(i / 8) * 1, z++]));
+        stock.forEach((c, i) => { const d = Math.max(0, 2 - (stock.length - 1 - i)); out.push([c, g.colX(0) + d, g.top + d, z++]); });
         const wx = g.colX(1), fan = Math.round(g.cw * 0.24);
         const shown = opts.draw === 3 ? Math.min(3, waste.length) : 1;
         waste.forEach((c, i) => {
@@ -555,22 +562,33 @@
         return out;
       }
 
+      // Cards deep inside a pile are hidden: dozens of stacked edges would darken the rim.
+      function buriedSet() {
+        const out = new Set();
+        stock.slice(0, -3).forEach((c) => out.add(c));
+        waste.slice(0, -(opts.draw === 3 ? 4 : 2)).forEach((c) => out.add(c));
+        found.forEach((p) => p.slice(0, -2).forEach((c) => out.add(c)));
+        return out;
+      }
       function render() {
         if (!geo) return;
+        const buried = buriedSet();
+        cards.forEach((c) => c.el.classList.toggle('sol-buried', buried.has(c)));
         positions().forEach(([c, x, y, z]) => {
           const moved = c.x !== x || c.y !== y;
           c.x = x; c.y = y;
           if (drag && drag.cards.includes(c)) return;
+          c.z = z;
           if (moved) {
             c.el.style.transform = `translate(${x}px, ${y}px)`;
             if (!table.classList.contains('sol-instant')) {
-              c.el.classList.add('flying');
+              c.flying = true;
+              c.el.style.zIndex = 1000 + z;
               clearTimeout(c.flyT);
-              c.flyT = setTimeout(() => { c.el.classList.remove('flying'); c.el.style.zIndex = c.z; }, 380);
+              c.flyT = setTimeout(() => { c.flying = false; c.el.style.zIndex = c.z; }, 380);
             }
           }
-          c.z = z;
-          if (!c.el.classList.contains('flying')) c.el.style.zIndex = z;
+          if (!c.flying) c.el.style.zIndex = z;
           c.el.classList.toggle('up', c.up);
         });
         stockSlot.classList.toggle('empty', !stock.length);
@@ -600,7 +618,7 @@
         history.push({
           stock: stock.map((c) => c.id), waste: waste.map((c) => c.id),
           found: found.map((p) => p.map((c) => c.id)), tab: tab.map((p) => p.map((c) => [c.id, c.up])),
-          score, moves, passes,
+          score, moves, passes, penalties,
         });
         if (history.length > 400) history.shift();
       }
@@ -609,7 +627,8 @@
         waste = s.waste.map((id) => cards[id]); waste.forEach((c) => { c.up = true; });
         found = s.found.map((p) => p.map((id) => cards[id])); found.forEach((p) => p.forEach((c) => { c.up = true; }));
         tab = s.tab.map((p) => p.map(([id, up]) => { cards[id].up = up; return cards[id]; }));
-        score = s.score; moves = s.moves; passes = s.passes;
+        // Undo never refunds the time penalty that has ticked away since.
+        score = Math.max(0, s.score - (s.penalties != null ? penalties - s.penalties : 0)); moves = s.moves; passes = s.passes;
       }
       function undo() {
         if (!history.length || busy || over) return;
@@ -825,7 +844,7 @@
           d.cards.forEach((cc) => cc.el.classList.remove('dragging'));
           if (tgt) moveCards(d.cards, d.loc, tgt[0], tgt[1]);
           else {
-            d.cards.forEach((cc) => { cc.el.style.transform = `translate(${cc.x}px, ${cc.y}px)`; cc.el.classList.add('flying'); clearTimeout(cc.flyT); cc.flyT = setTimeout(() => { cc.el.classList.remove('flying'); cc.el.style.zIndex = cc.z; }, 380); });
+            d.cards.forEach((cc, i) => { cc.el.style.transform = `translate(${cc.x}px, ${cc.y}px)`; cc.flying = true; cc.el.style.zIndex = 1500 + i; clearTimeout(cc.flyT); cc.flyT = setTimeout(() => { cc.flying = false; cc.el.style.zIndex = cc.z; }, 380); });
             sfx('thud', 0.6);
           }
         };
@@ -909,7 +928,7 @@
         stopCascade();
         clearHint();
         history = [];
-        score = 0; moves = 0; passes = 0; penaltyAt = 0; started = false; over = false; busy = false; hintIdx = 0;
+        score = 0; moves = 0; passes = 0; penaltyAt = 0; penalties = 0; started = false; over = false; busy = false; hintIdx = 0;
         timer.reset();
         timeEl.textContent = '0:00';
         shuffleDeck();
@@ -920,7 +939,7 @@
         table.classList.add('sol-instant');
         const all = cards.slice();
         const wanted = new Map(positions().map(([c, x, y, z]) => [c, [x, y, z]]));
-        all.forEach((c) => { c.el.classList.remove('up', 'flying'); c.x = geo.colX(0); c.y = geo.top; c.el.style.transform = `translate(${c.x}px, ${c.y}px)`; c.el.style.zIndex = 1; });
+        all.forEach((c) => { c.el.classList.remove('up', 'sol-buried'); c.flying = false; clearTimeout(c.flyT); c.x = geo.colX(0); c.y = geo.top; c.el.style.transform = `translate(${c.x}px, ${c.y}px)`; c.el.style.zIndex = 1; });
         void table.offsetWidth;
         table.classList.remove('sol-instant');
         snd('shuffle');
@@ -945,8 +964,6 @@
           render();
           void table.offsetWidth;
           table.classList.remove('sol-instant');
-          // flip the top cards with a little lift
-          tab.forEach((col) => { const t = top(col); t.el.classList.remove('up'); void t.el.offsetWidth; t.el.classList.add('up'); });
         }, 120 + k * 45 + 320);
       }
 
@@ -987,6 +1004,7 @@
       // The famous bouncing cards: gravity, damped bounces and trails that stay.
       function runCascade(done) {
         stopCascade();
+        cards.forEach((c) => c.el.classList.remove('sol-buried'));
         const cv = h('canvas.sol-cascade', { 'aria-hidden': 'true' });
         stage.appendChild(cv);
         const W = stage.clientWidth, H = stage.clientHeight, dpr = K.dpr();
