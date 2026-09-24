@@ -71,6 +71,22 @@
     x.clearRect(0, 0, w, h);
     return s;
   }
+  // Readbacks go through CPU-backed canvases so the GPU document canvas is
+  // never asked for getImageData repeatedly.
+  const cpuPool = {};
+  function readback(src, x, y, w, h, slot) {
+    w = Math.max(1, Math.ceil(w)); h = Math.max(1, Math.ceil(h));
+    slot = slot || 'main';
+    let s = cpuPool[slot];
+    if (!s || s.c.width < w || s.c.height < h) {
+      const c = document.createElement('canvas');
+      c.width = Math.max(w, s ? s.c.width : 1); c.height = Math.max(h, s ? s.c.height : 1);
+      s = cpuPool[slot] = { c, x: c.getContext('2d', { willReadFrequently: true }) };
+    }
+    s.x.clearRect(0, 0, w, h);
+    s.x.drawImage(src, x, y, w, h, 0, 0, w, h);
+    return s.x.getImageData(0, 0, w, h);
+  }
   function canvas(w, h) {
     const c = document.createElement('canvas');
     c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
@@ -301,8 +317,8 @@
     x.globalAlpha = 1;
     x.globalCompositeOperation = 'source-over';
     const halo = x.createRadialGradient(cx, cy, 0, cx, cy, R * 1.05);
-    halo.addColorStop(0, rgba(lighten(color, 0.35), 0.55));
-    halo.addColorStop(0.45, rgba(color, 0.22));
+    halo.addColorStop(0, rgba(lighten(color, 0.25), 0.6));
+    halo.addColorStop(0.45, rgba(color, 0.28));
     halo.addColorStop(1, rgba(color, 0));
     x.fillStyle = halo;
     x.beginPath();
@@ -319,8 +335,9 @@
     };
     const g = x.createRadialGradient(cx, cy, 0, cx, cy, R);
     g.addColorStop(0, '#ffffff');
-    g.addColorStop(0.35, lighten(color, 0.55));
-    g.addColorStop(1, rgba(color, 0.9));
+    g.addColorStop(0.22, lighten(color, 0.4));
+    g.addColorStop(0.6, color);
+    g.addColorStop(1, darken(color, 0.12));
     x.fillStyle = g;
     star(R, R * 0.13, rot);
     x.globalAlpha = 0.8;
@@ -699,7 +716,7 @@
     x0 = clamp(x0, 0, W); y0 = clamp(y0, 0, H); x1 = clamp(x1, 0, W); y1 = clamp(y1, 0, H);
     const w = x1 - x0, h = y1 - y0;
     if (w <= 0 || h <= 0) return;
-    const img = s.ctx.getImageData(x0, y0, w, h), d = img.data;
+    const img = readback(s.ctx.canvas, x0, y0, w, h, 'recolor'), d = img.data;
     const from = parse(s.color), to = parse(s.color2), tol = 48;
     const seen = new Uint8Array(w * h);
     pts.forEach((p) => {
@@ -822,9 +839,15 @@
   }
   function shapeD(sp) {
     const kind = (SHAPE[sp.id] || {}).kind;
-    if (kind === 'line') return `M${f(sp.pts[0].x)} ${f(sp.pts[0].y)} L${f(sp.pts[1].x)} ${f(sp.pts[1].y)}`;
+    if (kind === 'line') {
+      if (!sp.pts || sp.pts.length < 2) return null;
+      return `M${f(sp.pts[0].x)} ${f(sp.pts[0].y)} L${f(sp.pts[1].x)} ${f(sp.pts[1].y)}`;
+    }
     if (kind === 'curve') {
-      const [a, b, c, d] = sp.pts;
+      const p = sp.pts || [];
+      if (p.length < 2) return null;
+      const a = p[0], d = p[p.length - 1];
+      const b = p.length >= 4 ? p[1] : a, c = p.length >= 4 ? p[2] : d;
       return `M${f(a.x)} ${f(a.y)} C${f(b.x)} ${f(b.y)} ${f(c.x)} ${f(c.y)} ${f(d.x)} ${f(d.y)}`;
     }
     if (kind === 'poly') {
@@ -1121,5 +1144,6 @@
     stickerSprite,
     texture,
     canvas,
+    readback,
   };
 })();

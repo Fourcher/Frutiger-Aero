@@ -371,7 +371,7 @@
       },
     };
     function outside(e) { if (!el.contains(e.target) && !anchor.contains(e.target) && !(e.target.closest && e.target.closest('.ae-menu'))) handle.close(); }
-    function esc(e) { if (e.key === 'Escape') handle.close(); }
+    function esc(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); handle.close(); } }
     setTimeout(() => { document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
     return handle;
   };

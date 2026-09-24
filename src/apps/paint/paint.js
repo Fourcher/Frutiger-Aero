@@ -356,6 +356,7 @@
 
     // ---------------------------------------------------------------- View tab
     const chkGrid = A.ui.checkbox({ label: 'Gridlines', checked: st.grid, onChange: (v) => setGrid(v) });
+    chkGrid.setAttribute('data-tip', 'Show a pixel grid when you zoom to 400% or closer (Ctrl+G).');
     const chkStatus = A.ui.checkbox({ label: 'Status bar', checked: st.statusOn, onChange: (v) => setStatusBar(v) });
     const gZoom = group('zoom', 'Zoom', () => ic('zoomin'), [
       bigBtn({ label: 'Zoom in', lines: ['Zoom', h('br'), 'in'], icon: ic('zoomin'), tipTitle: 'Zoom in (Ctrl+Page Up)', tip: 'Get a closer look.', onClick: () => setZoom(stepZoom(st.zoom, 1)) }),
@@ -564,7 +565,7 @@
     function pickBrush(id) {
       st.brush = id;
       store('brush', id);
-      if (st.tool !== 'brush') setTool('brush'); else setTool('brush');
+      setTool('brush');
     }
 
     // ================================================================ document size, zoom, layout
@@ -920,6 +921,7 @@
         if (ws.dataset.cursor !== 'none') ws.dataset.cursor = 'none';
       } else {
         ring.hidden = true;
+        if (ws.dataset.cursor === 'none' && st.tool !== 'sticker') ws.dataset.cursor = toolCursor();
       }
       if (st.tool === 'sticker' && !op) drawGhost(x, y);
       if (st.tool === 'picker') showLoupe(e, x, y, inside);
@@ -931,9 +933,12 @@
         }
       }
     }
-    function updateCursor() {
+    function toolCursor() {
       const map = { pencil: 'pencil', fill: 'fill', picker: 'picker', zoom: 'zoom', text: 'text', select: 'cross', shape: 'cross', sticker: 'none', brush: 'cross', eraser: 'cross' };
-      ws.dataset.cursor = map[st.tool] || 'cross';
+      return map[st.tool] || 'cross';
+    }
+    function updateCursor() {
+      ws.dataset.cursor = toolCursor();
       if (st.tool !== 'sticker') clearGhost();
       ring.hidden = true;
     }
@@ -958,8 +963,7 @@
     }
     function showLoupe(e, x, y, inside) {
       if (!inside) { hideLoupe(); return; }
-      const d = dctx.getImageData(Math.floor(x), Math.floor(y), 1, 1).data;
-      const c = C.hex(d[0], d[1], d[2]);
+      const c = pixelAt(Math.floor(x), Math.floor(y));
       const wr = ws.getBoundingClientRect();
       loupe.hidden = false;
       loupe.firstChild.style.setProperty('--c', c);
@@ -968,6 +972,10 @@
       loupe.style.top = (e.clientY - wr.top + ws.scrollTop + 18) + 'px';
     }
     function hideLoupe() { loupe.hidden = true; }
+    function pixelAt(x, y) {
+      const d = E.readback(doc, x, y, 1, 1, 'probe').data;
+      return C.hex(d[0], d[1], d[2]);
+    }
 
     // ================================================================ brush strokes
     let lastBubble = 0, lastTwinkle = 0;
@@ -1039,7 +1047,7 @@
       const x = Math.floor(p.x), y = Math.floor(p.y);
       if (x < 0 || y < 0 || x >= W || y >= H) return;
       const color = btn === 2 ? st.color2 : st.color1;
-      const img = dctx.getImageData(0, 0, W, H);
+      const img = E.readback(doc, 0, 0, W, H, 'fill');
       const box = E.floodFill(img, x, y, color, 40);
       if (!box) return;
       dctx.putImageData(img, 0, 0, box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0);
@@ -1052,8 +1060,7 @@
       const pick = (q) => {
         const x = Math.floor(q.x), y = Math.floor(q.y);
         if (x < 0 || y < 0 || x >= W || y >= H) return;
-        const d = dctx.getImageData(x, y, 1, 1).data;
-        setColor(n, C.hex(d[0], d[1], d[2]), true);
+        setColor(n, pixelAt(x, y), true);
       };
       pick(p);
       return {
@@ -1152,6 +1159,7 @@
           if (Math.hypot(pt[0] - last[0], pt[1] - last[1]) < 1) return;
           pts.push(pt);
           drawAnts(selBox, pts.map(([x, y]) => [x * st.zoom, y * st.zoom]), false, 0, 0);
+          placeHandles(selHandles, 0, 0, false);
           selBox.hidden = false;
           selBox.style.left = '0px';
           selBox.style.top = '0px';
@@ -1693,15 +1701,14 @@
       if (!pend || pend.building) { pendBox.hidden = true; return; }
       const z = st.zoom, b = pendBBox();
       const pointMode = pend.kind === 'line' || pend.kind === 'curve';
-      const pad = pointMode ? 0 : Math.ceil(sizeOf('shape') / 2) * 0;
       pendBox.hidden = false;
-      Object.assign(pendBox.style, { left: (b.x0 - pad) * z + 'px', top: (b.y0 - pad) * z + 'px', width: Math.max(1, (b.x1 - b.x0 + pad * 2) * z) + 'px', height: Math.max(1, (b.y1 - b.y0 + pad * 2) * z) + 'px' });
+      Object.assign(pendBox.style, { left: b.x0 * z + 'px', top: b.y0 * z + 'px', width: Math.max(1, (b.x1 - b.x0) * z) + 'px', height: Math.max(1, (b.y1 - b.y0) * z) + 'px' });
       pendFrame.hidden = pointMode;
-      placeHandles(pendHandles, (b.x1 - b.x0 + pad * 2) * z, (b.y1 - b.y0 + pad * 2) * z, !pointMode);
+      placeHandles(pendHandles, (b.x1 - b.x0) * z, (b.y1 - b.y0) * z, !pointMode);
       pointHandles.forEach((el, i) => {
         const p = pointMode && pend.pts[i];
         el.hidden = !p;
-        if (p) { el.style.left = (p.x - b.x0 + pad) * z + 'px'; el.style.top = (p.y - b.y0 + pad) * z + 'px'; }
+        if (p) { el.style.left = (p.x - b.x0) * z + 'px'; el.style.top = (p.y - b.y0) * z + 'px'; }
       });
     }
 
@@ -1743,7 +1750,7 @@
       const el = h('div.pt-textbox', null, ta);
       docspace.appendChild(el);
       tbox = { x: box.x, y: box.y, w: box.w, h: box.h, minH: box.h, el, ta };
-      ta.addEventListener('input', () => { autoGrow(); A.sound.play('type', { minGap: 20 }); });
+      ta.addEventListener('input', autoGrow);
       ta.addEventListener('keydown', (e) => {
         const k = e.key.toLowerCase();
         if ((e.ctrlKey || e.metaKey) && (k === 'b' || k === 'i' || k === 'u')) {
@@ -1817,6 +1824,7 @@
     });
     textFrame.appendChild(h('div.pt-box-frame'));
     function positionText() {
+      updateStatus();
       if (!tbox) { textFrame.hidden = true; return; }
       const z = st.zoom;
       Object.assign(tbox.el.style, { left: tbox.x + 'px', top: tbox.y + 'px', width: tbox.w + 'px', height: tbox.h + 'px' });
@@ -2152,7 +2160,7 @@
       x.drawImage(img, 0, 0, w, hh);
       return c;
     }
-    function resetDocument(c) {
+    function resetDocument(c, fit) {
       op = null;
       pend = null;
       pendDirty = null;
@@ -2173,7 +2181,7 @@
       ws.scrollLeft = 0;
       ws.scrollTop = 0;
       const aw = ws.clientWidth - PAD - 30, ah = ws.clientHeight - PAD - 30;
-      if (aw > 0 && ah > 0 && (W > aw || H > ah) && Math.min(aw / W, ah / H) < 0.9) fitToWindow(false);
+      if (fit && aw > 0 && ah > 0 && Math.min(aw / W, ah / H) < 0.75) fitToWindow(false);
       updateZoomUI();
       afterChange();
     }
@@ -2193,7 +2201,7 @@
         return false;
       }
       if (closed) return false;
-      resetDocument(c);
+      resetDocument(c, true);
       path = p;
       savedId = stateId();
       rememberRecent(p);
@@ -2303,6 +2311,8 @@
       rememberRecent(p);
       A.apps.rememberRecentFile(p);
       afterChange();
+      // Re-saving the picture that is already the wallpaper updates the desktop too.
+      if (A.store.get('wallpaper') === 'file:' + p && A.theme.refreshWallpaper) A.theme.refreshWallpaper();
       return true;
     }
     function download() {
@@ -2653,10 +2663,11 @@
     function fullScreen() {
       commitTransient();
       const vw = window.innerWidth, vh = window.innerHeight;
-      const k = Math.min(1, (vw - 80) / W, (vh * 0.7) / H);
+      const k = Math.min(1, (vw - 80) / W, (vh * 0.66) / H);
       const w = Math.max(1, Math.round(W * k)), hh = Math.max(1, Math.round(H * k));
       const mkCopy = (cls) => { const c = E.canvas(W, H); c.getContext('2d').drawImage(doc, 0, 0); c.style.width = w + 'px'; c.style.height = hh + 'px'; if (cls) c.className = cls; return c; };
-      const el = h('div.pt-full', { role: 'dialog', 'aria-label': 'Full screen view', tabIndex: -1 }, h('div.pt-full-inner', null, mkCopy(), mkCopy('pt-full-refl')), h('div.pt-full-hint', null, 'Click anywhere or press any key to go back'));
+      const refl = h('div.pt-full-reflwrap', { style: { width: w + 'px', height: Math.round(hh * 0.3) + 'px' } }, mkCopy('pt-full-refl'));
+      const el = h('div.pt-full', { role: 'dialog', 'aria-label': 'Full screen view', tabIndex: -1 }, h('div.pt-full-inner', null, mkCopy(), refl), h('div.pt-full-hint', null, 'Click anywhere or press any key to go back'));
       const close = () => { el.remove(); document.removeEventListener('keydown', key, true); A.sound.play('whooshOut'); ws.focus({ preventScroll: true }); };
       const key = (e) => { e.preventDefault(); e.stopPropagation(); close(); };
       el.addEventListener('pointerdown', close);
@@ -2670,7 +2681,6 @@
       chkGrid.checked = st.grid;
       store('grid', st.grid);
       layout();
-      if (st.grid && st.zoom < 4) A.notify && null;
     }
     function setStatusBar(on) {
       st.statusOn = !!on;

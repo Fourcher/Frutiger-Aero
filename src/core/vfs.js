@@ -132,6 +132,18 @@
       if (!ok) A.bus.emit('fs:full');
     }, 150);
   }
+  // Saves immediately; used for big writes so a full disk is reported to
+  // the caller (as a thrown error) instead of breaking a later batch.
+  function flush() {
+    clearTimeout(saveTimer);
+    return A.store.set(KEY, root);
+  }
+  const BIG = 32 * 1024;
+  function diskFull() {
+    const err = new Error('There is not enough space on the disk. Aerium keeps your files in this browser, which only has a little room. Delete a few pictures, then try again.');
+    err.code = 'ENOSPC';
+    return err;
+  }
 
   // ------------------------------------------------------------ paths
   function normalize(p) {
@@ -201,8 +213,14 @@
       const existing = parent.c[name];
       if (existing && existing.t === 'd') throw new Error('A folder with that name already exists.');
       if (existing && existing.ro) throw new Error('This file is read-only.');
+      const prevM = parent.m;
       parent.c[name] = file(data, { mime: opts.mime || (existing && existing.mime) || '', sz: typeof data === 'string' ? (data.startsWith('data:') ? Math.floor(data.length * 0.74) : data.length) : 0 });
       parent.m = now();
+      if (typeof data === 'string' && data.length > BIG && !flush()) {
+        if (existing) parent.c[name] = existing; else delete parent.c[name];
+        parent.m = prevM;
+        throw diskFull();
+      }
       changed(p, existing ? 'modify' : 'create');
       return p;
     },
@@ -251,6 +269,10 @@
       const name = fs.uniqueName(destDir, basename(p), true);
       dest.c[name] = JSON.parse(JSON.stringify(node));
       delete dest.c[name].ro;
+      if ((node.t === 'd' ? folderSize(node) : node.sz || 0) > BIG && !flush()) {
+        delete dest.c[name];
+        throw diskFull();
+      }
       changed(join(destDir, name), 'create');
       return join(destDir, name);
     },
@@ -337,6 +359,17 @@
     capacity: 160 * 1024 * 1024 * 1024,
     used() {
       return 38.2 * 1024 * 1024 * 1024 + folderSize(root);
+    },
+    // Roughly how many bytes of real browser storage are left for files.
+    room() {
+      let used = 0;
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          used += k.length + (localStorage.getItem(k) || '').length;
+        }
+      } catch (e) { return Infinity; }
+      return Math.max(0, 4.8e6 - used);
     },
     reset() { root = defaultTree(); save(); A.bus.emit('fs:change', { path: '/', type: 'reset', dir: '/' }); },
     on(fn) { return A.bus.on('fs:change', fn); },

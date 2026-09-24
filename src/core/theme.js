@@ -227,7 +227,11 @@
         current.layer.className = 'wp-layer wp-fit-' + fit;
         return;
       }
-      if (current && current.id === id) return;
+      if (current && current.id === id) {
+        // The same picture file may have been re-saved, so read it again.
+        if (String(id).startsWith('file:')) theme.refreshWallpaper();
+        return;
+      }
       mountWallpaper(id);
     },
     refreshWallpaper() {
