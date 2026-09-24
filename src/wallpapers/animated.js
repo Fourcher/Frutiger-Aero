@@ -307,10 +307,12 @@
   });
 
   // ------------------------------------------------------------ Horizon waves (month-colored)
+  // [bottom glow, top] per month, after the console menu that changed color
+  // with the calendar, kept rich so no month turns muddy.
   const MONTH_COLORS = [
-    ['#bda57a', '#6b5230'], ['#8ea35a', '#3f6a2a'], ['#e89bb8', '#b0507a'], ['#b8c4c8', '#5f8a6a'],
-    ['#c8a8d8', '#7a4a9a'], ['#8fd3ff', '#0e7a8a'], ['#3aa6f5', '#0b2f73'], ['#9a6ad8', '#4a1a8a'],
-    ['#9a3a4a', '#bda57a'], ['#b87333', '#5a3218'], ['#ce2029', '#6a0c10'], ['#e0b0ff', '#9aa6b4'],
+    ['#e0c48a', '#6a4a22'], ['#a8c05a', '#2f5e22'], ['#f4a6c6', '#a8406e'], ['#c6d8cf', '#3f7a58'],
+    ['#d4b0e6', '#6a3a92'], ['#9adcff', '#0a6e86'], ['#4ab0ff', '#08286a'], ['#a878ea', '#3e1484'],
+    ['#d0506a', '#4e1024'], ['#e08a44', '#5a2c12'], ['#e8404a', '#5e0a12'], ['#e4c0ff', '#6e6aa8'],
   ];
   const waves = scene({
     setup(st) {
@@ -328,6 +330,11 @@
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
+      // a soft glow where the ribbons cross
+      const glow = ctx.createRadialGradient(W * 0.5, H * 0.6, 0, W * 0.5, H * 0.6, Math.max(W, H) * 0.55);
+      glow.addColorStop(0, `rgba(255,255,255,${0.1 + bright * 0.06})`);
+      glow.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = glow; ctx.fillRect(0, 0, W, H);
       const layers = [[30, 0.16, 1], [20, 0.12, 1.6], [12, 0.1, 2.3]];
       layers.forEach(([period, a, k], li) => {
         ctx.beginPath();
