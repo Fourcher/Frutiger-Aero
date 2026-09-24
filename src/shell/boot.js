@@ -38,7 +38,7 @@
         btn,
         h('div.bs-power-text', null, msg || 'Press the power button to start'),
         h('div.bs-power-sub', null, 'A Frutiger Aero playground. Best with the sound on.')),
-      h('button.bs-skip', { type: 'button', onclick: () => { A.sound.unlock(); boot.login(true); } }, 'Skip startup'));
+      h('button.bs-skip', { type: 'button', onclick: () => { A.sound.unlock(); boot.login(); } }, 'Skip startup'));
     const go = () => {
       A.sound.unlock();
       btn.classList.add('on');

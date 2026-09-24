@@ -27,7 +27,7 @@
 
   const THEMES = {
     light: { id: 'light', name: 'Aerium', desc: 'Daylight glass over clear skies and green hills.', glass: 'sky', wallpaper: 'aquarium' },
-    dark: { id: 'dark', name: 'Aerium Night', desc: 'Dark Aero: smoked glass, navy skies and aurora glow.', glass: 'twilight', wallpaper: 'aurora-live' },
+    dark: { id: 'dark', name: 'Aerium Night', desc: 'Dark Aero: smoked glass, navy skies and a moonlit fish tank.', glass: 'twilight', wallpaper: 'aquarium' },
     technozen: { id: 'technozen', name: 'Technozen', desc: 'White, calm and rounded, like a living-room console.', glass: 'frost', wallpaper: 'technozen-live' },
   };
 

@@ -609,5 +609,33 @@
     });
   };
 
+  // Permission prompt: the screen dims and a single question asks for consent.
+  // ui.uac({ program, publisher, verified }) resolves true for Yes.
+  ui.uac = function (o = {}) {
+    return new Promise((resolve) => {
+      const verified = o.verified !== false;
+      const overlay = h('div.ae-uac-dim');
+      const yes = ui.button('Yes', { tone: 'aqua' });
+      const no = ui.button('No', { default: true });
+      const box = h('div.ae-uac', { role: 'alertdialog', 'aria-label': 'Permission' },
+        h('div.ae-uac-band', { class: verified ? 'ok' : 'unknown' }, A.img('icons/defender'), h('span', null, 'Do you want to let this program make changes to your computer?')),
+        h('div.ae-uac-body', null,
+          h('div.ae-uac-prog', null, A.img(o.icon || 'icons/settings'), h('div', null,
+            h('div', null, h('span.ae-muted', null, 'Program name: '), o.program || 'Aerium'),
+            h('div', null, h('span.ae-muted', null, 'Verified publisher: '), verified ? (o.publisher || 'Aerium Playground') : 'Unknown'),
+            h('div', null, h('span.ae-muted', null, 'File origin: '), 'Hard drive on this computer')))),
+        h('div.ae-uac-foot', null, h('button.ae-link', { type: 'button', onclick: (e) => { e.target.textContent = 'It is all just for fun. Nothing here can change your real computer.'; } }, 'Show details'), h('span', { style: { flex: 1 } }), yes, no));
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('on'));
+      A.sound.play('exclamation');
+      const done = (v) => { overlay.classList.remove('on'); setTimeout(() => overlay.remove(), 300); resolve(v); };
+      yes.addEventListener('click', () => done(true));
+      no.addEventListener('click', () => done(false));
+      overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
+      setTimeout(() => no.focus(), 50);
+    });
+  };
+
   A.ui = ui;
 })();

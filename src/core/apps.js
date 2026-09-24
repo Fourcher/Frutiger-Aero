@@ -41,6 +41,9 @@
         return null;
       }
       rememberRecent(def.id);
+      document.documentElement.classList.add('ae-launching');
+      clearTimeout(apps._busyT);
+      apps._busyT = setTimeout(() => document.documentElement.classList.remove('ae-launching'), 650);
       if (def.single) {
         const existing = A.wm.byApp(def.id)[0];
         if (existing) {
