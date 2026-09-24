@@ -26,6 +26,9 @@ html.ae-large-text body { font-size: 14px; }
   text-shadow: 0 0 3px rgba(0,0,0,.95), 0 1px 2px rgba(0,0,0,.95), 0 1px 5px rgba(0,0,0,.7);
   overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; word-break: break-word;
 }
+[data-wp-ink="dark"] .dk-label { color: #1d2733; text-shadow: 0 0 3px #fff, 0 0 6px rgba(255,255,255,.95), 0 1px 1px rgba(255,255,255,.9); }
+[data-wp-ink="dark"] .dk-icon:hover { background-color: rgba(60,140,220,.12); border-color: rgba(60,140,220,.3); }
+[data-wp-ink="dark"] .dk-icon.selected { background-color: rgba(60,140,220,.2); border-color: rgba(60,140,220,.45); }
 .dk-icon:hover { background-color: rgba(160,210,255,.16); border-color: rgba(210,235,255,.32); }
 .dk-icon.selected { background-color: rgba(120,190,255,.3); border-color: rgba(210,235,255,.58); box-shadow: inset 0 0 0 1px rgba(255,255,255,.12); }
 .dk-icon.selected .dk-label { -webkit-line-clamp: 6; }

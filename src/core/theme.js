@@ -62,9 +62,9 @@
   }
   [
     ['clear-sky', 'Clear Sky', 'light'], ['meadow', 'Meadow', 'light'], ['sunrise', 'Sunrise', 'light'], ['ocean', 'Ocean', 'light'],
-    ['water', 'Underwater', 'light'], ['bokeh-day', 'Bokeh', 'light'], ['vectorgarden', 'Garden', 'light'], ['technozen', 'Pearl', 'technozen'],
+    ['water', 'Underwater', 'light'], ['bokeh-day', 'Bokeh', 'light'], ['vectorgarden', 'Garden', 'light'], ['technozen', 'Pearl', 'technozen', 'dark'],
     ['aurora', 'Aurora', 'dark'], ['bokeh-night', 'Night Lights', 'dark'], ['dark-ribbons', 'Ribbons', 'dark'], ['deep-sea', 'Deep Sea', 'dark'],
-  ].forEach(([id, name, t]) => registerWallpaper({ id, name, group: 'Aerium Wallpapers', kind: 'image', asset: 'imagery/' + id, theme: t }));
+  ].forEach(([id, name, t, ink]) => registerWallpaper({ id, name, group: 'Aerium Wallpapers', kind: 'image', asset: 'imagery/' + id, theme: t, ink }));
 
   let host = null;
   let current = null; // { id, layer, ctrl }
@@ -104,6 +104,8 @@
     }
     const old = current;
     current = { id: def.id, layer, ctrl, def };
+    // Pale wallpapers get dark desktop labels so they stay readable.
+    document.documentElement.dataset.wpInk = def.ink || 'light';
     if (instant || !old) {
       layer.style.opacity = '1';
       if (old) destroyLayer(old);

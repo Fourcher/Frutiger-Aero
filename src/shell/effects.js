@@ -1,9 +1,9 @@
-/* Aerium shell effects: Flip 3D, mouse trails, keyboard shortcuts and the
-   Konami code. */
+/* Aerium shell effects: Flip 3D, mouse trails, keyboard shortcuts, the
+   Konami code and the occasional tray balloon. */
 (function () {
   'use strict';
   const A = window.Aerium;
-  const { h } = A.util;
+  const { h, pick, rand, shuffle } = A.util;
   const effects = {};
 
   // ------------------------------------------------------------ Flip 3D
@@ -192,11 +192,50 @@
     });
   }
 
+  // The family computer was never quite quiet: now and then a balloon pops up
+  // from the tray. Three per session at most, spaced well apart.
+  const AMBIENT = [
+    { icon: 'icons/sync', title: 'Aerium installed 3 updates', text: 'Your fish now blow slightly rounder bubbles.' },
+    { hardware: true },
+    { icon: 'icons/shield', title: 'Your computer might be at risk', text: 'Aerium Defender would like a quick checkup. Click this balloon to fix it.', onClick: () => A.apps.launch('controlpanel', { page: 'security' }) },
+    { icon: 'icons/trash', title: 'Disk Cleanup', text: 'You can free up 4 KB on Local Disk (C:). Click here to see what can be removed.', onClick: () => A.apps.launch('explorer', { path: A.fs.RECYCLE }) },
+    { icon: 'icons/personalize', title: 'Make it yours', text: 'Right-click the desktop and choose Personalize to change the color of your glass.', onClick: () => A.apps.launch('personalize') },
+    { icon: 'icons/droplet', title: 'Hydration check', text: 'This is your computer reminding you to drink a glass of water.' },
+  ];
+  const DEVICES = ['Wireless Fish Tank Thermometer', 'USB Bubble Machine', 'Glossy Optical Mouse', 'AquaCam 2000 Webcam', 'Pocket Music Player', 'Lava Lamp (USB)'];
+  let ambientT = null, ambientCount = 0, ambientDeck = [];
+
+  function hardwareBalloon() {
+    const dev = pick(DEVICES);
+    const first = A.notify({ title: 'Installing device driver software', text: dev, icon: 'icons/computer', timeout: 0 });
+    setTimeout(() => {
+      first.close();
+      A.notify({ title: 'Device driver software installed successfully', text: dev + ' is ready to use.', icon: 'icons/check', sound: false });
+    }, 4200);
+  }
+  function scheduleAmbient(ms) {
+    clearTimeout(ambientT);
+    ambientT = setTimeout(ambientTick, ms);
+  }
+  function ambientTick() {
+    if (!A.shellReady || ambientCount >= 3) return;
+    if (document.hidden || A.screensaver.active || A.boot.onScreen() || document.querySelector('.ae-note')) return scheduleAmbient(60000);
+    if (!ambientDeck.length) ambientDeck = shuffle(AMBIENT.slice());
+    const item = ambientDeck.pop();
+    ambientCount++;
+    if (item.hardware) hardwareBalloon();
+    else A.notify(item);
+    scheduleAmbient(rand(9, 15) * 60000);
+  }
+  effects.ambientTick = ambientTick;
+
   effects.init = function () {
     keys();
     guards();
     setTrails(A.store.get('cursor.trails'));
     A.bus.on('store:cursor.trails', setTrails);
+    A.bus.on('shell:start', () => { if (!ambientT) scheduleAmbient(rand(3, 5) * 60000); });
+    A.bus.on('shell:stop', () => { clearTimeout(ambientT); ambientT = null; });
   };
 
   A.effects = effects;

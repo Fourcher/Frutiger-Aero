@@ -74,8 +74,8 @@
     return { create, thumb };
   }
 
-  function register(id, name, theme, s) {
-    A.theme.registerWallpaper({ id, name, group: 'Aerium Animated', kind: 'animated', animated: true, theme, thumb: s.thumb, create: (host) => s.create(host) });
+  function register(id, name, theme, s, ink) {
+    A.theme.registerWallpaper({ id, name, group: 'Aerium Animated', kind: 'animated', animated: true, theme, ink, thumb: s.thumb, create: (host) => s.create(host) });
   }
 
   // ------------------------------------------------------------ Aurora
@@ -412,7 +412,7 @@
   });
 
   register('aurora-live', 'Aurora Night', 'dark', aurora);
-  register('technozen-live', 'Pearl Room', 'technozen', pearls);
+  register('technozen-live', 'Pearl Room', 'technozen', pearls, 'dark');
   register('sky-live', 'Daydream', 'light', meadow);
   register('wave-live', 'Horizon Waves', null, waves);
   register('bubbles-live', 'Rising Bubbles', 'light', bubbles);

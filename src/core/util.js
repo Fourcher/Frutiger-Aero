@@ -49,7 +49,8 @@
   // h('div.cls#id', {props}, ...children)
   function h(tag, props, ...children) {
     if (props instanceof Node || typeof props === 'string' || Array.isArray(props)) { children.unshift(props); props = null; }
-    const m = /^([a-zA-Z0-9-]*)((?:[.#][\w-]+)*)$/.exec(tag) || ['', tag, ''];
+    // 'div.a b' is read as 'div.a.b' so space-separated classes work too.
+    const m = /^([a-zA-Z0-9-]*)((?:[.#][\w-]+)*)$/.exec(String(tag).trim().replace(/\s+/g, '.')) || ['', tag, ''];
     const el = document.createElement(m[1] || 'div');
     if (m[2]) {
       for (const part of m[2].match(/[.#][\w-]+/g)) {
