@@ -515,7 +515,9 @@
       act.el.style.zIndex = ++wm.z;
       if (act.modalChild) act.modalChild.el.style.zIndex = ++wm.z;
     } else win.focus();
-    if (o.maximized) win.maximize();
+    // On phone-sized screens, big windows open maximized.
+    const small = area().W < 640 && !o.modal && o.maximizable !== false && o.resizable !== false;
+    if (o.maximized || small) win.maximize();
     return win;
   };
 
