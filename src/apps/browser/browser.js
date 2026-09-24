@@ -628,7 +628,9 @@
         sound(name, opts) { if (S.sounds) A.sound.play(name, opts); },
         soundsOn: () => !!S.sounds,
         audio() {
-          if (!S.sounds || !A.sound.ctx || !A.sound.sfx) return null;
+          if (!S.sounds) return null;
+          if (!A.sound.ctx && typeof A.sound.unlock === 'function') { try { A.sound.unlock(); } catch (e) { /* ignore */ } }
+          if (!A.sound.ctx || !A.sound.sfx) return null;
           if (ctx._audio) return ctx._audio;
           const g = A.sound.ctx.createGain();
           g.connect(A.sound.sfx);

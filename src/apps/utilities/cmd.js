@@ -1341,7 +1341,7 @@
         const pre = h('pre.cmd-tank');
         const wrap = overlay(pre, 'Your ASCII aquarium. Press any key to close.');
         const cols = () => Math.max(40, Math.floor(pre.clientWidth / 8.2));
-        const rows = () => Math.max(12, Math.floor(pre.clientHeight / 16));
+        const rows = () => Math.max(12, Math.floor((pre.clientHeight - 30) / 16));
         const RIGHT = [['><>', '#ffd75f'], ['><(((\u00b0>', '#ff8f5f'], ['>=\u00b0>', '#5fd7ff'], ['><((\u00b0>', '#ff5fd7'], ['>))\u00b0>', '#87ff5f']];
         const flip = (s) => s.split('').reverse().map((c) => ({ '>': '<', '<': '>', '(': ')', ')': '(' }[c] || c)).join('');
         let W = cols(), H = rows();

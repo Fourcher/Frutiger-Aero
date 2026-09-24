@@ -188,7 +188,7 @@
 .hz-doc {
   min-height: 100%; display: flex; flex-direction: column;
   zoom: var(--hz-zoom, 1);
-  font: 400 calc(12px * var(--hz-text, 1)) / 1.35 Verdana, Tahoma, Selawik, Selawik, "Segoe UI", sans-serif;
+  font: 400 calc(12px * var(--hz-text, 1)) / 1.35 Verdana, Tahoma, Selawik, "Segoe UI", sans-serif;
   color: #000;
 }
 .hz-doc > * { flex: 1 0 auto; }

@@ -362,6 +362,7 @@
         const glide = o.glide && prevN && Math.abs(prevN.b + prevN.d - nt.b) < 1e-3 ? { from: prevN.m + tr } : null;
         const oo = extra || glide || o.o ? Object.assign({}, o.o, extra, glide) : null;
         this.add(ch, b, m, d, Math.min(1.1, v), oo);
+        if (this.song.audit) { const c = this.chordAt(b); this.song.audit.push({ sec: this.name, ch, bar: Math.floor(b / this.bpb) + 1, beat: +(b % this.bpb).toFixed(2), m, d: nt.d, sym: c.sym, pcs: c.pcs }); }
         if (o.harm) {
           const c = this.chordAt(b);
           this.add(o.harm, b, harmonyBelow(m, c) + 12 * (o.harmOct || 0), d, v * (o.harmVel || 0.7), o.harmO || null);
@@ -1191,7 +1192,7 @@
       const sum = gainNode(ctx, 1), dl = ctx.createDelay(0.05), wet = gainNode(ctx, cfg.chorus), wp = ctx.createStereoPanner();
       dl.delayTime.value = 0.013;
       wp.pan.value = -(cfg.pan || 0) * 1.5 + 0.35;
-      lfo(0.7, 0.0032, dl.delayTime);
+      lfo(0.6, 0.0016, dl.delayTime);
       node.connect(sum);
       node.connect(dl).connect(wet).connect(wp).connect(sum);
       node = sum;
@@ -1619,8 +1620,8 @@
       sub: { inst: 'sub', gain: 0.46, duck: true },
       pad: { inst: 'pad', gain: 0.24, rev: 0.35, duck: true, o: { wave: 'warm', attack: 0.4, release: 0.9, cutoff: 1400, cutoffEnd: 3800, lfo: 0.2 } },
       arp: { inst: 'pluck', gain: 0.3, pan: 0.15, rev: 0.2, dly: 0.22, lp: 5000, duck: true, o: { wave: 'square', cut: 4200, q: 7, decay: 0.11 } },
-      lead: { inst: 'lead', gain: 0.4, pan: 0.02, rev: 0.22, dly: 0.2, o: { wave: 'sawtooth', cut: 5, sq: 0.4 } },
-      bloop: { inst: 'bloop', gain: 0.5, pan: -0.12, rev: 0.25, dly: 0.25 },
+      lead: { inst: 'lead', gain: 0.62, pan: 0.02, rev: 0.22, dly: 0.2, o: { wave: 'sawtooth', cut: 5, sq: 0.4 } },
+      bloop: { inst: 'bloop', gain: 0.6, pan: -0.12, rev: 0.25, dly: 0.25 },
       bub: { inst: 'bubble', gain: 0.36, rev: 0.4, dly: 0.3 },
       crash: { inst: 'crash', gain: 0.32, rev: 0.25, o: { decay: 1.1 } },
       riser: { inst: 'riser', gain: 0.4, rev: 0.3 },
@@ -1742,7 +1743,7 @@
     mix: {
       ep: { inst: 'ep', gain: 0.26, pan: -0.25, rev: 0.16, chorus: 0.5, autopan: 0.12, o: { bright: 1.2 } },
       gtr: { inst: 'gtr', gain: 0.5, pan: 0.32, rev: 0.1 },
-      lead: { inst: 'lead', gain: 0.38, pan: 0.04, rev: 0.25, dly: 0.16, o: { wave: 'square', cut: 3.5, sq: 0.55 } },
+      lead: { inst: 'lead', gain: 0.54, pan: 0.04, rev: 0.25, dly: 0.16, o: { wave: 'square', cut: 3.5, sq: 0.55 } },
       brass: { inst: 'stab', gain: 0.44, pan: -0.05, rev: 0.22 },
       chime: { inst: 'bell', gain: 0.28, pan: 0.2, rev: 0.4, dly: 0.2, o: { ratio: 3.5, index: 1.2, decay: 1.4 } },
       bass: { inst: 'bass', gain: 0.58, o: { bright: 10, slap: true, decay: 0.24, q: 2.6 } },
@@ -2004,8 +2005,8 @@
     id: 'shop', no: 1, title: 'Shop', artist: 'Aerium Sound Team', album: 'Shop', genre: 'Bossa Nova', year: 2006,
     bpm: 138, color: '#7cc8ff', swing: 0.06, tail: 3, gain: 1, loopable: true,
     mix: {
-      ep: { inst: 'ep', gain: 0.28, pan: -0.22, rev: 0.14, chorus: 0.35, o: { bright: 1.1 } },
-      vib: { inst: 'vibes', gain: 0.42, pan: 0.24, rev: 0.2, trem: [5.6, 0.3], o: { damp: true } },
+      ep: { inst: 'ep', gain: 0.34, pan: -0.22, rev: 0.14, chorus: 0.35, o: { bright: 1.1 } },
+      vib: { inst: 'vibes', gain: 0.5, pan: 0.24, rev: 0.2, trem: [5.6, 0.3], o: { damp: true } },
       flute: { inst: 'flute', gain: 0.62, pan: 0.04, rev: 0.24, dly: 0.08, o: { breath: 0.9 } },
       bass: { inst: 'bass', gain: 0.62, o: { bright: 5, sub: 0.9, decay: 0.3 } },
       kick: { inst: 'kick', gain: 0.46, o: { f0: 100, f1: 48, decay: 0.24, click: 0.25 } },
@@ -2497,10 +2498,14 @@
       const ctx = new Off(2, Math.ceil(sr * secs), sr);
       const e = buildEngine(ctx, ctx.destination, { volume: 1 });
       const sess = createSession(e, tr._def, from, { loop: false, at: 0 });
+      const only = o.only ? new Set(o.only) : null;
       // Schedule progressively (like the live scheduler) so the graph stays small.
       let idx = sess.idx;
       const upTo = (t) => {
-        while (idx < C.events.length && C.events[idx].t < from + Math.min(t, secs)) { const ev = C.events[idx++]; trigger(sess, ev, Math.max(0, ev.t - from)); }
+        while (idx < C.events.length && C.events[idx].t < from + Math.min(t, secs)) {
+          const ev = C.events[idx++];
+          if (!only || only.has(ev.ch)) trigger(sess, ev, Math.max(0, ev.t - from));
+        }
       };
       upTo(1.5);
       for (let t = 1; t < secs; t += 1) ctx.suspend(t).then(() => { upTo(t + 1.5); ctx.resume(); });
@@ -2509,6 +2514,15 @@
     _warnings: warnings,
     _errors: voiceErrors,
     _compile: (id) => { const tr = music.getTrack(id); return tr ? compile(tr._def) : null; },
+    // Development aid: written melody notes with the chord under each one.
+    _audit(id) {
+      const tr = music.getTrack(id);
+      if (!tr) return null;
+      const song = new Song(tr._def);
+      song.audit = [];
+      tr._def.write(song);
+      return song.audit;
+    },
   };
   function applyEQ() {
     if (!E) return;

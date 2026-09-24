@@ -556,7 +556,7 @@
   const GEO_UC = `<svg class="web-geo-ucsvg" viewBox="0 0 200 150" aria-label="Under construction"><defs><linearGradient id="geoY" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff27a"/><stop offset="1" stop-color="#f5b400"/></linearGradient><pattern id="geoS" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="20" fill="#111"/><rect x="10" width="10" height="20" fill="#ffd21a"/></pattern></defs>
     <rect x="96" y="70" width="8" height="60" fill="#666"/><g transform="translate(100 56) rotate(45)"><rect x="-38" y="-38" width="76" height="76" rx="7" fill="url(#geoY)" stroke="#222" stroke-width="3"/></g>
     <g fill="#111"><circle cx="92" cy="36" r="5"/><path d="M92 41 L96 58 L102 72 L98 74 L91 60 L86 74 L82 72 L88 57 Z"/><g class="web-geo-shovel"><path d="M94 46 L112 58" stroke="#111" stroke-width="3" stroke-linecap="round"/><path d="M110 54 L120 62 L114 68 Z"/></g><path d="M104 74 Q112 64 120 74 Z"/></g>
-    <rect x="10" y="118" width="180" height="22" rx="3" fill="url(#geoS)" stroke="#222" stroke-width="2"/><rect x="42" y="121" width="116" height="16" fill="#111"/><text x="100" y="133" font-family="Arial Black, Arial" font-weight="900" font-size="11" fill="#ffd21a" text-anchor="middle">UNDER CONSTRUCTION</text></svg>`;
+    <rect x="10" y="118" width="180" height="22" rx="3" fill="url(#geoS)" stroke="#222" stroke-width="2"/><rect x="24" y="121" width="152" height="16" fill="#111"/><text x="100" y="133" font-family="Arial, sans-serif" font-weight="900" font-size="10.5" fill="#ffd21a" text-anchor="middle" textLength="140" lengthAdjust="spacingAndGlyphs">UNDER CONSTRUCTION</text></svg>`;
   const GEO_PAGES = {
     sk8rjake: { title: "Jake's Skate Zone", theme: 'jake', base: 4261 },
     aquagirl88: { title: "~ Aquagirl's Fish Shrine ~", theme: 'aqua', base: 1882 },
@@ -819,7 +819,7 @@
 .web-geo-gbform { max-width: 620px; margin: 0 auto; padding: 10px; border: 3px ridge #6a6aff; background: rgba(10,10,50,.85); }
 .web-geo-gbform td { padding: 3px 6px; vertical-align: top; }
 .web-geo-gbform input, .web-geo-gbform textarea, .web-geo-gbform select { width: 320px; font: 13px Arial, sans-serif; }
-.web-geo-gbform button { font: 13px Arial, sans-serif; padding: 2px 10px; }
+.web-geo-gbform button { font: 13px Arial, sans-serif; padding: 2px 10px; color: #000; }
 .web-geo-gbmsg { color: #ffe34a; font-weight: 700; text-align: center; }
 .web-geo-entries { max-width: 640px; margin: 0 auto; }
 .web-geo-entry { width: 100%; margin-bottom: 8px; border: 2px solid #6a6aff; border-collapse: collapse; }
@@ -957,7 +957,7 @@
     const inner = `<div class="web-fs-dlpage"><h2 class="web-fs-h2">THANK YOU FOR CHOOSING ${esc(name.toUpperCase())}!!!</h2>${fsPreview(id)}
       <p class="web-fs-count">Your download will begin in <b class="web-fs-secs">5</b> seconds...</p>
       <label class="web-fs-toolbar"><input type="checkbox" checked> Also install the FREE Bubble Toolbar (recommended!!!)</label>
-      <p>If your download does not start, <a href="#" class="web-fs-now">click here</a>.</p><p class="web-fs-small">File: ${esc(name)}.txt (${size})</p><p><a href="/">&lt;&lt; Back to more FREE screensavers</a></p></div>`;
+      <p>If your download does not start, <a href="#" class="web-fs-now">click here</a>.</p><p class="web-fs-small">File: ${esc(name)} Screensaver.txt (${size})</p><p><a href="/">&lt;&lt; Back to more FREE screensavers</a></p></div>`;
     const root = ctx.html(fsFrame(inner));
     fsWire(ctx, root);
     const cb = root.querySelector('.web-fs-toolbar input');
@@ -1097,5 +1097,740 @@
 `,
   });
 
-  // @@PART3
+  // ================================================================ www.fishpals.com
+  const FP_SPECIES = {
+    goldfish: { name: 'Goldfish', c1: '#ff9a2e', c2: '#e0560f' },
+    betta: { name: 'Betta', c1: '#6aa8ff', c2: '#3a3ad8', fins: true },
+    guppy: { name: 'Guppy', c1: '#ffd84a', c2: '#35b04a' },
+    clownfish: { name: 'Clownfish', c1: '#ff8a1a', c2: '#d8500a', stripes: true },
+  };
+  const FP_SHOP = [['bubbler', 'Bubble stone', 10, 'icons/bubble'], ['plant', 'Swaying plant', 15, 'icons/leaf'], ['arch', 'Rock arch', 20, 'icons/mountain'], ['chest', 'Treasure chest', 25, 'icons/gift'], ['castle', 'Tiny castle', 30, 'icons/home'], ['diver', 'Deep sea diver', 40, 'icons/user']];
+  function fpLoad(ctx) {
+    const pet = ctx.store.get('fishpals.pet', null);
+    if (!pet) return null;
+    const now = Date.now();
+    const hrs = Math.max(0, (now - (pet.last || now)) / H);
+    pet.hunger = clamp(pet.hunger - hrs * 4, 0, 100);
+    pet.happy = clamp(pet.happy - hrs * 3, 0, 100);
+    pet.clean = clamp(pet.clean - hrs * 2, 0, 100);
+    pet.last = now;
+    pet.daily = false;
+    if ((pet.lastDaily || 0) < K.dayNumber()) { pet.lastDaily = K.dayNumber(); pet.bucks = (pet.bucks || 0) + 10; pet.daily = true; }
+    ctx.store.set('fishpals.pet', pet);
+    return pet;
+  }
+  function fpFrame(ctx, inner) {
+    return `<div class="web-fp"><div class="web-fp-head"><div class="web-fp-wrap web-fp-headrow"><a class="web-fp-logo" href="http://www.fishpals.com/">${K.img('icons/fish', 'web-fp-logoic')}<span>Fish<b>Pals</b></span></a><span class="web-fp-tag">Over 2 million fish adopted! Yours is waiting.</span><nav><a href="/">My tank</a><a href="/shop">Shop</a><a href="/adopt">Adopt</a></nav></div></div><div class="web-fp-wrap web-fp-body">${inner}</div><div class="web-fp-foot">FishPals &copy; 2007. No real fish were hungry in the making of this website.</div></div>`;
+  }
+  function fpMood(p) {
+    const avg = (p.hunger + p.happy + p.clean) / 3;
+    if (p.hunger < 20) return p.name + ' is hungry! Try feeding them.';
+    if (p.clean < 25) return p.name + "'s tank is getting murky. Time to clean!";
+    if (p.happy < 25) return p.name + ' is bored. Play a game together!';
+    if (avg > 80) return p.name + ' is very happy! Look at those fins go.';
+    return p.name + ' is doing fine and blowing little bubbles.';
+  }
+  function fpTank(ctx) {
+    const pet = fpLoad(ctx);
+    if (!pet) return fpLanding(ctx);
+    const sp = FP_SPECIES[pet.species] || FP_SPECIES.goldfish;
+    ctx.title(pet.name + "'s tank - FishPals");
+    const age = Math.max(0, Math.floor((Date.now() - pet.born) / D));
+    const bar = (label, key, cls) => `<div class="web-fp-stat"><span>${label}</span><div class="web-fp-bar ${cls}"><i data-stat="${key}" style="width:${Math.round(pet[key])}%"></i></div></div>`;
+    const inner = `${pet.daily ? `<div class="web-fp-daily">${K.img('icons/star', 'web-fp-dailyic')} Welcome back! You earned <b>10 FishBucks</b> for visiting today.</div>` : ''}
+      <div class="web-fp-tankrow"><div class="web-fp-tankbox"><div class="web-fp-tankhead"><h1>${esc(pet.name)}</h1><span>${esc(sp.name)} &middot; ${age === 0 ? 'born today' : age + ' day' + (age === 1 ? '' : 's') + ' old'}</span></div><div class="web-fp-tank"></div><p class="web-fp-mood">${esc(fpMood(pet))}</p></div>
+      <div class="web-fp-panel">${bar('Full', 'hunger', 'food')}${bar('Happy', 'happy', 'joy')}${bar('Clean', 'clean', 'water')}
+        <div class="web-fp-bucks">${K.img('icons/cart', 'web-fp-bic')}<span><b class="web-fp-bnum">${pet.bucks || 0}</b> FishBucks</span></div>
+        <div class="web-fp-actions"><button type="button" data-a="feed" class="web-fp-btn feed">Feed</button><button type="button" data-a="play" class="web-fp-btn play">Play</button><button type="button" data-a="clean" class="web-fp-btn clean">Clean tank</button><button type="button" data-a="tap" class="web-fp-btn tap">Tap the glass</button></div>
+        <p class="web-fp-links"><a href="/shop">Decorate the tank</a> &middot; <a href="#" class="web-fp-rename">Rename</a> &middot; <a href="#" class="web-fp-release">Start over</a></p></div></div>`;
+    const root = ctx.html(fpFrame(ctx, inner));
+    const cv = ctx.canvas(560, 300, 'web-fp-cv');
+    root.querySelector('.web-fp-tank').appendChild(cv.c);
+    const g = cv.g, TW = 560, TH = 300;
+    const fish = { x: 280, y: 150, tx: 200, ty: 120, dir: 1, speed: 50, dart: 0 };
+    let flakes = [], bubbles = [], toy = null, sparkle = 0, t = 0;
+    const save = () => { pet.last = Date.now(); ctx.store.set('fishpals.pet', pet); };
+    const paintStats = () => {
+      root.querySelectorAll('[data-stat]').forEach((i) => { i.style.width = Math.round(pet[i.dataset.stat]) + '%'; });
+      root.querySelector('.web-fp-mood').textContent = fpMood(pet);
+      root.querySelector('.web-fp-bnum').textContent = pet.bucks || 0;
+    };
+    const earn = () => { pet.bucks = (pet.bucks || 0) + 2; };
+    root.querySelectorAll('[data-a]').forEach((b) => b.addEventListener('click', () => {
+      const a = b.dataset.a;
+      if (a === 'feed') { for (let i = 0; i < 5; i++) flakes.push({ x: 120 + Math.random() * 320, y: -Math.random() * 40, v: 25 + Math.random() * 20, c: ['#ff8a3a', '#ffd23a', '#7ad84a', '#ff6a8a'][i % 4] }); ctx.sound('plop'); earn(); }
+      else if (a === 'play') { toy = { x: 40, y: 60, vx: 140, vy: 90, life: 6 }; ctx.sound('bubble'); earn(); }
+      else if (a === 'clean') { sparkle = 1.2; pet.clean = 100; earn(); ctx.sound('zap'); }
+      else if (a === 'tap') { fish.tx = fish.x < TW / 2 ? TW - 60 : 60; fish.ty = 40 + Math.random() * 200; fish.dart = 0.9; pet.happy = clamp(pet.happy - 4, 0, 100); ctx.sound('click'); ctx.dialog({ title: 'FishPals', icon: 'icons/fish', instruction: 'Please do not tap on the glass!', message: pet.name + ' got a little startled. Fish have very good hearing. (-4 happiness)' }); }
+      save(); paintStats();
+    }));
+    root.querySelector('.web-fp-rename').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const n = await ctx.ask({ title: 'FishPals', message: 'New name for your fish:', value: pet.name });
+      if (n && n.trim()) { pet.name = n.trim().slice(0, 24); save(); ctx.reload(); }
+    });
+    root.querySelector('.web-fp-release').addEventListener('click', (e) => {
+      e.preventDefault();
+      ctx.dialog({ title: 'FishPals', icon: 'question', instruction: 'Start over with a new fish?', message: pet.name + ' will retire to a lovely pond with lots of lily pads and friends. You can adopt a new fish right away.', buttons: [{ label: 'Retire to the pond', value: 'yes' }, { label: 'Keep ' + pet.name, default: true, value: 'no' }] }).then((r) => { if (r === 'yes') { ctx.store.set('fishpals.pet', null); ctx.go('/adopt'); } });
+    });
+    const has = (k) => (pet.decor || []).includes(k);
+    const sandH = 36;
+    ctx.loop((dt) => {
+      t += dt;
+      if (flakes.length) { const f = flakes.reduce((a, b) => (Math.hypot(b.x - fish.x, b.y - fish.y) < Math.hypot(a.x - fish.x, a.y - fish.y) ? b : a)); fish.tx = f.x; fish.ty = f.y; }
+      else if (toy) { fish.tx = toy.x; fish.ty = toy.y; }
+      else if (Math.hypot(fish.tx - fish.x, fish.ty - fish.y) < 12) { fish.tx = 40 + Math.random() * (TW - 80); fish.ty = 30 + Math.random() * (TH - sandH - 70); }
+      const sp2 = fish.dart > 0 ? 240 : flakes.length || toy ? 110 : 45;
+      fish.dart = Math.max(0, fish.dart - dt);
+      const dx = fish.tx - fish.x, dy = fish.ty - fish.y, dd = Math.hypot(dx, dy) || 1;
+      fish.x += (dx / dd) * Math.min(dd, sp2 * dt); fish.y += (dy / dd) * Math.min(dd, sp2 * dt);
+      if (Math.abs(dx) > 2) fish.dir = dx > 0 ? 1 : -1;
+      flakes.forEach((f) => { f.y = Math.min(TH - sandH - 4, f.y + f.v * dt); f.x += Math.sin(t * 3 + f.v) * 10 * dt; });
+      const before = flakes.length;
+      flakes = flakes.filter((f) => Math.hypot(f.x - (fish.x + fish.dir * 16), f.y - fish.y) > 14);
+      if (flakes.length < before) { pet.hunger = clamp(pet.hunger + 6 * (before - flakes.length), 0, 100); ctx.sound('pop'); save(); paintStats(); }
+      if (toy) {
+        toy.x += toy.vx * dt; toy.y += toy.vy * dt; toy.life -= dt;
+        if (toy.x < 12 || toy.x > TW - 12) toy.vx *= -1;
+        if (toy.y < 12 || toy.y > TH - sandH - 12) toy.vy *= -1;
+        if (Math.hypot(toy.x - fish.x, toy.y - fish.y) < 20) { toy.vx = (Math.random() - 0.5) * 300; toy.vy = -Math.abs(toy.vy) - 40; pet.happy = clamp(pet.happy + 4, 0, 100); paintStats(); }
+        if (toy.life <= 0) { toy = null; save(); }
+      }
+      if (Math.random() < dt * (has('bubbler') ? 6 : 0.8)) bubbles.push({ x: has('bubbler') ? 480 + Math.random() * 6 : fish.x + fish.dir * 20, y: has('bubbler') ? TH - sandH : fish.y - 4, r: 1.5 + Math.random() * 3 });
+      bubbles.forEach((b) => { b.y -= 50 * dt; b.x += Math.sin(t * 4 + b.r) * 8 * dt; });
+      bubbles = bubbles.filter((b) => b.y > -10);
+      sparkle = Math.max(0, sparkle - dt);
+      draw();
+    });
+    function draw() {
+      const bg = g.createLinearGradient(0, 0, 0, TH);
+      bg.addColorStop(0, '#8fe0ff'); bg.addColorStop(1, '#1f86c8');
+      g.fillStyle = bg; g.fillRect(0, 0, TW, TH);
+      g.fillStyle = 'rgba(255,255,255,.08)';
+      for (let i = 0; i < 4; i++) { const x = i * 150 + Math.sin(t * 0.4 + i) * 20; g.beginPath(); g.moveTo(x, 0); g.lineTo(x + 40, 0); g.lineTo(x + 110, TH); g.lineTo(x + 60, TH); g.fill(); }
+      g.fillStyle = '#ecd9a6'; g.beginPath(); g.moveTo(0, TH); for (let x = 0; x <= TW; x += 20) g.lineTo(x, TH - sandH + Math.sin(x * 0.04) * 4); g.lineTo(TW, TH); g.fill();
+      g.lineCap = 'round';
+      if (has('plant')) [60, 80, 96].forEach((x, i) => { g.strokeStyle = i % 2 ? '#2f9e3a' : '#4cc23a'; g.lineWidth = 6; g.beginPath(); g.moveTo(x, TH - sandH + 4); g.quadraticCurveTo(x + Math.sin(t + i) * 12, TH - 90, x + Math.sin(t * 1.3 + i) * 16, TH - 140 + i * 16); g.stroke(); });
+      if (has('arch')) { g.fillStyle = '#8a8f9a'; g.beginPath(); g.moveTo(150, TH - sandH + 6); g.quadraticCurveTo(150, TH - 110, 200, TH - 110); g.quadraticCurveTo(250, TH - 110, 250, TH - sandH + 6); g.lineTo(230, TH - sandH + 6); g.quadraticCurveTo(230, TH - 86, 200, TH - 86); g.quadraticCurveTo(170, TH - 86, 170, TH - sandH + 6); g.fill(); }
+      if (has('castle')) { g.fillStyle = '#b8a6d8'; g.fillRect(360, TH - 96, 60, 64); g.fillRect(350, TH - 116, 18, 84); g.fillRect(412, TH - 116, 18, 84); g.fillStyle = '#5a4a7a'; g.beginPath(); g.moveTo(380, TH - 32); g.lineTo(380, TH - 56); g.arc(390, TH - 56, 10, Math.PI, 0); g.lineTo(400, TH - 32); g.fill(); g.fillStyle = '#e04a7a'; g.beginPath(); g.moveTo(359, TH - 132); g.lineTo(359, TH - 118); g.lineTo(372, TH - 125); g.fill(); }
+      if (has('chest')) { g.fillStyle = '#8a5a2a'; g.fillRect(270, TH - 58, 44, 28); g.fillStyle = '#a06c3a'; g.beginPath(); g.ellipse(292, TH - 58, 22, 10, 0, Math.PI, 0); g.fill(); g.fillStyle = '#ffd23a'; g.fillRect(288, TH - 54, 8, 8); if (Math.sin(t * 2) > 0.7) { g.fillStyle = 'rgba(255,240,150,.8)'; g.beginPath(); g.arc(300, TH - 66, 3, 0, Math.PI * 2); g.fill(); } }
+      if (has('diver')) { g.fillStyle = '#c8a04a'; g.beginPath(); g.arc(470, TH - 82, 14, 0, Math.PI * 2); g.fill(); g.fillStyle = '#9fd8ff'; g.beginPath(); g.arc(470, TH - 82, 8, 0, Math.PI * 2); g.fill(); g.fillStyle = '#7a6a5a'; g.fillRect(460, TH - 68, 20, 30); }
+      if (has('bubbler')) { g.fillStyle = '#9aa4ae'; g.beginPath(); g.ellipse(483, TH - sandH + 2, 12, 5, 0, 0, Math.PI * 2); g.fill(); }
+      flakes.forEach((f) => { g.fillStyle = f.c; g.fillRect(f.x - 3, f.y - 2, 6, 4); });
+      if (toy) { glossBall(g, toy.x, toy.y, 10, '#ffb3d9', '#e0457b', '#9a2a5a'); }
+      bubbles.forEach((b) => bubbleRing(g, b.x, b.y, b.r, 0.9));
+      if (sp.fins) { g.save(); g.globalAlpha = 0.6; g.fillStyle = '#5a5ae8'; g.beginPath(); g.moveTo(fish.x - fish.dir * 14, fish.y - 4); g.quadraticCurveTo(fish.x - fish.dir * 40, fish.y - 30 + Math.sin(t * 5) * 6, fish.x - fish.dir * 46, fish.y + 4); g.quadraticCurveTo(fish.x - fish.dir * 40, fish.y + 34 + Math.sin(t * 5) * 6, fish.x - fish.dir * 14, fish.y + 6); g.fill(); g.restore(); }
+      sideFish(g, fish.x, fish.y, 1.15, fish.dir, sp.c1, sp.c2, t * (flakes.length ? 2 : 1));
+      if (sp.stripes) { g.save(); g.strokeStyle = 'rgba(255,255,255,.95)'; g.lineWidth = 4; [-4, 7].forEach((sx) => { g.beginPath(); g.moveTo(fish.x + fish.dir * sx * 1.15, fish.y - 11); g.quadraticCurveTo(fish.x + fish.dir * (sx + 3) * 1.15, fish.y, fish.x + fish.dir * sx * 1.15, fish.y + 11); g.stroke(); }); g.restore(); }
+      const murk = (100 - pet.clean) / 100;
+      if (murk > 0.05) { g.fillStyle = `rgba(90,120,40,${murk * 0.35})`; g.fillRect(0, 0, TW, TH); g.fillStyle = `rgba(60,80,30,${murk * 0.6})`; for (let i = 0; i < 40; i++) { const r = A.util.seeded(i + 3); g.fillRect(r() * TW, r() * TH, 2, 2); } }
+      if (sparkle > 0) { g.fillStyle = `rgba(255,255,255,${sparkle * 0.5})`; g.fillRect(0, 0, TW, TH); for (let i = 0; i < 18; i++) { const r = A.util.seeded(i * 7 + Math.floor(t * 6)); g.fillStyle = '#fff'; const sx = r() * TW, sy = r() * TH; g.beginPath(); g.moveTo(sx, sy - 6); g.lineTo(sx + 2, sy); g.lineTo(sx, sy + 6); g.lineTo(sx - 2, sy); g.fill(); } }
+    }
+  }
+  function fpLanding(ctx) {
+    ctx.title('FishPals - Adopt a virtual fish!');
+    const inner = `<div class="web-fp-hero">${K.img('avatars/avatar-fish', 'web-fp-heroimg')}<div><h1>Adopt a virtual fish!</h1><p>Name it, feed it, play with it and decorate its tank. Your fish remembers you (for months, not three seconds).</p><a class="web-fp-btn feed big" href="/adopt">Adopt a fish now</a></div></div>
+      <div class="web-fp-three"><div>${K.img('icons/heart')}<b>Take care</b><span>Feed, play and clean to keep your fish happy.</span></div><div>${K.img('icons/cart')}<b>Earn FishBucks</b><span>Visit every day and spend them on decorations.</span></div><div>${K.img('icons/users')}<b>Show it off</b><span>Tell all your friends on MySpot about your fish.</span></div></div>`;
+    ctx.html(fpFrame(ctx, inner));
+  }
+  function fpAdopt(ctx) {
+    ctx.title('Adopt a fish - FishPals');
+    let species = 'goldfish';
+    const inner = `<h1 class="web-fp-h1">Adopt a fish</h1><form class="web-fp-adopt"><div class="web-fp-species">${Object.entries(FP_SPECIES).map(([id, sp]) => `<label class="web-fp-sp${id === species ? ' on' : ''}"><input type="radio" name="sp" value="${id}" ${id === species ? 'checked' : ''}><span class="web-fp-swatch" style="--c1:${sp.c1};--c2:${sp.c2}"></span>${sp.name}</label>`).join('')}</div>
+      <label class="web-fp-name">Name your fish: <input name="n" type="text" maxlength="24" value="Mr. Bubbles"></label><button type="submit" class="web-fp-btn feed big">Adopt!</button></form>`;
+    const root = ctx.html(fpFrame(ctx, inner));
+    root.querySelectorAll('.web-fp-sp input').forEach((i) => i.addEventListener('change', () => { species = i.value; root.querySelectorAll('.web-fp-sp').forEach((l) => l.classList.toggle('on', l.contains(i))); }));
+    root.querySelector('.web-fp-adopt').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = e.target.n.value.trim() || 'Mr. Bubbles';
+      ctx.store.set('fishpals.pet', { name: name.slice(0, 24), species, born: Date.now(), hunger: 70, happy: 80, clean: 100, last: Date.now(), bucks: 20, decor: [], lastDaily: K.dayNumber() });
+      ctx.sound('win');
+      A.notify({ title: 'Welcome home, ' + name + '!', text: 'Your new fish is swimming in its tank at FishPals.', icon: 'icons/fish' });
+      ctx.go('/');
+    });
+  }
+  function fpShop(ctx) {
+    const pet = fpLoad(ctx);
+    ctx.title('FishPals Shop');
+    if (!pet) { ctx.html(fpFrame(ctx, '<h1 class="web-fp-h1">FishPals Shop</h1><p>You need a fish before you can decorate a tank! <a href="/adopt">Adopt one now</a>.</p>')); return; }
+    const inner = `<h1 class="web-fp-h1">FishPals Shop</h1><p class="web-fp-shopbucks">You have <b class="web-fp-bnum">${pet.bucks || 0}</b> FishBucks. Earn more by visiting every day and taking care of ${esc(pet.name)}.</p><div class="web-fp-shop">${FP_SHOP.map(([id, n, price, ic]) => `<div class="web-fp-item">${K.img(ic)}<b>${esc(n)}</b><span>${price} FishBucks</span>${(pet.decor || []).includes(id) ? '<em>In your tank!</em>' : `<button type="button" class="web-fp-btn clean" data-buy="${id}">Buy</button>`}</div>`).join('')}</div><p><a href="/">&laquo; Back to ${esc(pet.name)}'s tank</a></p>`;
+    const root = ctx.html(fpFrame(ctx, inner));
+    root.querySelectorAll('[data-buy]').forEach((b) => b.addEventListener('click', () => {
+      const item = FP_SHOP.find((x) => x[0] === b.dataset.buy);
+      const p = ctx.store.get('fishpals.pet', null);
+      if (!p || !item) return;
+      if ((p.bucks || 0) < item[2]) { ctx.dialog({ title: 'FishPals Shop', icon: 'icons/cart', instruction: 'Not enough FishBucks', message: 'You need ' + item[2] + ' FishBucks for the ' + item[1].toLowerCase() + '. Visit tomorrow for 10 more!' }); return; }
+      p.bucks -= item[2];
+      p.decor = (p.decor || []).concat([item[0]]);
+      ctx.store.set('fishpals.pet', p);
+      ctx.sound('coin');
+      ctx.reload();
+    }));
+  }
+  W.register({
+    id: 'fishpals', host: 'www.fishpals.com', aliases: ['fishpals.com'],
+    title: 'FishPals - Adopt a virtual fish!', shortTitle: 'FishPals', icon: 'icons/fish',
+    favicon: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7.3" fill="#8fe0ff" stroke="#1f86c8"/><path d="M3.5 8 C5 5 9 5 11 8 C9 11 5 11 3.5 8 Z" fill="#ff9a2e"/><path d="M11 8 L14 5.8 L14 10.2 Z" fill="#e0560f"/><circle cx="5.6" cy="7.4" r=".8" fill="#111"/></svg>',
+    pages: [{ path: '/', title: 'FishPals - Adopt a virtual fish!', text: 'adopt a virtual fish pet goldfish betta guppy clownfish feed play clean tank FishBucks decorations shop' }, { path: '/adopt', title: 'Adopt a fish - FishPals', text: 'adopt name your fish goldfish betta guppy clownfish' }, { path: '/shop', title: 'FishPals Shop', text: 'shop decorations castle treasure chest diver plant rock arch bubble stone FishBucks' }],
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length || p[0] === 'tank') return fpTank(ctx);
+      if (p[0] === 'adopt') return fpAdopt(ctx);
+      if (p[0] === 'shop') return fpShop(ctx);
+      return ctx.notFound();
+    },
+    css: `
+.web-fp { min-height: 100%; background: #e8f9ff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Ccircle cx='20' cy='30' r='8' fill='none' stroke='%23bfeaff'/%3E%3Ccircle cx='90' cy='90' r='12' fill='none' stroke='%23c8eeff'/%3E%3Ccircle cx='80' cy='20' r='4' fill='none' stroke='%23bfeaff'/%3E%3C/svg%3E"); color: #1d3a56; font: calc(13px * var(--hz-text, 1))/1.45 "Trebuchet MS", "Comic Sans MS", Verdana, sans-serif; }
+.web-fp a { color: #0a7fc2; }
+.web-fp-wrap { width: 900px; margin: 0 auto; }
+.web-fp-head { background: linear-gradient(to bottom, #6fd0f7, #1fa0d8); border-bottom: 3px solid #0a7fb8; }
+.web-fp-headrow { display: flex; align-items: center; gap: 20px; height: 70px; }
+.web-fp-logo { display: flex; align-items: center; gap: 6px; text-decoration: none !important; font: 900 2.2em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; color: #fff !important; text-shadow: 0 2px 0 #0a6a9a; }
+.web-fp-logo b { color: #ffe34a; }
+.web-fp-logoic { width: 52px; height: 52px; animation: web-fp-bob 2.5s ease-in-out infinite; }
+@keyframes web-fp-bob { 50% { transform: translateY(-5px) rotate(-6deg); } }
+.web-fp-tag { color: #eaffff; flex: 1; font-weight: 700; }
+.web-fp-head nav a { margin-left: 8px; padding: 5px 12px; border-radius: 14px; color: #0a5a8a !important; font-weight: 700; text-decoration: none; background: linear-gradient(#fff, #d6f3ff); }
+.web-fp-body { padding: 16px 0 24px; }
+.web-fp-daily { display: flex; align-items: center; gap: 8px; padding: 8px 12px; margin-bottom: 12px; border-radius: 10px; background: #fffbe0; border: 2px solid #f5c400; }
+.web-fp-dailyic { width: 28px; height: 28px; }
+.web-fp-tankrow { display: flex; gap: 18px; }
+.web-fp-tankbox { padding: 12px; border-radius: 16px; background: #fff; border: 3px solid #8fd8f5; box-shadow: 0 6px 16px rgba(0,90,140,.15); }
+.web-fp-tankhead { display: flex; align-items: baseline; gap: 12px; }
+.web-fp-tankhead h1 { margin: 0 0 6px; color: #0a7fc2; font-size: 1.7em; }
+.web-fp-tank { line-height: 0; border-radius: 10px; overflow: hidden; border: 6px solid #3a4a5a; box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+.web-fp-mood { margin: 8px 0 0; font-weight: 700; color: #2a6a9a; }
+.web-fp-panel { flex: 1; padding: 14px; border-radius: 16px; background: #fff; border: 3px solid #8fd8f5; }
+.web-fp-stat { display: grid; grid-template-columns: 50px 1fr; align-items: center; gap: 8px; margin-bottom: 10px; font-weight: 700; }
+.web-fp-bar { height: 16px; border-radius: 8px; background: #e3f2f9; border: 1px solid #9cc6da; overflow: hidden; }
+.web-fp-bar i { display: block; height: 100%; border-radius: 8px; transition: width .4s; }
+.web-fp-bar.food i { background: linear-gradient(#ffd6a0, #f08a12 50%, #d86a00 52%, #f5a030); }
+.web-fp-bar.joy i { background: linear-gradient(#ffc2e0, #e0457b 50%, #c02a60 52%, #ea6a9a); }
+.web-fp-bar.water i { background: linear-gradient(#bff4ff, #1fb4d8 50%, #0a8ab0 52%, #3ac4e4); }
+.web-fp-bucks { display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 8px; border-radius: 10px; background: #f0fbff; }
+.web-fp-bic { width: 32px; height: 32px; }
+.web-fp-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.web-fp-btn { display: inline-block; padding: 8px 12px; border-radius: 20px; cursor: pointer; font: 700 1em "Trebuchet MS", sans-serif; text-decoration: none !important; color: #fff !important; text-shadow: 0 1px 1px rgba(0,0,0,.3); border: 1px solid rgba(0,0,0,.25); box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 4px rgba(0,60,100,.2); }
+.web-fp-btn.feed { background: linear-gradient(#ffd6a0, #f08a12 50%, #d86a00 52%, #f5a030); }
+.web-fp-btn.play { background: linear-gradient(#ffc2e0, #e0457b 50%, #c02a60 52%, #ea6a9a); }
+.web-fp-btn.clean { background: linear-gradient(#bff4ff, #1fb4d8 50%, #0a8ab0 52%, #3ac4e4); }
+.web-fp-btn.tap { background: linear-gradient(#e0e6ea, #8a98a6 50%, #6a7a88 52%, #9aa8b6); }
+.web-fp-btn.big { font-size: 1.25em; padding: 10px 24px; }
+.web-fp-btn:hover { filter: brightness(1.08); }
+.web-fp-links { margin: 12px 0 0; font-size: .92em; }
+.web-fp-hero { display: flex; gap: 24px; align-items: center; padding: 24px; border-radius: 18px; background: #fff; border: 3px solid #8fd8f5; }
+.web-fp-heroimg { width: 150px; height: 150px; }
+.web-fp-hero h1 { margin: 0 0 8px; color: #0a7fc2; font-size: 2.2em; }
+.web-fp-three { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
+.web-fp-three div { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding: 14px; border-radius: 14px; background: #fff; border: 2px solid #c8eefc; }
+.web-fp-three img { width: 48px; height: 48px; }
+.web-fp-h1 { color: #0a7fc2; font-size: 2em; margin: 0 0 12px; }
+.web-fp-adopt { padding: 18px; border-radius: 16px; background: #fff; border: 3px solid #8fd8f5; }
+.web-fp-species { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.web-fp-sp { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px; border-radius: 14px; border: 2px solid #c8eefc; cursor: pointer; font-weight: 700; }
+.web-fp-sp.on { border-color: #1fa0d8; background: #e8f9ff; }
+.web-fp-sp input { position: absolute; opacity: 0; pointer-events: none; }
+.web-fp-swatch { width: 70px; height: 40px; border-radius: 50% 40% 40% 50%; background: linear-gradient(var(--c1), var(--c2)); box-shadow: inset 0 3px 6px rgba(255,255,255,.6); }
+.web-fp-name { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-weight: 700; }
+.web-fp-name input { font: inherit; padding: 6px 10px; border-radius: 8px; border: 2px solid #9cc6da; }
+.web-fp-shop { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+.web-fp-item { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 14px; border-radius: 14px; background: #fff; border: 2px solid #c8eefc; }
+.web-fp-item img { width: 48px; height: 48px; }
+.web-fp-item em { color: #2f9e2f; font-weight: 700; font-style: normal; }
+.web-fp-foot { text-align: center; color: #6a8aa0; padding: 12px 0 20px; font-size: .9em; }
+`,
+  });
+
+  // ================================================================ forums.aerofans.net
+  const AF_USERS = {
+    bubbleboy: { avatar: 'icons/bubble', rank: 'Glass Enthusiast', posts: 412, joined: 'Mar 2006', loc: 'Aerium City', sig: ['I LOVE SKY GLASS', '#74B8FC'] },
+    limelight: { avatar: 'avatars/avatar-leaf', rank: 'Aero Veteran', posts: 1893, joined: 'Nov 2005', loc: 'Sunnyvale Heights', sig: ['LIME GLASS 4 LIFE', '#97D937'] },
+    aqua_amy: { avatar: 'avatars/avatar-dolphin', rank: 'Bubble Master', posts: 977, joined: 'Jan 2006', loc: 'Crystal Bay', sig: ['~*~ sea glass ~*~', '#32CDCD'] },
+    TwilightTim: { avatar: 'avatars/avatar-globe', rank: 'Moderator', posts: 5021, joined: 'Aug 2005', loc: 'Glass Harbor', sig: ['MODERATOR - be nice!', '#0046AD'], mod: true },
+    frost_bite: { avatar: 'icons/snow', rank: 'Bubble Newbie', posts: 23, joined: 'Sep 2007', loc: 'Maple Falls', sig: ['frost = clean desktop', '#9aa8b6'] },
+    kayla_xo: { avatar: 'avatars/avatar-flower', rank: 'Glass Enthusiast', posts: 301, joined: 'Feb 2007', loc: 'Sunnyvale Heights', sig: ['FUCHSIA IS A LIFESTYLE', '#FF0099'] },
+    screensaver_sam: { avatar: 'icons/monitor', rank: 'Aero Veteran', posts: 2250, joined: 'Oct 2005', loc: 'Bubbleton', sig: ['bubbles screensaver fan club', '#1fb4d8'] },
+    sunny_d: { avatar: 'avatars/avatar-sun', rank: 'Glass Enthusiast', posts: 188, joined: 'May 2007', loc: 'Seaside Heights', sig: ['SUN GLASS = HAPPY GLASS', '#FADC0E'] },
+  };
+  const AF_POLL = [['sky', 'Sky', 212], ['lime', 'Lime', 188], ['sea', 'Sea', 131], ['twilight', 'Twilight', 97], ['fuchsia', 'Fuchsia', 76], ['frost', 'Frost', 54], ['sun', 'Sun', 49]];
+  const AF_TOPICS = {
+    1: { forum: 'glass', title: "What's your favorite glass color?? (POLL)", views: 8211, poll: true, posts: [
+      ['bubbleboy', 5 * D, "Ok everyone, the eternal question. What glass color do you use and WHY. I'll start: <b>Sky</b>. It's the default for a reason. It looks like the actual sky. Vote in the poll!!"],
+      ['limelight', 5 * D - 3 * H, '<div class="web-af-quote"><b>bubbleboy wrote:</b><br>It\'s the default for a reason.</div>The reason is that people are afraid of change. <b>LIME</b>. Full intensity. Transparency on. You will never go back.'],
+      ['aqua_amy', 4 * D, 'Sea glass over the underwater wallpaper is basically the best combo in the history of computers. I will not be taking questions.'],
+      ['TwilightTim', 4 * D - 5 * H, 'Twilight at around 70% intensity, dark theme, aurora wallpaper. Very calm. <br><br><i>Reminder: be nice in this thread. Last time someone called Frost "boring" and it got out of hand.</i>'],
+      ['frost_bite', 3 * D, 'Frost is not boring. Frost is <i>clean</i>. My desktop has three icons and they are perfectly aligned.'],
+      ['kayla_xo', 2 * D, 'fuchsia!!!!!!! with glitter wallpaper. i took a quiz that said i was lime but i dont care. <a href="http://www.quizbubble.com/">take it here</a>'],
+      ['screensaver_sam', D, 'Whatever color you pick, make sure the Bubbles screensaver is on. The glass color tints the bubbles. (It does not. But it feels like it does.)'],
+      ['sunny_d', 9 * H, 'SUN. it makes everything feel like summer vacation. also it matches my notebook.'],
+    ] },
+    2: { forum: 'desktops', title: 'Post your desktop!!! (56k warning)', views: 12045, posts: [
+      ['screensaver_sam', 6 * D, 'Show us your desktops! Here is mine: <br>[[imagery/aurora]]<br>Aurora wallpaper, Twilight glass, clock gadget. Classic.'],
+      ['aqua_amy', 6 * D - 2 * H, 'Underwater all the way.<br>[[imagery/water]]'],
+      ['limelight', 5 * D, 'meadow + lime glass = best combo<br>[[imagery/meadow]]'],
+      ['bubbleboy', 3 * D, 'Mine is the fish tank one. The betta follows my mouse. His name is Captain Bubbles.'],
+      ['frost_bite', D, '[[imagery/technozen]]<br>Three icons. Perfectly aligned. As promised.'],
+    ] },
+    3: { forum: 'web', title: 'Is Frutiger Aero coming back?', views: 3301, posts: [
+      ['TwilightTim', 8 * D, 'Serious question. Everything is starting to look flat. Are glossy buttons and bubbles going away?'],
+      ['limelight', 8 * D - 4 * H, 'Nothing lasts forever, but I think people will miss it. Gloss makes technology feel friendly. One day someone will build a whole pretend computer just to feel this way again.'],
+      ['aqua_amy', 7 * D, 'There is an encyclopedia article about it now: <a href="http://www.aeropedia.org/wiki/Frutiger_Aero">Frutiger Aero on Aeropedia</a>. When you have an encyclopedia article, you are forever.'],
+      ['screensaver_sam', 2 * D, 'As long as there are bubbles, there is hope.'],
+    ] },
+    4: { forum: 'glass', title: 'HELP my glass turned beige', views: 977, posts: [
+      ['sunny_d', 2 * D, 'I opened my computer this morning and all my windows are BEIGE. What happened?? I did not change anything!!!'],
+      ['TwilightTim', 2 * D - H, 'Did you ignore a chain e-mail? "Send this to 10 people or your glass turns beige"?'],
+      ['sunny_d', 2 * D - 50 * 60000, '...maybe'],
+      ['limelight', 2 * D - 40 * 60000, 'Right-click the desktop, Personalize, pick a new glass color. Also: chain e-mails are not real. The beige was probably the Taupe swatch.'],
+      ['sunny_d', D, 'IT WORKED. back to sun glass. thank u all. i will never doubt the glass again'],
+    ] },
+  };
+  const AF_FORUMS = [
+    ['General', [['news', 'Announcements', 'Forum news and rules. Please read before posting!', []], ['chat', 'General Chat', 'Talk about anything. Be nice!', []]]],
+    ['Glass & Themes', [['glass', 'Glass colors', 'Sky vs Lime vs everything else', [1, 4]], ['desktops', 'Wallpapers & Desktops', 'Show off your desktop', [2]]]],
+    ['The Web', [['web', 'Web & Design', 'Glossy buttons, reflections, starbursts and more', [3]]]],
+  ];
+  const afStamp = (ms) => { const d = new Date(Date.now() - ms); return A.util.DAYS[d.getDay()].slice(0, 3) + ' ' + K.shortDate(d) + ' ' + A.util.fmtTime(d); };
+  function afPostBody(html) { return html.replace(/\[\[([\w/-]+)\]\]/g, (m, k) => K.img(k, 'web-af-shot', 'desktop screenshot')); }
+  function afFrame(ctx, crumbs, inner) {
+    return `<div class="web-af"><div class="web-af-wrap"><div class="web-af-head"><a class="web-af-logo" href="http://forums.aerofans.net/">${K.img('icons/aerium', 'web-af-logoic')}<span>AeroFans<small>Community Forums</small></span></a><div class="web-af-user">Logged in as <b>${esc(ctx.user().name)}</b> | <a href="#" class="web-af-joke">Profile</a> | <a href="#" class="web-af-joke">Private messages (0)</a></div></div>
+      <div class="web-af-crumbs"><a href="http://forums.aerofans.net/">AeroFans Forum Index</a>${crumbs}</div>${inner}
+      <div class="web-af-online"><b>Who is online</b><br>In total there are <b>${3 + (K.dayNumber() % 5)}</b> users online :: 2 registered, 0 hidden and ${40 + (K.dayNumber() % 20)} guests<br>Most users ever online was 214 on Sat Mar 3, 2007</div>
+      <div class="web-af-foot">Powered by BubbleBB &copy; 2007. Glossy theme by limelight.</div></div></div>`;
+  }
+  function afWire(ctx, root) { root.querySelectorAll('.web-af-joke').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ctx.dialog({ title: 'AeroFans', icon: 'icons/chat', message: 'This part of the forum is being moved to a new server. Please do not double post.' }); })); }
+  function afIndex(ctx) {
+    ctx.title('AeroFans Community Forums - Index');
+    const inner = AF_FORUMS.map(([cat, forums]) => `<table class="web-af-table"><tr><th class="web-af-cat" colspan="4">${esc(cat)}</th></tr><tr class="web-af-sub"><td>Forum</td><td>Topics</td><td>Posts</td><td>Last post</td></tr>${forums.map(([id, name, desc, topics]) => {
+      const posts = topics.reduce((n, t) => n + AF_TOPICS[t].posts.length + ctx.store.get('aerofans.replies.' + t, []).length, 0);
+      const last = topics.length ? AF_TOPICS[topics[0]] : null;
+      return `<tr><td class="web-af-forum">${K.img(topics.length ? 'icons/chat' : 'icons/document', 'web-af-ficon')}<div><a href="/viewforum?f=${id}"><b>${esc(name)}</b></a><br><small>${esc(desc)}</small></div></td><td>${topics.length || (id === 'news' ? 1 : 0)}</td><td>${posts || (id === 'news' ? 1 : 0)}</td><td><small>${last ? `<a href="/viewtopic?t=${topics[0]}">${esc(last.title.slice(0, 26))}...</a><br>by ${esc(last.posts[last.posts.length - 1][0])}` : id === 'news' ? 'Forum rules<br>by TwilightTim' : 'No posts'}</small></td></tr>`;
+    }).join('')}</table>`).join('');
+    afWire(ctx, ctx.html(afFrame(ctx, '', inner)));
+  }
+  function afForum(ctx, id) {
+    const f = AF_FORUMS.flatMap((c) => c[1]).find((x) => x[0] === id);
+    if (!f) return ctx.notFound();
+    ctx.title(f[1] + ' - AeroFans');
+    const topics = f[3];
+    const rows = id === 'news' ? '<tr><td><b>Forum rules: be nice, no double posting, glossy avatars only</b><br><small>by TwilightTim</small></td><td>0</td><td>4,410</td></tr>' : topics.map((t) => { const T = AF_TOPICS[t]; const n = T.posts.length + ctx.store.get('aerofans.replies.' + t, []).length; return `<tr><td>${T.poll ? '<span class="web-af-pollbadge">POLL</span> ' : ''}<a href="/viewtopic?t=${t}"><b>${esc(T.title)}</b></a><br><small>by ${esc(T.posts[0][0])}</small></td><td>${n - 1}</td><td>${K.num(T.views + n)}</td></tr>`; }).join('') || '<tr><td colspan="3">No topics yet. Be the first!</td></tr>';
+    const inner = `<h2 class="web-af-h2">${esc(f[1])}</h2><table class="web-af-table"><tr class="web-af-sub"><td>Topic</td><td>Replies</td><td>Views</td></tr>${rows}</table>`;
+    afWire(ctx, ctx.html(afFrame(ctx, ` &raquo; <a href="/viewforum?f=${id}">${esc(f[1])}</a>`, inner)));
+  }
+  function afTopic(ctx, t) {
+    const T = AF_TOPICS[t];
+    if (!T) return ctx.notFound();
+    ctx.title(T.title + ' - AeroFans');
+    const f = AF_FORUMS.flatMap((c) => c[1]).find((x) => x[0] === T.forum);
+    const user = ctx.user();
+    const replies = ctx.store.get('aerofans.replies.' + t, []);
+    const posts = T.posts.map(([u, ms, body]) => ({ u, info: AF_USERS[u], when: afStamp(ms), body: afPostBody(body) }))
+      .concat(replies.map((r) => ({ u: r.name, info: { avatar: r.avatar, rank: 'Bubble Newbie', posts: replies.length, joined: 'Today', loc: 'Aerium' }, when: afStamp(Date.now() - r.t), body: esc(r.text).replace(/\n/g, '<br>'), mine: true })));
+    const vote = ctx.store.get('aerofans.poll', null);
+    const pollHTML = T.poll ? (() => {
+      const counts = AF_POLL.map(([id, n, c]) => [id, n, c + (vote === id ? 1 : 0)]);
+      const total = counts.reduce((s, x) => s + x[2], 0);
+      return `<div class="web-af-poll"><b>Poll: What is your favorite glass color?</b>${vote ? counts.map(([id, n, c]) => `<div class="web-af-prow"><span>${n}${vote === id ? ' (your vote)' : ''}</span><div class="web-af-pbar"><i style="width:${(c / total) * 100}%"></i></div><small>${Math.round((c / total) * 100)}% [ ${c} ]</small></div>`).join('') + `<div class="web-af-ptotal">Total votes: ${total}</div>` : `<form class="web-af-pform">${counts.map(([id, n]) => `<label><input type="radio" name="v" value="${id}"> ${n}</label>`).join('')}<button type="submit" class="web-af-btn">Submit vote</button></form>`}</div>`;
+    })() : '';
+    const inner = `<h2 class="web-af-h2">${esc(T.title)}</h2>${pollHTML}<table class="web-af-thread">${posts.map((p, i) => `<tr class="${i % 2 ? 'alt' : ''}" id="p${i}"><td class="web-af-author"><b>${esc(p.u)}</b><br><small>${esc(p.info.rank)}</small><br>${K.img(p.info.avatar, 'web-af-avatar')}<br><small>Joined: ${esc(p.info.joined)}<br>Posts: ${K.num(p.info.posts)}<br>Location: ${esc(p.info.loc)}</small></td><td class="web-af-post"><div class="web-af-ptop">Posted: ${esc(p.when)} <span>#${i + 1}</span></div><div class="web-af-pbody">${p.body}</div>${p.info.sig ? `<div class="web-af-sig"><span class="web-af-userbar" style="--c:${p.info.sig[1]}">${esc(p.info.sig[0])}</span></div>` : ''}</td></tr>`).join('')}</table>
+      <form class="web-af-reply"><b>Quick reply</b><textarea maxlength="1000" placeholder="Write your reply. Be nice!" aria-label="Reply"></textarea><div><button type="submit" class="web-af-btn">Post reply</button> <span class="web-af-msg"></span></div></form>`;
+    const root = ctx.html(afFrame(ctx, ` &raquo; <a href="/viewforum?f=${T.forum}">${esc(f ? f[1] : 'Forum')}</a>`, inner));
+    afWire(ctx, root);
+    const pf = root.querySelector('.web-af-pform');
+    if (pf) pf.addEventListener('submit', (e) => { e.preventDefault(); const v = pf.querySelector('input:checked'); if (!v) return; ctx.store.set('aerofans.poll', v.value); ctx.sound('ding'); ctx.reload(); });
+    root.querySelector('.web-af-reply').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const ta = e.target.querySelector('textarea');
+      const text = ta.value.trim();
+      if (!text) { root.querySelector('.web-af-msg').textContent = 'Your message is empty.'; return; }
+      const list = ctx.store.get('aerofans.replies.' + t, []);
+      if (list.length && list[list.length - 1].text === text) { root.querySelector('.web-af-msg').textContent = 'Please do not double post!'; return; }
+      list.push({ name: user.name, avatar: user.avatar, text: text.slice(0, 1000), t: Date.now() });
+      ctx.store.set('aerofans.replies.' + t, list.slice(-30));
+      ctx.sound('pop');
+      ctx.reload();
+    });
+  }
+  W.register({
+    id: 'aerofans', host: 'forums.aerofans.net', aliases: ['aerofans.net', 'www.aerofans.net'],
+    title: 'AeroFans Community Forums', shortTitle: 'AeroFans Forum', icon: 'icons/chat',
+    favicon: '<svg viewBox="0 0 16 16"><path d="M2 2.5 H14 V10.5 H7 L4 13.5 V10.5 H2 Z" fill="#3aa6f5" stroke="#0b3d73" stroke-linejoin="round"/><path d="M2.5 3 H13.5 V6 H2.5 Z" fill="#fff" opacity=".45"/></svg>',
+    pages: () => [{ path: '/', title: 'AeroFans Community Forums - Index', text: 'AeroFans forum community glass colors wallpapers desktops web design announcements general chat' }]
+      .concat(Object.entries(AF_TOPICS).map(([t, T]) => ({ path: '/viewtopic?t=' + t, title: T.title + ' - AeroFans', text: T.posts.map((p) => p[2].replace(/<[^>]+>|\[\[[^\]]+\]\]/g, ' ')).join(' ') }))),
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length) return afIndex(ctx);
+      if (p[0] === 'viewforum') return afForum(ctx, ctx.q('f'));
+      if (p[0] === 'viewtopic') return afTopic(ctx, ctx.q('t'));
+      return ctx.notFound();
+    },
+    css: `
+.web-af { min-height: 100%; background: #dfe9f3; color: #1c2c3c; font: calc(12px * var(--hz-text, 1))/1.45 Verdana, Tahoma, sans-serif; padding: 12px 0 20px; }
+.web-af a { color: #105289; }
+.web-af-wrap { width: 900px; margin: 0 auto; }
+.web-af-head { display: flex; justify-content: space-between; align-items: flex-end; padding: 12px 14px; border-radius: 10px 10px 0 0; background: linear-gradient(to bottom, #6fb8ef 0, #2f86d0 50%, #1f6fbf 51%, #3a8ee0 100%); color: #fff; }
+.web-af-logo { display: flex; align-items: center; gap: 10px; color: #fff !important; text-decoration: none !important; font: 700 2em "Trebuchet MS", sans-serif; text-shadow: 0 2px 2px rgba(0,30,70,.5); }
+.web-af-logo small { display: block; font-size: .42em; font-weight: 400; }
+.web-af-logoic { width: 48px; height: 48px; }
+.web-af-user { font-size: .92em; }
+.web-af-user a { color: #fff; }
+.web-af-crumbs { padding: 6px 10px; background: #f5f9fc; border: 1px solid #a6c2dc; border-top: 0; margin-bottom: 10px; font-weight: 700; }
+.web-af-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; background: #fff; border: 1px solid #a6c2dc; }
+.web-af-table td { padding: 7px 8px; border-top: 1px solid #dbe6f0; vertical-align: middle; }
+.web-af-cat { text-align: left; padding: 6px 10px; color: #fff; background: linear-gradient(#4a90d9, #1f5fa0); }
+.web-af-sub td { background: #eaf2f9; font-weight: 700; color: #3a5a7a; font-size: .92em; }
+.web-af-forum { display: flex; gap: 10px; align-items: center; }
+.web-af-ficon { width: 32px; height: 32px; }
+.web-af-h2 { color: #105289; margin: 4px 0 10px; font: 700 1.4em "Trebuchet MS", sans-serif; }
+.web-af-pollbadge { padding: 0 4px; font-size: .8em; font-weight: 700; color: #fff; background: #e08a00; border-radius: 3px; }
+.web-af-poll { padding: 10px 14px; margin-bottom: 12px; background: #fff; border: 1px solid #a6c2dc; border-radius: 6px; }
+.web-af-prow { display: grid; grid-template-columns: 130px 1fr 110px; gap: 8px; align-items: center; margin: 5px 0; }
+.web-af-pbar { height: 12px; background: #eef3f8; border: 1px solid #b8cfe3; }
+.web-af-pbar i { display: block; height: 100%; background: linear-gradient(#bfe6ff, #3aa6f5 50%, #1f86d8 51%, #6ec2ff); }
+.web-af-ptotal { margin-top: 6px; font-weight: 700; }
+.web-af-pform { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.web-af-pform .web-af-btn { align-self: flex-start; margin-top: 4px; }
+.web-af-btn { font: 700 1em Verdana, sans-serif; padding: 3px 12px; border: 1px solid #1f5fa0; border-radius: 3px; color: #fff; cursor: pointer; background: linear-gradient(#6fb8ef, #2f86d0 50%, #1f6fbf 51%, #3a8ee0); }
+.web-af-thread { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #a6c2dc; }
+.web-af-thread tr.alt { background: #f3f8fc; }
+.web-af-thread td { vertical-align: top; border-top: 1px solid #c8dbec; padding: 8px 10px; }
+.web-af-author { width: 150px; border-right: 1px solid #dbe6f0; font-size: .92em; color: #3a5a7a; }
+.web-af-author b { color: #105289; font-size: 1.1em; }
+.web-af-avatar { width: 80px; height: 80px; margin: 6px 0; }
+.web-af-ptop { display: flex; justify-content: space-between; font-size: .88em; color: #6a8aa0; border-bottom: 1px dotted #c8dbec; padding-bottom: 4px; margin-bottom: 6px; }
+.web-af-pbody { min-height: 50px; word-break: break-word; }
+.web-af-quote { margin: 0 0 8px; padding: 6px 8px; background: #f0f5fa; border: 1px solid #b8cfe3; border-left: 4px solid #3aa6f5; font-size: .95em; }
+.web-af-shot { display: block; max-width: 320px; height: 180px; object-fit: cover; margin: 6px 0; border: 1px solid #8aa; }
+.web-af-sig { margin-top: 10px; padding-top: 6px; border-top: 1px dashed #c8dbec; }
+.web-af-userbar { display: inline-block; width: 350px; height: 19px; padding-left: 10px; font: 900 11px/19px Verdana, sans-serif; letter-spacing: .06em; color: #fff; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000; border: 1px solid #000; background: repeating-linear-gradient(135deg, rgba(255,255,255,.18) 0 2px, transparent 2px 4px), linear-gradient(to bottom, rgba(255,255,255,.55), rgba(255,255,255,0) 50%, rgba(0,0,0,.15) 51%), var(--c); }
+.web-af-reply { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; padding: 10px; background: #fff; border: 1px solid #a6c2dc; }
+.web-af-reply textarea { width: 100%; min-height: 70px; font: inherit; padding: 5px; border: 1px solid #8aa7c4; resize: vertical; }
+.web-af-msg { color: #c8412a; font-weight: 700; }
+.web-af-online { margin-top: 12px; padding: 8px 10px; background: #fff; border: 1px solid #a6c2dc; font-size: .92em; }
+.web-af-foot { text-align: center; color: #6a8aa0; font-size: .85em; margin-top: 10px; }
+`,
+  });
+
+  // ================================================================ www.quizbubble.com
+  const QB_GLASS = {
+    sky: ['Sky', '#74B8FC', 'Calm, clear and friendly. People feel relaxed around you, like a cloudless Saturday morning.'],
+    lime: ['Lime', '#97D937', 'Bright, fresh and a little bit zesty. You bring energy to every room (and every desktop).'],
+    sea: ['Sea', '#32CDCD', 'Cool, creative and deep. You love water, music and long walks on the beach.'],
+    sun: ['Sun', '#FADC0E', 'Warm, cheerful and optimistic. Your friends call you when they need a pick-me-up.'],
+    fuchsia: ['Fuchsia', '#FF0099', 'Bold, fun and totally unforgettable. Glitter was basically invented for you.'],
+    twilight: ['Twilight', '#0046AD', 'Thoughtful and a little mysterious. You do your best thinking after 10pm.'],
+    frost: ['Frost', '#E8EEF4', 'Clean, calm and minimal. Your desktop has exactly three icons and you like it that way.'],
+    pumpkin: ['Pumpkin', '#FF9C00', 'Cozy, crafty and warm. You definitely have a favorite sweater.'],
+  };
+  const QB_QUIZ = [
+    ['Pick a weekend plan', [['Picnic in the park', 'sky'], ['Beach day', 'sea'], ['Skate park', 'lime'], ['Stargazing', 'twilight']]],
+    ['Pick a snack', [['Lemon sorbet', 'lime'], ['Pumpkin pie', 'pumpkin'], ['Cotton candy', 'fuchsia'], ['Mint tea', 'frost']]],
+    ['Your dream pet', [['A goldfish named Sunny', 'sun'], ['A dolphin (obviously)', 'sea'], ['A snowy owl', 'frost'], ['A glitter unicorn', 'fuchsia']]],
+    ['Pick a screensaver', [['Bubbles', 'sky'], ['Aurora', 'twilight'], ['Fireworks', 'sun'], ['3D tube maze', 'lime']]],
+    ['Your favorite season', [['Summer', 'sun'], ['Autumn', 'pumpkin'], ['Winter', 'frost'], ['Spring', 'sky']]],
+    ['How many icons are on your desktop?', [['Three, perfectly aligned', 'frost'], ['About twenty', 'sky'], ['I cannot see my wallpaper', 'fuchsia'], ['Only the Recycle Bin', 'twilight']]],
+    ['Pick a profile song', [['Something cozy', 'pumpkin'], ['Something with a huge chorus', 'sun'], ['Something dreamy', 'sea'], ['Something with sparkles in it', 'fuchsia']]],
+  ];
+  const QB_2007 = [
+    ['Do you have a Top 8?', ['Yes, and I rearrange it weekly', 'No']],
+    ['Have you ever typed "brb" and then not come back?', ['Yes', 'Never']],
+    ['Does your phone flip open?', ['Of course', 'No']],
+    ['Have you signed a guestbook this year?', ['Yes!!!', 'What is a guestbook?']],
+    ['Is your ringtone polyphonic?', ['Obviously', 'It just vibrates']],
+  ];
+  function qbFrame(inner) {
+    return `<div class="web-qb"><div class="web-qb-head"><a class="web-qb-logo" href="http://www.quizbubble.com/"><span class="web-qb-q">?</span>Quiz<b>Bubble</b></a><span class="web-qb-tag">Find out who you REALLY are. One bubble at a time.</span></div><div class="web-qb-wrap">${inner}</div><div class="web-qb-foot">QuizBubble &copy; 2007. Results are 100% scientific*. <small>*not scientific</small></div></div>`;
+  }
+  function qbHome(ctx) {
+    ctx.title('QuizBubble - Which Aerium glass color are you?');
+    const last = ctx.store.get('quiz.last', null);
+    const inner = `<div class="web-qb-feature"><div class="web-qb-orbs">${Object.values(QB_GLASS).map(([, hex]) => `<i style="--c:${hex}"></i>`).join('')}</div><h1>Which Aerium glass color are you?</h1><p>Seven questions. One glass color. Your whole personality, explained.</p>${last ? `<p class="web-qb-last">Last time you got <b>${esc(QB_GLASS[last][0])}</b>!</p>` : ''}<a class="web-qb-go" href="/quiz/glass">Take the quiz!</a></div>
+      <div class="web-qb-more"><h2>More quizzes</h2><a href="/quiz/2007" class="web-qb-card"><b>How 2007 are you?</b><span>5 questions. Brutal honesty.</span></a><a href="#" class="web-qb-card web-qb-soon"><b>Which screensaver are you?</b><span>Coming soon!</span></a><a href="#" class="web-qb-card web-qb-soon"><b>What does your ringtone say about you?</b><span>Coming soon!</span></a></div>`;
+    const root = ctx.html(qbFrame(inner));
+    root.querySelectorAll('.web-qb-soon').forEach((a) => a.addEventListener('click', (e) => { e.preventDefault(); ctx.dialog({ title: 'QuizBubble', icon: 'icons/help', message: 'This quiz is still being written. The writers are busy taking other quizzes.' }); }));
+  }
+  function qbQuiz(ctx, kind) {
+    const glass = kind === 'glass';
+    const Q = glass ? QB_QUIZ : QB_2007;
+    ctx.title(glass ? 'Which Aerium glass color are you? - QuizBubble' : 'How 2007 are you? - QuizBubble');
+    const answers = [];
+    let i = 0;
+    const root = ctx.html(qbFrame('<div class="web-qb-box"></div>'));
+    const box = root.querySelector('.web-qb-box');
+    const paint = () => {
+      if (i >= Q.length) return result();
+      const [q, opts] = Q[i];
+      box.innerHTML = `<div class="web-qb-prog"><i style="width:${(i / Q.length) * 100}%"></i></div><div class="web-qb-num">Question ${i + 1} of ${Q.length}</div><h2 class="web-qb-question">${esc(q)}</h2><div class="web-qb-opts">${opts.map((o, j) => `<button type="button" data-j="${j}">${esc(Array.isArray(o) ? o[0] : o)}</button>`).join('')}</div>`;
+      box.querySelectorAll('[data-j]').forEach((b) => b.addEventListener('click', () => { answers.push(Number(b.dataset.j)); i++; ctx.sound('click'); paint(); }));
+    };
+    const result = () => {
+      if (glass) {
+        const tally = {};
+        answers.forEach((j, qi) => { const id = QB_QUIZ[qi][1][j][1]; tally[id] = (tally[id] || 0) + 1; });
+        const id = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0] || 'sky';
+        const [name, hex, desc] = QB_GLASS[id];
+        ctx.store.set('quiz.last', id);
+        const code = `<a href="http://www.quizbubble.com/"><b>I'm ${name} glass! Which Aerium glass color are you?</b></a>`;
+        box.innerHTML = `<div class="web-qb-result"><span class="web-qb-orb" style="--c:${hex}"></span><h2>You are <b>${esc(name)}</b>!</h2><p class="web-qb-desc">${esc(desc)}</p><button type="button" class="web-qb-go web-qb-apply">Apply ${esc(name)} glass to my computer!</button><div class="web-qb-share"><b>Post it on your MySpot profile:</b><textarea readonly>${esc(code)}</textarea></div><p><a href="/quiz/glass">Retake the quiz</a> &middot; <a href="/">More quizzes</a></p></div>`;
+        box.querySelector('textarea').addEventListener('focus', (e) => e.target.select());
+        box.querySelector('.web-qb-apply').addEventListener('click', () => {
+          if (A.theme && typeof A.theme.setGlass === 'function') {
+            try { A.theme.setGlass({ color: id }); } catch (e) { /* ignore */ }
+            A.notify({ title: 'Your glass is now ' + name + '!', text: 'Change it back any time: right-click the desktop and choose Personalize.', icon: 'icons/personalize' });
+          } else ctx.dialog({ title: 'QuizBubble', icon: 'icons/personalize', message: 'Right-click the desktop and choose Personalize to pick ' + name + ' glass.' });
+        });
+      } else {
+        const score = Math.round((answers.filter((j) => j === 0).length / Q.length) * 100);
+        const verdict = score >= 80 ? 'You still have a flip phone, a Top 8 and a guestbook. Never change.' : score >= 40 ? 'You are partly 2007. You probably still say "brb".' : 'You are extremely not 2007. Have you tried a glossy button? It might help.';
+        box.innerHTML = `<div class="web-qb-result"><div class="web-qb-pct">${score}%</div><h2>You are ${score}% 2007!</h2><p class="web-qb-desc">${esc(verdict)}</p><p><a href="/quiz/2007">Retake</a> &middot; <a href="/quiz/glass">Which glass color are you?</a></p></div>`;
+      }
+      ctx.sound('win');
+    };
+    paint();
+  }
+  W.register({
+    id: 'quizbubble', host: 'www.quizbubble.com', aliases: ['quizbubble.com'],
+    title: 'QuizBubble', shortTitle: 'QuizBubble', icon: 'icons/help',
+    favicon: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="7.2" fill="#e0457b" stroke="#8a1a4a"/><text x="8" y="11.8" font-family="Arial" font-weight="bold" font-size="10" text-anchor="middle" fill="#fff">?</text><ellipse cx="8" cy="4.4" rx="4.6" ry="2.2" fill="#fff" opacity=".45"/></svg>',
+    pages: [{ path: '/', title: 'QuizBubble - Which Aerium glass color are you?', text: 'quiz which Aerium glass color are you personality test sky lime sea sun fuchsia twilight frost pumpkin how 2007 are you' }, { path: '/quiz/glass', title: 'Which Aerium glass color are you? - QuizBubble', text: 'glass color quiz seven questions weekend plan snack dream pet screensaver season desktop icons profile song' }, { path: '/quiz/2007', title: 'How 2007 are you? - QuizBubble', text: 'how 2007 are you quiz top 8 brb flip phone guestbook polyphonic ringtone' }],
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length) return qbHome(ctx);
+      if (p[0] === 'quiz' && (p[1] === 'glass' || p[1] === '2007')) return qbQuiz(ctx, p[1]);
+      return ctx.notFound();
+    },
+    css: `
+.web-qb { min-height: 100%; background: linear-gradient(to bottom, #ffe3f1, #fff 320px); color: #3a2a3a; font: calc(14px * var(--hz-text, 1))/1.45 "Trebuchet MS", Verdana, sans-serif; }
+.web-qb a { color: #c02a70; }
+.web-qb-head { display: flex; align-items: center; gap: 20px; padding: 14px 30px; background: linear-gradient(to bottom, #ff8ac2 0, #e0457b 50%, #c8306a 51%, #e8588e 100%); border-bottom: 3px solid #a0205a; }
+.web-qb-logo { display: flex; align-items: center; gap: 8px; color: #fff !important; text-decoration: none !important; font: 900 1.8em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; text-shadow: 0 2px 0 #8a1a4a; }
+.web-qb-logo b { color: #fff3a8; }
+.web-qb-q { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: radial-gradient(circle at 40% 30%, #fff, #ffd6e8 40%, #ff8ac2); color: #c02a70; text-shadow: none; box-shadow: inset 0 -3px 6px rgba(255,255,255,.6); }
+.web-qb-tag { color: #fff; font-style: italic; }
+.web-qb-wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px; }
+.web-qb-feature { text-align: center; padding: 28px; border-radius: 20px; background: #fff; border: 3px solid #ffc2e0; box-shadow: 0 8px 22px rgba(200,40,110,.15); }
+.web-qb-feature h1 { font: 900 2em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; color: #c02a70; margin: 12px 0 6px; }
+.web-qb-orbs { display: flex; justify-content: center; gap: 8px; }
+.web-qb-orbs i, .web-qb-orb { display: inline-block; width: 34px; height: 34px; border-radius: 50%; background: radial-gradient(circle at 50% 115%, #fff, var(--c) 45%, color-mix(in srgb, var(--c) 70%, #000) 100%); border: 1px solid rgba(0,0,0,.25); box-shadow: inset 0 -4px 8px rgba(255,255,255,.5), 0 3px 6px rgba(0,0,0,.2); position: relative; }
+.web-qb-orbs i::before, .web-qb-orb::before { content: ""; position: absolute; left: 16%; right: 16%; top: 5%; height: 45%; border-radius: 50%; background: linear-gradient(rgba(255,255,255,.95), rgba(255,255,255,.15)); }
+.web-qb-orbs i:nth-child(odd) { animation: web-qb-bob 2.4s ease-in-out infinite; }
+.web-qb-orbs i:nth-child(even) { animation: web-qb-bob 2.4s ease-in-out -1.2s infinite; }
+@keyframes web-qb-bob { 50% { transform: translateY(-6px); } }
+.web-qb-last { color: #6a4a6a; }
+.web-qb-go { display: inline-block; margin-top: 10px; padding: 12px 30px; border-radius: 28px; font: 900 1.2em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; color: #fff !important; text-decoration: none !important; cursor: pointer; border: 1px solid #a0205a; background: linear-gradient(to bottom, #ffc2e0 0, #ff6aa8 48%, #e0457b 52%, #ff7ab8 100%); box-shadow: inset 0 1px 0 #fff, 0 4px 10px rgba(200,40,110,.3); text-shadow: 0 1px 1px rgba(120,0,50,.5); }
+.web-qb-go:hover { filter: brightness(1.07); }
+.web-qb-more { margin-top: 24px; }
+.web-qb-more h2 { color: #c02a70; }
+.web-qb-card { display: flex; flex-direction: column; padding: 12px 16px; margin-bottom: 10px; border-radius: 14px; background: #fff; border: 2px solid #ffd6e8; text-decoration: none !important; color: #3a2a3a !important; }
+.web-qb-card:hover { border-color: #ff8ac2; }
+.web-qb-card b { color: #c02a70; }
+.web-qb-box { padding: 26px; border-radius: 20px; background: #fff; border: 3px solid #ffc2e0; box-shadow: 0 8px 22px rgba(200,40,110,.12); }
+.web-qb-prog { height: 12px; border-radius: 6px; background: #ffe3f1; overflow: hidden; }
+.web-qb-prog i { display: block; height: 100%; background: linear-gradient(#ffc2e0, #e0457b); transition: width .3s; }
+.web-qb-num { margin-top: 10px; color: #9a6a8a; font-weight: 700; }
+.web-qb-question { font: 900 1.6em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; color: #3a2a3a; margin: 6px 0 16px; }
+.web-qb-opts { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.web-qb-opts button { padding: 14px; border-radius: 16px; cursor: pointer; font: 700 1.05em "Trebuchet MS", sans-serif; color: #3a2a3a; border: 2px solid #ffc2e0; background: linear-gradient(to bottom, #fff 0, #fff5fa 50%, #ffe3f1 51%, #fff 100%); box-shadow: inset 0 1px 0 #fff, 0 2px 4px rgba(200,40,110,.1); }
+.web-qb-opts button:hover { border-color: #e0457b; box-shadow: 0 0 10px rgba(224,69,123,.35); }
+.web-qb-result { text-align: center; }
+.web-qb-orb { width: 110px; height: 110px; }
+.web-qb-result h2 { font: 900 2em "Arial Rounded MT Bold", "Trebuchet MS", sans-serif; margin: 12px 0 4px; }
+.web-qb-result h2 b { color: #c02a70; }
+.web-qb-desc { font-size: 1.15em; color: #5a4a5a; }
+.web-qb-share { margin: 18px auto 8px; max-width: 520px; text-align: left; }
+.web-qb-share textarea { width: 100%; height: 56px; font: 12px Consolas, monospace; margin-top: 4px; }
+.web-qb-pct { font: 900 4em "Arial Rounded MT Bold", sans-serif; color: #e0457b; }
+.web-qb-foot { text-align: center; color: #9a6a8a; padding: 10px 0 20px; font-size: .9em; }
+`,
+  });
+
+  // ================================================================ www.ringtonez4u.com
+  const RT_TONES = [
+    ['crazy', 'Crazy Bubble', 'Polyphonic', (dest, t) => { const n = ['C6', 'E6', 'G6', 'E6', 'C6', 'G5', 'A5', 'C6']; for (let r = 0; r < 2; r++) n.forEach((x, i) => A.sound.blip(x, x, t + (r * 8 + i) * 0.11, { dur: 0.09, vel: 0.06, type: 'square', dest, rev: 0.05, glide: 0.001 })); }],
+    ['sunrise', 'Polyphonic Sunrise', 'Polyphonic', (dest, t) => { ['C5', 'E5', 'G5', 'B5', 'D6', 'B5', 'G5', 'E5', 'F5', 'A5', 'C6', 'E6'].forEach((x, i) => A.sound.bell(x, t + i * 0.2, { vel: 0.06, dur: 0.9, dest })); }],
+    ['classic', 'Classic Phone Ring', 'Realtone', (dest, t) => { for (let r = 0; r < 2; r++) for (let i = 0; i < 16; i++) { A.sound.blip(440, 440, t + r * 1.3 + i * 0.05, { dur: 0.045, vel: 0.05, type: 'sine', dest, rev: 0, glide: 0.001 }); A.sound.blip(480, 480, t + r * 1.3 + i * 0.05, { dur: 0.045, vel: 0.05, type: 'sine', dest, rev: 0, glide: 0.001 }); } }],
+    ['dolphin', 'Dolphin Chirp', 'Nature', (dest, t) => { for (let i = 0; i < 6; i++) A.sound.blip(1200 + (i % 3) * 300, 2600 + (i % 2) * 600, t + i * 0.3, { dur: 0.18, vel: 0.05, type: 'sine', dest, glide: 0.15 }); }],
+    ['aquabeat', 'Aqua Beat', 'Polyphonic', (dest, t) => { for (let i = 0; i < 16; i++) { if (i % 4 === 0) A.sound.blip(110, 55, t + i * 0.14, { dur: 0.2, vel: 0.12, type: 'sine', dest, glide: 0.12 }); if (i % 2 === 1) A.sound.noise(t + i * 0.14, { dur: 0.03, vel: 0.05, type: 'highpass', f1: 6000, dest }); if (i % 4 === 2) A.sound.pluck(['A4', 'C5', 'E5', 'G5'][(i / 4) | 0], t + i * 0.14, { vel: 0.08, dest }); } }],
+    ['mono', 'Old School Mono', 'Monophonic', (dest, t) => { ['E5', 'D5', 'F#4', 'G#4', 'C#5', 'B4', 'D4', 'E4', 'B4', 'A4', 'C#4', 'E4', 'A4'].forEach((x, i) => A.sound.blip(x, x, t + i * 0.15, { dur: 0.13, vel: 0.05, type: 'square', dest, rev: 0, glide: 0.001 })); }],
+    ['glassharp', 'Glass Harp', 'Polyphonic', (dest, t) => { ['G5', 'D6', 'B5', 'G6', 'E6', 'C6', 'A5', 'F#6'].forEach((x, i) => A.sound.bell(x, t + i * 0.26, { vel: 0.05, dur: 1.6, ratio: 2.01, index: 1.2, dest })); }],
+  ];
+  function rtHome(ctx) {
+    ctx.title('Ringtonez4U - The hottest ringtones!!!');
+    const inner = `<div class="web-rt"><div class="web-rt-head"><span class="web-rt-logo">Ringtonez<b>4U</b></span><span class="web-rt-tag">The HOTTEST ringtones for your phone!!! ${K.burst('Poly-<br>phonic!', { size: 60, font: 10, c1: '#e8ff9a', c2: '#39ff14', rim: '#1a8a00', color: '#1a3a00', spin: true })}</span></div>
+      <div class="web-rt-body"><div class="web-rt-phone"><div class="web-rt-screen"><b class="web-rt-now">Ringtonez4U</b><span class="web-rt-sub">Pick a tone!</span></div><div class="web-rt-keys">${'123456789*0#'.split('').map((k) => `<i>${k}</i>`).join('')}</div></div>
+        <div class="web-rt-list"><h2>TOP 7 THIS WEEK</h2>${RT_TONES.map(([id, name, kind], i) => `<div class="web-rt-item"><span class="web-rt-rank">${i + 1}</span><div class="web-rt-info"><b>${esc(name)}</b><small>${kind}${i < 2 ? ' <span class="web-rt-hot wk-blink">HOT!</span>' : ''}</small></div><button type="button" class="web-rt-play" data-tone="${id}">Preview</button><button type="button" class="web-rt-send" data-send="${esc(name)}">Send to phone</button></div>`).join('')}
+        <p class="web-rt-fine">Text TONE to 55-555 for unlimited ringtones!!! $2.99/week*<br>*Just kidding. Everything here is free and pretend, and there is no number to text.</p></div></div></div>`;
+    const root = ctx.html(inner);
+    const phone = root.querySelector('.web-rt-phone'), now = root.querySelector('.web-rt-now'), sub = root.querySelector('.web-rt-sub');
+    root.querySelectorAll('[data-tone]').forEach((b) => b.addEventListener('click', () => {
+      const tone = RT_TONES.find((x) => x[0] === b.dataset.tone);
+      const dest = ctx.audio();
+      now.textContent = tone[1];
+      sub.textContent = 'Incoming call...';
+      phone.classList.remove('ringing'); void phone.offsetWidth; phone.classList.add('ringing');
+      ctx.after(2600, () => { phone.classList.remove('ringing'); sub.textContent = 'Missed call (1)'; });
+      if (!A.sound.ctx || !dest) { ctx.dialog({ title: 'Ringtonez4U', icon: 'icons/phone', message: 'Turn on "Play sounds in webpages" in Internet Options to preview ringtones.' }); return; }
+      dest.gain.value = 0.8;
+      tone[3](dest, A.sound.ctx.currentTime + 0.05);
+    }));
+    root.querySelectorAll('[data-send]').forEach((b) => b.addEventListener('click', () => ctx.dialog({ title: 'Ringtonez4U', icon: 'icons/phone', instruction: '"' + b.dataset.send + '" is on its way!', message: 'Hold your phone up to the screen and wiggle it gently. (Nothing was sent anywhere. This is a pretend store, and your phone is safe.)' })));
+  }
+  W.register({
+    id: 'ringtonez4u', host: 'www.ringtonez4u.com', aliases: ['ringtonez4u.com'],
+    title: 'Ringtonez4U', shortTitle: 'Ringtonez4U', icon: 'icons/phone', weight: 1.3,
+    shady: 'This website promises unlimited ringtones for $2.99 a week. It is pretend, so you will never be charged, but that is exactly the kind of offer to be careful about.',
+    favicon: '<svg viewBox="0 0 16 16"><rect x="4" y="1" width="8" height="14" rx="2" fill="#39ff14" stroke="#1a6a00"/><rect x="5.3" y="2.6" width="5.4" height="5" fill="#0a1a00"/><circle cx="8" cy="11.5" r="1.4" fill="#1a6a00"/></svg>',
+    pages: [{ path: '/', title: 'Ringtonez4U - The hottest ringtones!!!', text: 'ringtones polyphonic monophonic realtone crazy bubble polyphonic sunrise classic phone ring dolphin chirp aqua beat old school mono glass harp send to phone' }],
+    render(ctx) { if (ctx.parts.length) return ctx.notFound(); return rtHome(ctx); },
+    css: `
+.web-rt { min-height: 100%; background: radial-gradient(circle at 20% 10%, #5a0a8a, transparent 50%), radial-gradient(circle at 90% 80%, #0a4a8a, transparent 45%), #12001f; color: #f0e6ff; font: calc(13px * var(--hz-text, 1))/1.4 Verdana, Arial, sans-serif; }
+.web-rt-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 30px; border-bottom: 2px solid #39ff14; box-shadow: 0 0 18px rgba(57,255,20,.35); }
+.web-rt-logo { font: 900 2.4em Impact, "Arial Black", sans-serif; color: #fff; text-shadow: 0 0 10px #ff2fd8, 0 0 22px #ff2fd8; }
+.web-rt-logo b { color: #39ff14; text-shadow: 0 0 10px #39ff14; }
+.web-rt-tag { display: flex; align-items: center; gap: 14px; font-weight: 700; color: #ffe34a; }
+.web-rt-body { display: flex; gap: 30px; max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+.web-rt-phone { flex: none; width: 150px; height: 300px; padding: 16px 14px; border-radius: 26px; background: linear-gradient(135deg, #d8dce2, #7a8490); border: 2px solid #333; box-shadow: inset 0 2px 4px rgba(255,255,255,.8), 0 10px 26px rgba(0,0,0,.6); }
+.web-rt-phone.ringing { animation: web-rt-ring .12s linear 20; }
+@keyframes web-rt-ring { 25% { transform: rotate(-4deg) translateX(-2px); } 75% { transform: rotate(4deg) translateX(2px); } }
+.web-rt-screen { height: 110px; border-radius: 6px; padding: 10px 8px; display: flex; flex-direction: column; justify-content: center; text-align: center; color: #0a2a00; background: linear-gradient(#c8ffb8, #8fe07a); border: 2px solid #333; box-shadow: inset 0 2px 6px rgba(0,0,0,.35); font: 700 12px "Courier New", monospace; }
+.web-rt-sub { font-weight: 400; margin-top: 6px; }
+.web-rt-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 14px; }
+.web-rt-keys i { display: grid; place-items: center; height: 26px; border-radius: 8px; font: 700 12px Arial, sans-serif; font-style: normal; color: #222; background: linear-gradient(#fff, #c8ccd2); border: 1px solid #666; }
+.web-rt-list { flex: 1; }
+.web-rt-list h2 { margin: 0 0 12px; font: 900 1.6em Impact, sans-serif; color: #39ff14; letter-spacing: .05em; }
+.web-rt-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; margin-bottom: 8px; border-radius: 10px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,47,216,.4); }
+.web-rt-rank { width: 30px; font: 900 1.6em Impact, sans-serif; color: #ff2fd8; text-align: center; }
+.web-rt-info { flex: 1; display: flex; flex-direction: column; }
+.web-rt-info small { color: #b8a6d8; }
+.web-rt-hot { color: #12001f; background: #ffe34a; padding: 0 4px; font-weight: 900; }
+.web-rt-play, .web-rt-send { font: 700 .95em Verdana, sans-serif; padding: 5px 10px; border-radius: 14px; cursor: pointer; border: 1px solid #1a6a00; color: #0a2a00; background: linear-gradient(#e8ffc8, #39ff14 50%, #2ad800 51%, #7aff5a); }
+.web-rt-send { color: #fff; border-color: #8a0a7a; background: linear-gradient(#ffb3f0, #ff2fd8 50%, #d800b0 51%, #ff6ae4); }
+.web-rt-play:hover, .web-rt-send:hover { filter: brightness(1.1); }
+.web-rt-fine { color: #9a8ab8; font-size: .85em; }
+`,
+  });
+
+  // ================================================================ www.bubblecards.com
+  const BC_CARDS = {
+    birthday: ['Happy Birthday!', 'bday'], thanks: ['Thank You!', 'thanks'], fish: ['You are swimmingly awesome', 'fish'],
+    getwell: ['Get well soon!', 'sun'], congrats: ['Congratulations!', 'party'], missyou: ['Miss you!', 'aurora'],
+  };
+  const bcScene = (id) => {
+    const [text, kind] = BC_CARDS[id] || BC_CARDS.birthday;
+    const bits = kind === 'bday' ? '<i></i><i></i><i></i><i></i><i></i><i></i>' : kind === 'fish' ? `${K.img('icons/fish', 'bc-f1')}${K.img('icons/fish', 'bc-f2')}` : kind === 'thanks' ? `${K.img('icons/flower', 'bc-flower')}` : kind === 'sun' ? `${K.img('icons/sun', 'bc-sunimg')}` : kind === 'party' ? '<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>' : '<i></i><i></i>';
+    return `<div class="web-bc-card bc-${kind}"><div class="web-bc-bits">${bits}</div><div class="web-bc-text">${esc(text)}</div></div>`;
+  };
+  function bcEncode(o) { try { return btoa(unescape(encodeURIComponent(JSON.stringify(o)))); } catch (e) { return ''; } }
+  function bcDecode(s) { try { return JSON.parse(decodeURIComponent(escape(atob(s)))); } catch (e) { return null; } }
+  function bcFrame(inner) { return `<div class="web-bc"><div class="web-bc-head"><a class="web-bc-logo" href="http://www.bubblecards.com/">${K.img('icons/mail', 'web-bc-logoic')}Bubble<b>Cards</b></a><span>Free e-cards for every occasion!</span></div><div class="web-bc-wrap">${inner}</div><div class="web-bc-foot">BubbleCards &copy; 2007. Spread the joy. Recycle your bubbles.</div></div>`; }
+  function bcHome(ctx) {
+    ctx.title('BubbleCards - Free e-cards!');
+    const inner = `<h1 class="web-bc-h1">Pick a card</h1><div class="web-bc-grid">${Object.keys(BC_CARDS).map((id) => `<a href="/create?c=${id}" class="web-bc-pick">${bcScene(id)}<b>${esc(BC_CARDS[id][0])}</b></a>`).join('')}</div>`;
+    ctx.html(bcFrame(inner));
+  }
+  function bcCreate(ctx) {
+    const id = BC_CARDS[ctx.q('c')] ? ctx.q('c') : 'birthday';
+    ctx.title('Send a card - BubbleCards');
+    const user = ctx.user();
+    const inner = `<h1 class="web-bc-h1">Personalize your card</h1><div class="web-bc-create"><div class="web-bc-preview">${bcScene(id)}<p class="web-bc-msgprev"></p></div><form class="web-bc-form"><label>To: <input name="to" type="text" maxlength="30" placeholder="Their name"></label><label>From: <input name="from" type="text" maxlength="30" value="${esc(user.name)}"></label><label>Message:<textarea name="msg" maxlength="240" placeholder="Write something nice!"></textarea></label><button type="submit" class="web-bc-btn">Send e-card</button><p class="web-bc-err"></p></form></div>`;
+    const root = ctx.html(bcFrame(inner));
+    const f = root.querySelector('.web-bc-form'), prev = root.querySelector('.web-bc-msgprev');
+    const upd = () => { prev.textContent = (f.to.value ? 'Dear ' + f.to.value + ', ' : '') + f.msg.value + (f.from.value ? ' - ' + f.from.value : ''); };
+    f.addEventListener('input', upd);
+    upd();
+    f.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!f.to.value.trim() || !f.msg.value.trim()) { root.querySelector('.web-bc-err').textContent = 'Please add a name and a message!'; return; }
+      const d = bcEncode({ c: id, to: f.to.value.trim().slice(0, 30), from: f.from.value.trim().slice(0, 30), msg: f.msg.value.trim().slice(0, 240) });
+      ctx.sound('whooshIn');
+      ctx.go('/sent?d=' + encodeURIComponent(d));
+    });
+  }
+  function bcSent(ctx) {
+    const o = bcDecode(ctx.q('d'));
+    if (!o) return ctx.notFound();
+    ctx.title('Card sent! - BubbleCards');
+    const inner = `<div class="web-bc-sent"><h1 class="web-bc-h1">Your e-card to ${esc(o.to)} is on its way!</h1><div class="web-bc-plane">${K.img('icons/mail', 'web-bc-planeic')}</div><p>They can pick it up here:</p><p><a href="/view?d=${encodeURIComponent(ctx.q('d'))}">http://www.bubblecards.com/view?card=${esc(ctx.q('d').slice(0, 12))}...</a></p><p><a href="/" class="web-bc-btn">Send another card</a></p></div>`;
+    ctx.html(bcFrame(inner));
+    ctx.after(3500, () => A.notify.toast({ title: o.to + ' opened your e-card!', text: '"aww thank you!! that made my day"', app: 'BubbleCards', appIcon: 'icons/mail' }));
+  }
+  function bcView(ctx) {
+    const o = bcDecode(ctx.q('d'));
+    if (!o || !BC_CARDS[o.c]) return ctx.notFound();
+    ctx.title('You have an e-card from ' + o.from + '!');
+    const inner = `<div class="web-bc-view"><p class="web-bc-from">${esc(o.from)} sent you an e-card!</p>${bcScene(o.c)}<div class="web-bc-letter"><p>Dear ${esc(o.to)},</p><p>${esc(o.msg)}</p><p class="web-bc-sign">- ${esc(o.from)}</p></div><p><a href="/create?c=${o.c}" class="web-bc-btn">Send a card back</a></p></div>`;
+    ctx.html(bcFrame(inner));
+  }
+  W.register({
+    id: 'bubblecards', host: 'www.bubblecards.com', aliases: ['bubblecards.com'],
+    title: 'BubbleCards - Free e-cards!', shortTitle: 'BubbleCards', icon: 'icons/mail',
+    favicon: '<svg viewBox="0 0 16 16"><rect x="1" y="3.5" width="14" height="9.5" rx="1.5" fill="#fff" stroke="#e0457b"/><path d="M1.5 4 L8 9 L14.5 4" fill="none" stroke="#e0457b" stroke-width="1.3"/><circle cx="12.5" cy="3.5" r="2.5" fill="#7fd0ff" stroke="#1a8fe0" stroke-width=".7"/></svg>',
+    pages: [{ path: '/', title: 'BubbleCards - Free e-cards!', text: 'free e-cards birthday thank you get well soon congratulations miss you just because send a card greeting cards' }],
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length) return bcHome(ctx);
+      if (p[0] === 'create') return bcCreate(ctx);
+      if (p[0] === 'sent') return bcSent(ctx);
+      if (p[0] === 'view') return bcView(ctx);
+      return ctx.notFound();
+    },
+    css: `
+.web-bc { min-height: 100%; background: #fff8e8; color: #4a3a2a; font: calc(14px * var(--hz-text, 1))/1.45 Georgia, "Times New Roman", serif; }
+.web-bc a { color: #c0507a; }
+.web-bc-head { display: flex; align-items: center; gap: 18px; padding: 14px 30px; background: linear-gradient(to bottom, #fff 0, #ffe9f2 100%); border-bottom: 2px dashed #e0457b; }
+.web-bc-logo { display: flex; align-items: center; gap: 8px; font: italic 700 2em Georgia, serif; color: #e0457b !important; text-decoration: none !important; }
+.web-bc-logo b { color: #1a8fe0; }
+.web-bc-logoic { width: 44px; height: 44px; }
+.web-bc-wrap { max-width: 880px; margin: 0 auto; padding: 22px 16px; }
+.web-bc-h1 { font: italic 700 1.9em Georgia, serif; color: #c0507a; margin: 0 0 14px; }
+.web-bc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.web-bc-pick { display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none !important; color: #4a3a2a !important; }
+.web-bc-pick:hover .web-bc-card { transform: translateY(-4px) rotate(-1deg); box-shadow: 0 10px 20px rgba(120,60,40,.3); }
+.web-bc-card { position: relative; width: 100%; max-width: 260px; aspect-ratio: 4 / 3; border-radius: 10px; overflow: hidden; border: 4px solid #fff; box-shadow: 0 4px 12px rgba(120,60,40,.2); transition: transform .2s, box-shadow .2s; }
+.web-bc-bits { position: absolute; inset: 0; }
+.web-bc-text { position: absolute; left: 0; right: 0; bottom: 12px; text-align: center; font: italic 700 1.3em Georgia, serif; color: #fff; text-shadow: 0 2px 4px rgba(0,0,0,.4); }
+.bc-bday { background: linear-gradient(#7fc8ff, #ffc2e0); }
+.bc-bday i { position: absolute; bottom: -40px; width: 30px; height: 36px; border-radius: 50% 50% 48% 48%; background: radial-gradient(circle at 35% 30%, #fff, var(--bc, #ff6a9a) 40%); animation: web-bc-float 5s linear infinite; }
+.bc-bday i::after { content: ""; position: absolute; left: 50%; top: 100%; width: 1px; height: 30px; background: #999; }
+.bc-bday i:nth-child(1) { left: 8%; --bc: #ff6a9a; } .bc-bday i:nth-child(2) { left: 25%; --bc: #ffd23a; animation-delay: -1s; } .bc-bday i:nth-child(3) { left: 42%; --bc: #6ad0ff; animation-delay: -2.2s; } .bc-bday i:nth-child(4) { left: 58%; --bc: #8fe05a; animation-delay: -3s; } .bc-bday i:nth-child(5) { left: 74%; --bc: #c89aff; animation-delay: -4s; } .bc-bday i:nth-child(6) { left: 88%; --bc: #ff9a3a; animation-delay: -.5s; }
+@keyframes web-bc-float { to { transform: translateY(-260px) rotate(8deg); } }
+.bc-thanks { background: linear-gradient(#bfe8ff 55%, #7fd05a 55%); }
+.bc-flower { position: absolute; left: 50%; top: 20%; width: 50%; height: 50%; margin-left: -25%; animation: web-bc-bloom 3s ease-in-out infinite alternate; }
+@keyframes web-bc-bloom { from { transform: scale(.7) rotate(-8deg); } to { transform: scale(1.05) rotate(8deg); } }
+.bc-fish { background: linear-gradient(#4ab8ee, #0c5a96); }
+.bc-f1, .bc-f2 { position: absolute; width: 60px; height: 60px; }
+.bc-f1 { top: 18%; animation: web-bc-swim 6s linear infinite; } .bc-f2 { top: 45%; width: 44px; height: 44px; animation: web-bc-swim 9s linear -3s infinite; }
+@keyframes web-bc-swim { from { left: -70px; } to { left: 110%; } }
+.bc-sun { background: repeating-conic-gradient(from 0deg at 50% 45%, #ffe38a 0 10deg, #ffd23a 10deg 20deg); }
+.bc-sunimg { position: absolute; left: 50%; top: 12%; width: 46%; height: 60%; margin-left: -23%; animation: web-bc-spin 12s linear infinite; }
+@keyframes web-bc-spin { to { transform: rotate(360deg); } }
+.bc-party { background: #1a2a5a; }
+.bc-party i { position: absolute; width: 10px; height: 6px; top: -10px; animation: web-bc-fall 3s linear infinite; }
+.bc-party i:nth-child(odd) { background: #ffd23a; } .bc-party i:nth-child(even) { background: #ff6a9a; } .bc-party i:nth-child(3n) { background: #6ad0ff; }
+.bc-party i:nth-child(1) { left: 10%; } .bc-party i:nth-child(2) { left: 22%; animation-delay: -1s; } .bc-party i:nth-child(3) { left: 34%; animation-delay: -2s; } .bc-party i:nth-child(4) { left: 46%; animation-delay: -.5s; } .bc-party i:nth-child(5) { left: 58%; animation-delay: -1.5s; } .bc-party i:nth-child(6) { left: 70%; animation-delay: -2.5s; } .bc-party i:nth-child(7) { left: 82%; animation-delay: -.8s; } .bc-party i:nth-child(8) { left: 92%; animation-delay: -1.8s; }
+@keyframes web-bc-fall { to { transform: translateY(240px) rotate(720deg); } }
+.bc-aurora { background: #041430; }
+.bc-aurora i { position: absolute; left: -20%; right: -20%; height: 50px; border-radius: 50%; filter: blur(10px); animation: web-fs-aur 6s ease-in-out infinite alternate; }
+.bc-aurora i:nth-child(1) { top: 15%; background: linear-gradient(90deg, transparent, #3ee6a0, #2aceda, transparent); } .bc-aurora i:nth-child(2) { top: 38%; background: linear-gradient(90deg, transparent, #2aceda, #7a5aff, transparent); animation-delay: -3s; }
+@keyframes web-fs-aur { from { transform: translateX(-12%) skewX(-10deg); } to { transform: translateX(12%) skewX(10deg); } }
+.web-bc-create { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.web-bc-preview .web-bc-card { max-width: none; }
+.web-bc-msgprev { font-style: italic; color: #7a5a4a; min-height: 2em; }
+.web-bc-form { display: flex; flex-direction: column; gap: 10px; }
+.web-bc-form label { display: flex; flex-direction: column; gap: 3px; font-weight: 700; }
+.web-bc-form input, .web-bc-form textarea { font: 1em Georgia, serif; padding: 6px 8px; border: 1px solid #e0b8c8; border-radius: 6px; }
+.web-bc-form textarea { min-height: 90px; resize: vertical; }
+.web-bc-btn { align-self: flex-start; display: inline-block; padding: 9px 22px; border-radius: 22px; cursor: pointer; font: italic 700 1.1em Georgia, serif; color: #fff !important; text-decoration: none !important; border: 1px solid #a0305a; background: linear-gradient(to bottom, #ffb3d0 0, #e0457b 50%, #c8306a 51%, #e8588e 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.7); }
+.web-bc-err { color: #c8412a; margin: 0; }
+.web-bc-sent, .web-bc-view { text-align: center; }
+.web-bc-plane { margin: 10px 0; }
+.web-bc-planeic { width: 80px; height: 80px; animation: web-bc-fly 2s ease-in-out infinite; }
+@keyframes web-bc-fly { 50% { transform: translate(20px, -12px) rotate(-8deg); } }
+.web-bc-view .web-bc-card { margin: 0 auto; max-width: 420px; }
+.web-bc-from { font: italic 700 1.3em Georgia, serif; color: #c0507a; }
+.web-bc-letter { max-width: 460px; margin: 18px auto; padding: 16px 22px; text-align: left; background: #fff; border: 1px solid #f0d0dc; border-radius: 8px; box-shadow: 0 4px 12px rgba(120,60,40,.12); }
+.web-bc-sign { text-align: right; font-style: italic; }
+.web-bc-foot { text-align: center; color: #9a7a6a; padding: 10px 0 20px; font-size: .9em; }
+`,
+  });
 })();

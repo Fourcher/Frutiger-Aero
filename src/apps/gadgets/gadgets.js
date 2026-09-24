@@ -313,9 +313,6 @@
       e.stopPropagation();
       gadgetMenu(rec, e.clientX, e.clientY);
     });
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Delete' && e.target === el) removeGadget(rec);
-    });
   }
 
   function gadgetMenu(rec, x, y) {
@@ -575,34 +572,51 @@
   const HAND_M = 'M100 23c2 0 3 2.6 3 5.4l.9 76c0 4.4-7.8 4.4-7.8 0l.9-76c0-2.8 1-5.4 3-5.4z';
   const HAND_S = 'M99.35 124h1.3l-.25-102h-.8z';
 
-  // Builds a clock face. `angles` poses the hands for still pictures.
-  function clockSVG(face, u, o, angles) {
+  // The pieces of a clock face: gradients, the dial below the hands, each hand
+  // (and its shadow), and the cap and glass shine above them.
+  function clockPieces(face, u, o) {
     const F = (CLOCK_FACES[face] || CLOCK_FACES.aqua)(u);
-    const sec = o.seconds !== false;
-    const rot = (k) => (angles ? ` transform="rotate(${angles[k]} 100 100)"` : '');
     const edge = F.handEdge ? ` stroke="${F.handEdge}" stroke-width="1.2"` : '';
     const glow = (d) => (F.glow ? `<path d="${d}" fill="none" stroke="${F.glow}" stroke-opacity=".38" stroke-width="4"/>` : '');
     let name = o.name ? esc(String(o.name).slice(0, 24)) : '';
     if (F.label.upper) name = name.toUpperCase();
     const label = name ? `<text x="100" y="${F.label.y}" class="${F.label.cls}" font-size="${F.label.size}" fill="${F.label.fill}" text-anchor="middle">${name}</text>` : '';
-    return `<svg class="gd-clock-svg" viewBox="0 0 200 200" aria-hidden="true">
-      <defs>${F.defs}
+    return {
+      keys: o.seconds !== false ? ['h', 'm', 's'] : ['h', 'm'],
+      defs: `<defs>${F.defs}
         <linearGradient id="${u}gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="${F.gloss}"/><stop offset="1" stop-color="#fff" stop-opacity=".02"/></linearGradient>
         <radialGradient id="${u}cap" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="${F.capA}"/><stop offset="1" stop-color="${F.capB}"/></radialGradient>
-        <radialGradient id="${u}sh" cx=".5" cy=".5" r=".5"><stop offset=".82" stop-color="#001a33" stop-opacity=".34"/><stop offset="1" stop-color="#001a33" stop-opacity="0"/></radialGradient>
-      </defs>
-      <circle cx="100" cy="104" r="100" fill="url(#${u}sh)"/>
-      ${F.dial}${F.marks}${label}
-      <g transform="translate(2.2 3.4)" fill="#001428" opacity=".24">
-        <g data-h="h"${rot('h')}><path d="${HAND_H}"/></g><g data-h="m"${rot('m')}><path d="${HAND_M}"/></g>
-        ${sec ? `<g data-h="s"${rot('s')}><path d="${HAND_S}"/><circle cx="100" cy="113" r="3.6"/></g>` : ''}
-      </g>
-      <g data-h="h"${rot('h')}>${glow(HAND_H)}<path d="${HAND_H}" fill="${F.hand}"${edge}/></g>
-      <g data-h="m"${rot('m')}>${glow(HAND_M)}<path d="${HAND_M}" fill="${F.hand}"${edge}/></g>
-      ${sec ? `<g data-h="s"${rot('s')}><path d="${HAND_S}" fill="${F.sec}"/><circle cx="100" cy="113" r="3.6" fill="${F.sec}"/>${F.secTip || ''}</g>` : ''}
-      <circle cx="100" cy="100" r="6.6" fill="url(#${u}cap)" stroke="${F.capEdge}" stroke-width=".8"/><circle cx="98.3" cy="97.9" r="2.2" fill="#fff" opacity=".85"/>
-      <path d="M25 97a75 75 0 0 1 150 0c-28-18-122-18-150 0z" fill="url(#${u}gl)"/>
-    </svg>`;
+        <radialGradient id="${u}sh" cx=".5" cy=".5" r=".5"><stop offset=".82" stop-color="#001a33" stop-opacity=".34"/><stop offset="1" stop-color="#001a33" stop-opacity="0"/></radialGradient></defs>`,
+      base: `<circle cx="100" cy="104" r="100" fill="url(#${u}sh)"/>${F.dial}${F.marks}${label}`,
+      shadow: { h: `<path d="${HAND_H}"/>`, m: `<path d="${HAND_M}"/>`, s: `<path d="${HAND_S}"/><circle cx="100" cy="113" r="3.6"/>` },
+      hand: {
+        h: `${glow(HAND_H)}<path d="${HAND_H}" fill="${F.hand}"${edge}/>`,
+        m: `${glow(HAND_M)}<path d="${HAND_M}" fill="${F.hand}"${edge}/>`,
+        s: `<path d="${HAND_S}" fill="${F.sec}"/><circle cx="100" cy="113" r="3.6" fill="${F.sec}"/>${F.secTip || ''}`,
+      },
+      top: `<circle cx="100" cy="100" r="6.6" fill="url(#${u}cap)" stroke="${F.capEdge}" stroke-width=".8"/><circle cx="98.3" cy="97.9" r="2.2" fill="#fff" opacity=".85"/>
+        <path d="M25 97a75 75 0 0 1 150 0c-28-18-122-18-150 0z" fill="url(#${u}gl)"/>`,
+    };
+  }
+
+  // A still picture of a clock; `angles` poses the hands.
+  function clockSVG(face, u, o, angles) {
+    const P = clockPieces(face, u, o);
+    const rot = (k) => (angles ? ` transform="rotate(${angles[k]} 100 100)"` : '');
+    return `<svg class="gd-clock-svg" viewBox="0 0 200 200" aria-hidden="true">${P.defs}${P.base}
+      <g transform="translate(2.2 3.4)" fill="#001428" opacity=".24">${P.keys.map((k) => `<g${rot(k)}>${P.shadow[k]}</g>`).join('')}</g>
+      ${P.keys.map((k) => `<g${rot(k)}>${P.hand[k]}</g>`).join('')}${P.top}</svg>`;
+  }
+
+  // A live clock: the dial is drawn once and each hand is its own layer that
+  // turns with a CSS transform, so the compositor moves it without repainting.
+  function clockLive(face, u, o) {
+    const P = clockPieces(face, u, o);
+    const layer = (cls, inner, k) => `<svg class="gd-clock-layer ${cls}" viewBox="0 0 200 200" aria-hidden="true"${k ? ` data-h="${k}"` : ''}>${inner}</svg>`;
+    return layer('gd-clock-base', P.defs + P.base)
+      + P.keys.map((k) => layer('gd-hand gd-hand-shadow', `<g fill="#001428" opacity=".24">${P.shadow[k]}</g>`, k)).join('')
+      + P.keys.map((k) => layer('gd-hand', P.hand[k], k)).join('')
+      + layer('gd-clock-top', P.top);
   }
 
   function clockAngles(t) {
@@ -639,10 +653,9 @@
     },
     create(ctx) {
       const u = uid('gdc');
-      ctx.body.innerHTML = clockSVG(ctx.o.style, u, ctx.o);
-      const svg = ctx.body.firstElementChild;
+      ctx.body.innerHTML = clockLive(ctx.o.style, u, ctx.o);
       const hands = { h: [], m: [], s: [] };
-      svg.querySelectorAll('[data-h]').forEach((g) => hands[g.dataset.h].push(g));
+      ctx.body.querySelectorAll('[data-h]').forEach((g) => hands[g.dataset.h].push(g));
       const last = { h: -1, m: -1, s: -1 };
       const tip = () => {
         const z = ZONES.find((zz) => zz[0] === ctx.o.tz);
@@ -654,8 +667,8 @@
         for (const k of ['h', 'm', 's']) {
           if (Math.abs(a[k] - last[k]) < 0.05) continue;
           last[k] = a[k];
-          const tr = `rotate(${a[k]} 100 100)`;
-          for (const g of hands[k]) g.setAttribute('transform', tr);
+          const tr = `rotate(${a[k]}deg)`;
+          for (const g of hands[k]) g.style.transform = tr;
         }
         if (a.m !== last.tipM) { last.tipM = a.m; tip(); }
       }
@@ -677,7 +690,7 @@
       <path d="M9 15a7 7 0 0 1 7-7h32a7 7 0 0 1 7 7v7H9z" fill="url(#gdcal-b)"/>
       <rect x="18" y="4" width="4" height="9" rx="2" fill="#c7d2dc" stroke="#6d7a86" stroke-width=".8"/><rect x="42" y="4" width="4" height="9" rx="2" fill="#c7d2dc" stroke="#6d7a86" stroke-width=".8"/>
       <text x="32" y="45" font-size="21" class="gd-f-light" fill="#1e3a5a" text-anchor="middle">${d.getDate()}</text>
-      <text x="32" y="53" font-size="5.5" class="gd-f-aero" fill="#5f7a93" text-anchor="middle">${DAYS[d.getDay()]}</text>
+      <text x="32" y="53.5" font-size="6.5" class="gd-f-aero" fill="#5f7a93" text-anchor="middle">${DAYS[d.getDay()].slice(0, 3)}</text>
       <path d="M10 16a7 7 0 0 1 7-7h30a7 7 0 0 1 7 7v2c-12-3-32-3-44 0z" fill="#fff" opacity=".45"/></svg>`;
   }
 
@@ -967,7 +980,8 @@
   });
 
   // ============================================================ CPU Meter
-  function gaugeSVG(u, cx, cy, R, label) {
+  // One chrome gauge in three parts: the dial, the needle (pointing up) and the glass on top.
+  function gaugeParts(u, cx, cy, R, label) {
     const face = n1(R * 0.86), ar = n1(R * 0.7), aw = n1(R * 0.085);
     let ticks = '';
     for (let p = 0; p <= 100; p += 10) {
@@ -978,31 +992,50 @@
     const L = R * 0.74, w = R * 0.075;
     const needle = `M${n1(cx - w)} ${n1(cy + R * 0.16)}L${n1(cx - w * 0.3)} ${n1(cy - L)}L${n1(cx + w * 0.3)} ${n1(cy - L)}L${n1(cx + w)} ${n1(cy + R * 0.16)}Z`;
     const rw = n1(R * 0.64), rh = n1(R * 0.25);
-    return `<circle cx="${cx}" cy="${n1(cy + R * 0.08)}" r="${n1(R * 1.04)}" fill="url(#${u}sh)"/>
-      <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#${u}chr)" stroke="#4d5966" stroke-width=".8"/>
-      <circle cx="${cx}" cy="${cy}" r="${n1(R * 0.9)}" fill="url(#${u}chr2)"/>
-      <circle cx="${cx}" cy="${cy}" r="${face}" fill="url(#${u}face)" stroke="#02060b" stroke-width="1"/>
-      <path d="${arc(cx, cy, ar, -120, 24)}" stroke="#45d64a" stroke-width="${aw}" fill="none" opacity=".9"/>
-      <path d="${arc(cx, cy, ar, 24, 84)}" stroke="#ffd84a" stroke-width="${aw}" fill="none" opacity=".9"/>
-      <path d="${arc(cx, cy, ar, 84, 120)}" stroke="#ff5a3c" stroke-width="${aw}" fill="none" opacity=".95"/>
-      ${ticks}
-      <text x="${cx}" y="${n1(cy - R * 0.28)}" class="gd-f-y2k" font-size="${n1(R * 0.15)}" fill="#8fd3ff" text-anchor="middle">${label}</text>
-      <rect x="${n1(cx - rw / 2)}" y="${n1(cy + R * 0.34)}" width="${rw}" height="${rh}" rx="${n1(rh / 2.6)}" fill="#03101a" stroke="#35546e" stroke-width=".7"/>
-      <text x="${cx}" y="${n1(cy + R * 0.34 + rh * 0.74)}" class="gd-f-y2k" font-size="${n1(R * 0.155)}" fill="#7dffd0" text-anchor="middle"><tspan data-r="${label}">0</tspan><tspan class="gd-f-aero" font-weight="600" font-size="${n1(R * 0.14)}" dx="${n1(R * 0.02)}">%</tspan></text>
-      <g data-n="${label}" transform="rotate(-120 ${cx} ${cy})"><path d="${needle}" fill="#200a05" opacity=".35" transform="translate(${n1(R * 0.03)} ${n1(R * 0.05)})"/><path d="${needle}" fill="url(#${u}ndl)"/></g>
-      <circle cx="${cx}" cy="${cy}" r="${n1(R * 0.12)}" fill="url(#${u}cap)" stroke="#3a4652" stroke-width=".6"/>
-      <path d="M${n1(cx - face * 0.86)} ${n1(cy - face * 0.05)}a${n1(face * 0.86)} ${n1(face * 0.86)} 0 0 1 ${n1(face * 1.72)} 0c-${n1(face * 0.4)}-${n1(face * 0.26)}-${n1(face * 1.32)}-${n1(face * 0.26)}-${n1(face * 1.72)} 0z" fill="url(#${u}gl)"/>`;
+    return {
+      base: `<circle cx="${cx}" cy="${n1(cy + R * 0.08)}" r="${n1(R * 1.04)}" fill="url(#${u}sh)"/>
+        <circle cx="${cx}" cy="${cy}" r="${R}" fill="url(#${u}chr)" stroke="#4d5966" stroke-width=".8"/>
+        <circle cx="${cx}" cy="${cy}" r="${n1(R * 0.9)}" fill="url(#${u}chr2)"/>
+        <circle cx="${cx}" cy="${cy}" r="${face}" fill="url(#${u}face)" stroke="#02060b" stroke-width="1"/>
+        <path d="${arc(cx, cy, ar, -120, 24)}" stroke="#45d64a" stroke-width="${aw}" fill="none" opacity=".9"/>
+        <path d="${arc(cx, cy, ar, 24, 84)}" stroke="#ffd84a" stroke-width="${aw}" fill="none" opacity=".9"/>
+        <path d="${arc(cx, cy, ar, 84, 120)}" stroke="#ff5a3c" stroke-width="${aw}" fill="none" opacity=".95"/>
+        ${ticks}
+        <text x="${cx}" y="${n1(cy - R * 0.28)}" class="gd-f-y2k" font-size="${n1(R * 0.15)}" fill="#8fd3ff" text-anchor="middle">${label}</text>
+        <rect x="${n1(cx - rw / 2)}" y="${n1(cy + R * 0.34)}" width="${rw}" height="${rh}" rx="${n1(rh / 2.6)}" fill="#03101a" stroke="#35546e" stroke-width=".7"/>`,
+      needle: `<path d="${needle}" fill="#200a05" opacity=".35" transform="translate(${n1(R * 0.03)} ${n1(R * 0.05)})"/><path d="${needle}" fill="url(#${u}ndl)"/>`,
+      top: `<text x="${cx}" y="${n1(cy + R * 0.34 + rh * 0.74)}" class="gd-f-y2k" font-size="${n1(R * 0.155)}" fill="#7dffd0" text-anchor="middle"><tspan data-r="${label}">0</tspan><tspan class="gd-f-aero" font-weight="600" font-size="${n1(R * 0.14)}" dx="${n1(R * 0.02)}">%</tspan></text>
+        <circle cx="${cx}" cy="${cy}" r="${n1(R * 0.12)}" fill="url(#${u}cap)" stroke="#3a4652" stroke-width=".6"/>
+        <path d="M${n1(cx - face * 0.86)} ${n1(cy - face * 0.05)}a${n1(face * 0.86)} ${n1(face * 0.86)} 0 0 1 ${n1(face * 1.72)} 0c-${n1(face * 0.4)}-${n1(face * 0.26)}-${n1(face * 1.32)}-${n1(face * 0.26)}-${n1(face * 1.72)} 0z" fill="url(#${u}gl)"/>`,
+    };
   }
-  function cpuSVG(u) {
-    return `<svg viewBox="0 0 150 104" class="gd-cpu-svg" aria-hidden="true"><defs>
+  const GAUGES = [['CPU', 56, 52, 44], ['RAM', 118, 68, 28]];
+  function cpuDefs(u) {
+    return `<defs>
       <linearGradient id="${u}chr" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".22" stop-color="#b9c4ce"/><stop offset=".45" stop-color="#f4f7f9"/><stop offset=".62" stop-color="#7f8b97"/><stop offset=".82" stop-color="#e2e8ed"/><stop offset="1" stop-color="#5d6975"/></linearGradient>
       <linearGradient id="${u}chr2" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#f3f6f8"/><stop offset=".5" stop-color="#8d99a5"/><stop offset="1" stop-color="#e9eef2"/></linearGradient>
       <radialGradient id="${u}face" cx=".5" cy=".38" r=".7"><stop offset="0" stop-color="#23384f"/><stop offset=".7" stop-color="#0b1622"/><stop offset="1" stop-color="#03070c"/></radialGradient>
       <linearGradient id="${u}ndl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#ff8a5c"/><stop offset=".5" stop-color="#ff4a26"/><stop offset="1" stop-color="#c8260e"/></linearGradient>
       <radialGradient id="${u}cap" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#7d8995"/></radialGradient>
       <linearGradient id="${u}gl" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".42"/><stop offset="1" stop-color="#fff" stop-opacity=".02"/></linearGradient>
-      <radialGradient id="${u}sh" cx=".5" cy=".5" r=".5"><stop offset=".78" stop-color="#001a33" stop-opacity=".36"/><stop offset="1" stop-color="#001a33" stop-opacity="0"/></radialGradient>
-    </defs>${gaugeSVG(u, 56, 52, 44, 'CPU')}${gaugeSVG(u, 118, 68, 28, 'RAM')}</svg>`;
+      <radialGradient id="${u}sh" cx=".5" cy=".5" r=".5"><stop offset=".78" stop-color="#001a33" stop-opacity=".36"/><stop offset="1" stop-color="#001a33" stop-opacity="0"/></radialGradient></defs>`;
+  }
+  // A still picture (the gallery icon), needles posed.
+  function cpuSVG(u, pct = [34, 58]) {
+    return `<svg viewBox="0 0 150 104" class="gd-cpu-svg" aria-hidden="true">${cpuDefs(u)}${GAUGES.map(([l, cx, cy, R], i) => {
+      const P = gaugeParts(u, cx, cy, R, l);
+      return P.base + `<g transform="rotate(${n1(-120 + pct[i] * 2.4)} ${cx} ${cy})">${P.needle}</g>` + P.top.replace('>0<', '>' + pct[i] + '<');
+    }).join('')}</svg>`;
+  }
+  // The live meter: dials drawn once, each needle its own layer turned by the compositor.
+  function cpuLive(u) {
+    return GAUGES.map(([l, cx, cy, R], i) => {
+      const P = gaugeParts(u, cx, cy, R, l);
+      const origin = `transform-origin:${n1((cx / 150) * 100)}% ${n1((cy / 104) * 100)}%;transform:rotate(-120deg)`;
+      return `<svg class="gd-cpu-layer" viewBox="0 0 150 104" aria-hidden="true">${i ? '' : cpuDefs(u)}${P.base}</svg>`
+        + `<svg class="gd-cpu-layer gd-needle" data-n="${l}" style="${origin}" viewBox="0 0 150 104" aria-hidden="true">${P.needle}</svg>`
+        + `<svg class="gd-cpu-layer" viewBox="0 0 150 104" aria-hidden="true">${P.top}</svg>`;
+    }).join('');
   }
 
   define({
@@ -1017,9 +1050,8 @@
     art: () => cpuSVG('gdcpa'),
     create(ctx) {
       const u = uid('gdcpu');
-      ctx.body.innerHTML = cpuSVG(u);
-      const svg = ctx.body.firstElementChild;
-      const gauge = (label, cx, cy) => ({ x: 0, v: 0, target: 0, cx, cy, g: svg.querySelector(`[data-n="${label}"]`), txt: svg.querySelector(`[data-r="${label}"]`), shown: -1, ang: null });
+      ctx.body.innerHTML = cpuLive(u);
+      const gauge = (label, cx, cy) => ({ x: 0, v: 0, target: 0, cx, cy, g: ctx.body.querySelector(`[data-n="${label}"]`), txt: ctx.body.querySelector(`[data-r="${label}"]`), shown: -1, ang: null });
       const cpu = gauge('CPU', 56, 52), ram = gauge('RAM', 118, 68);
       let spikeUntil = 0, nextAt = 0, last = performance.now();
       const offs = [
@@ -1041,7 +1073,7 @@
         n.v += a * dt;
         n.x = clamp(n.x + n.v * dt, -1.5, 101.5);
         const ang = n1(-120 + n.x * 2.4);
-        if (ang !== n.ang) { n.ang = ang; n.g.setAttribute('transform', `rotate(${ang} ${n.cx} ${n.cy})`); }
+        if (ang !== n.ang) { n.ang = ang; n.g.style.transform = `rotate(${ang}deg)`; }
         const pct = Math.round(clamp(n.x, 0, 100));
         if (pct !== n.shown) { n.shown = pct; n.txt.textContent = String(pct); }
       }
@@ -1984,8 +2016,8 @@
         const rec = mount(it, true);
         anchor(rec);
         place(rec);
-      }
-      persistSoon();
+        persistSoon();
+      } else persist();
       sfx('pop');
       A.bus.emit('gadgets:change');
       return it.k;
