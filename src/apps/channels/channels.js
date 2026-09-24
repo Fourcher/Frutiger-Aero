@@ -1164,6 +1164,9 @@
   A.bus.on('screensaver:stop', () => { if (S) { try { A.theme.pause(); } catch (e) { /* ignore */ } } });
   A.bus.on('shell:stop', () => { if (S) { musicStop(); teardown(S); } });
 
+  // For scripts and other apps: open or leave Channels without keystrokes.
+  A.channels = { open: () => open(), close: () => close(), isOpen: () => !!S };
+
   A.apps.register({
     id: 'channels',
     name: 'Channels',

@@ -64,10 +64,11 @@ for (const theme of opt.themes) {
         Aerium.wm.windows.slice().forEach((w) => { try { w.close(true); } catch (e) { console.error(e); } });
         try { Aerium.music && Aerium.music.stop && Aerium.music.stop(); } catch (e) { console.error(e); }
         try { Aerium.screensaver && Aerium.screensaver.stop && Aerium.screensaver.stop(); } catch (e) { console.error(e); }
+        try { Aerium.channels && Aerium.channels.isOpen() && Aerium.channels.close(); } catch (e) { console.error(e); }
         document.querySelectorAll('.ae-menu, .ae-flyout').forEach((n) => n.remove());
       });
     } catch (e) { bucket.push('[close] ' + e.message.split('\n')[0]); }
-    await page.waitForTimeout(350);
+    await page.waitForTimeout(650);
     const errs = bucket.splice(0);
     if (errs.length) failed++;
     report.push({ theme, app: id, window: info.window, errors: errs });
