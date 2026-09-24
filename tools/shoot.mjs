@@ -16,6 +16,7 @@
 import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
+import { tmpdir } from 'node:os';
 
 const require = createRequire(import.meta.url);
 let playwright;
@@ -23,7 +24,7 @@ try { playwright = require('playwright'); } catch { playwright = require('/opt/n
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
-const opt = { query: 'boot=skip', out: 'shot.png', size: '1366x768', wait: 1200, steps: [] };
+const opt = { query: 'boot=skip', out: 'shot.png', size: '1366x768', wait: 1200, steps: [], keep: false };
 for (let i = 0; i < args.length; i++) {
   const a = args[i];
   const v = args[i + 1];
@@ -34,10 +35,15 @@ for (let i = 0; i < args.length; i++) {
   else if (a === '--eval') { opt.steps.push({ eval: v }); i++; }
   else if (a === '--click') { opt.steps.push({ click: v }); i++; }
   else if (a === '--theme') { opt.query += '&theme=' + v; i++; }
+  else if (a === '--keep') opt.keep = true;
 }
 const [w, h] = opt.size.split('x').map(Number);
-const browser = await playwright.chromium.launch({ args: ['--autoplay-policy=no-user-gesture-required'] });
-const page = await browser.newPage({ viewport: { width: w, height: h } });
+const launchArgs = ['--autoplay-policy=no-user-gesture-required'];
+// --keep reuses one profile, so localStorage (files, settings) carries over between runs.
+const browser = opt.keep
+  ? await playwright.chromium.launchPersistentContext(join(tmpdir(), 'aerium-shoot-profile'), { args: launchArgs, viewport: { width: w, height: h } })
+  : await playwright.chromium.launch({ args: launchArgs });
+const page = opt.keep ? (browser.pages()[0] || await browser.newPage()) : await browser.newPage({ viewport: { width: w, height: h } });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') errors.push(`[${m.type()}] ${m.text()}`); });
 page.on('pageerror', (e) => errors.push('[pageerror] ' + (e.stack || e.message)));

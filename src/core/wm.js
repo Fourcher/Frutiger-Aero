@@ -428,7 +428,7 @@
 
     async close(force) {
       if (this.closed) return false;
-      if (this.modalChild && !this.modalChild.closed) {
+      while (this.modalChild && !this.modalChild.closed) {
         if (!force) { this.modalChild.focus(); this.modalChild.flashFrame(); return false; }
         await this.modalChild.close(true);
       }
@@ -443,8 +443,11 @@
       A.bus.emit('win:close', this);
       wm.windows = wm.windows.filter((w) => w !== this);
       if (this.parent) {
-        this.parent.modalChild = null;
-        this.parent.el.classList.remove('win-blocked');
+        // Dialogs can stack on one parent; the one underneath takes over.
+        const p = this.parent;
+        p.modalStack = (p.modalStack || []).filter((w) => w !== this && !w.closed);
+        p.modalChild = p.modalStack[p.modalStack.length - 1] || null;
+        if (!p.modalChild) p.el.classList.remove('win-blocked');
       }
       const finish = () => this.el.remove();
       if (this.el.animate && this.state !== 'minimized') {
@@ -452,7 +455,7 @@
       } else finish();
       if (wm.active === this) {
         wm.active = null;
-        if (this.parent) this.parent.focus();
+        if (this.parent) (this.parent.modalChild || this.parent).focus();
         else wm.focusTop(this);
       }
       return true;
@@ -491,6 +494,7 @@
     wm.windows.push(win);
     wm.layer.appendChild(win.el);
     if (o.modal) {
+      (o.modal.modalStack = o.modal.modalStack || []).push(win);
       o.modal.modalChild = win;
       o.modal.el.classList.add('win-blocked');
       // Clicking a blocked parent flashes its dialog.

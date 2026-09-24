@@ -586,7 +586,7 @@
     const btn = el.querySelector('.web-geo-mplay'), stop = el.querySelector('.web-geo-mstop'), label = el.querySelector('.web-geo-mstate');
     const set = (on) => { playing = on; label.textContent = on ? 'Playing' : 'Stopped'; el.classList.toggle('on', on); };
     btn.addEventListener('click', () => {
-      if (!A.sound.ctx || !ctx.audio()) { ctx.dialog({ title: 'Sound', icon: 'icons/speaker', message: 'Turn on "Play sounds in webpages" in Internet Options to hear background music.' }); return; }
+      if (!ctx.audio() || !A.sound.ctx) { ctx.dialog({ title: 'Sound', icon: 'icons/speaker', message: 'Turn on "Play sounds in webpages" in Internet Options to hear background music.' }); return; }
       idx = 0; next = 0; set(true);
     });
     stop.addEventListener('click', () => set(false));

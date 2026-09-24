@@ -163,6 +163,11 @@
     });
   }
 
+  // Real length from the music engine when it knows the track, so the list matches the player.
+  function msTrackLen(id, fallback) {
+    try { const tr = id && A.music && A.music.getTrack && A.music.getTrack(id); if (tr && tr.duration) return A.util.fmtDuration(tr.duration); } catch (e) { /* ignore */ }
+    return fallback;
+  }
   // Profile song: plays through Aerium.music when it exists; otherwise a tiny synth tune.
   function msPlayer(ctx, root, song) {
     const el = root.querySelector('.web-ms-player');
@@ -289,7 +294,7 @@
       <div class="web-ms-box"><div class="web-ms-boxh">${esc(u.short)}'s ${P.band ? 'Info' : 'Interests'}</div><table class="web-ms-table">${P.interests.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table></div>
       <div class="web-ms-box"><div class="web-ms-boxh">${esc(u.short)}'s Details</div><table class="web-ms-table">${P.details.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}<tr><th>Profile views</th><td>${K.num(views + 1200 + (K.hash(id) % 9000))}</td></tr></table></div>`;
     const shows = P.shows ? `<div class="web-ms-box"><div class="web-ms-boxh">Upcoming Shows</div><table class="web-ms-shows">${P.shows.map(([d, venue, city]) => `<tr><td>${esc(K.shortDate(Date.now() + d * D))}</td><td><b>${esc(venue)}</b><br>${esc(city)}</td><td><a href="#" data-act="tix">Tickets</a></td></tr>`).join('')}</table></div>` : '';
-    const tracks = P.tracks ? `<div class="web-ms-box web-ms-tracks"><div class="web-ms-boxh">${esc(name)} - Songs</div>${P.tracks.map(([tr, t, len, plays]) => `<div class="web-ms-track${tr ? '' : ' off'}"><button type="button" data-track="${tr || ''}" aria-label="Play ${esc(t)}" ${tr ? '' : 'disabled'}><i></i></button><b>${esc(t)}</b><span>${len}</span><small>Plays: ${K.num(plays)}</small><a href="#" data-act="addsong">Add to profile</a></div>`).join('')}</div>` : '';
+    const tracks = P.tracks ? `<div class="web-ms-box web-ms-tracks"><div class="web-ms-boxh">${esc(name)} - Songs</div>${P.tracks.map(([tr, t, len, plays]) => `<div class="web-ms-track${tr ? '' : ' off'}"><button type="button" data-track="${tr || ''}" aria-label="Play ${esc(t)}" ${tr ? '' : 'disabled'}><i></i></button><b>${esc(t)}</b><span>${msTrackLen(tr, len)}</span><small>Plays: ${K.num(plays)}</small><a href="#" data-act="addsong">Add to profile</a></div>`).join('')}</div>` : '';
     const right = `
       ${P.song ? msPlayerHTML(P.song) : ''}
       ${tracks}
@@ -324,12 +329,14 @@
       else if (k === 'tix') ctx.dialog({ title: 'Tickets', icon: 'icons/music', instruction: 'Sold out!', message: 'Tickets sold out in 11 seconds. Maybe refresh a few hundred times?' });
       else if (k === 'addsong') ctx.dialog({ title: 'MySpot Music', icon: 'icons/music', instruction: 'Song added to your profile!', message: 'Visit your profile to hear it. Please remember: not everyone wants music the second they open your page.' });
     }));
+    let listStarted = null;
     root.querySelectorAll('.web-ms-track button[data-track]').forEach((b) => b.addEventListener('click', () => {
       const tr = b.dataset.track;
       if (!tr) return;
-      if (A.music && A.music.play) { try { const p = A.music.play(tr, { fadeIn: true }); if (p && p.catch) p.catch(() => {}); } catch (err) { /* ignore */ } root.querySelectorAll('.web-ms-track').forEach((x) => x.classList.remove('playing')); b.parentElement.classList.add('playing'); }
+      if (A.music && A.music.play) { try { const p = A.music.play(tr, { fadeIn: true }); if (p && p.catch) p.catch(() => {}); listStarted = tr; } catch (err) { /* ignore */ } root.querySelectorAll('.web-ms-track').forEach((x) => x.classList.remove('playing')); b.parentElement.classList.add('playing'); }
       else root.querySelector('.web-ms-playbtn').click();
     }));
+    ctx.onUnload(() => { try { const M = A.music; if (listStarted && M && M.current && M.current.id === listStarted && M.state !== 'stopped') M.stop({ fadeOut: true }); } catch (e) { /* ignore */ } });
     if (glitter) msSparkles(ctx, root);
   }
 
@@ -443,10 +450,13 @@
     const inner = `<div class="web-ms-box"><div class="web-ms-boxh">MySpot Music: Top Artists</div><div class="web-ms-boxb"><table class="web-ms-musictable">${bands.map(([id, genre, tr, title], i) => `<tr><td class="web-ms-rank">${i + 1}</td><td><a href="${msHref(id)}">${K.img(msUser(id).avatar, 'web-ms-bpic')}</a></td><td><a href="${msHref(id)}"><b>${esc(msUser(id).short)}</b></a><br>${esc(genre)}</td><td><button type="button" class="web-ms-btn" data-track="${tr}">Play "${esc(title)}"</button></td></tr>`).join('')}</table><p class="web-ms-small">Songs play in the Aerium music player. Pause them any time from the taskbar or the media player.</p></div></div>`;
     const root = ctx.html(msFrame(ctx, 'Music', 'default', inner));
     msWire(ctx, root);
+    let started = null;
     root.querySelectorAll('[data-track]').forEach((b) => b.addEventListener('click', () => {
-      if (A.music && A.music.play) { try { const p = A.music.play(b.dataset.track, { fadeIn: true }); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } ctx.status('Now playing: ' + b.textContent.replace(/^Play /, '')); }
+      if (A.music && A.music.play) { try { const p = A.music.play(b.dataset.track, { fadeIn: true }); if (p && p.catch) p.catch(() => {}); started = b.dataset.track; } catch (e) { /* ignore */ } ctx.status('Now playing: ' + b.textContent.replace(/^Play /, '')); }
       else ctx.dialog({ title: 'MySpot Music', icon: 'icons/music', message: 'The music player is warming up. Try again in a moment.' });
     }));
+    // leaving the page (or closing the window) stops the song this page started
+    ctx.onUnload(() => { try { const M = A.music; if (started && M && M.current && M.current.id === started && M.state !== 'stopped') M.stop({ fadeOut: true }); } catch (e) { /* ignore */ } });
   }
 
   function msBlog(ctx, id) {
