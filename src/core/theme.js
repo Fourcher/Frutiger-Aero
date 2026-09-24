@@ -85,7 +85,8 @@
     let def = resolveWallpaper(id);
     if (!def) def = wallpapers.get('aquarium') || wallpapers.get('clear-sky');
     if (current && current.id === def.id) return;
-    const layer = h('div.wp-layer');
+    const layer = h('div.wp-layer', { style: { opacity: '0' } });
+    host.appendChild(layer);
     const fit = A.store.get('wallpaper.fit');
     let ctrl = null;
     if (def.kind === 'animated' && def.create) {
@@ -101,7 +102,6 @@
       layer.classList.add('wp-fit-' + fit);
       layer.style.backgroundImage = `url("${src}")`;
     }
-    host.appendChild(layer);
     const old = current;
     current = { id: def.id, layer, ctrl, def };
     if (instant || !old) {

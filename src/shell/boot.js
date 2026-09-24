@@ -118,6 +118,7 @@
     const CONVERGE = 1900;
     function frame(now) {
       const t = now - t0;
+      if (canvas.clientWidth !== W || canvas.clientHeight !== H) resize();
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = 'rgba(0,0,0,0.18)';
       ctx.fillRect(0, 0, W, H);
@@ -183,6 +184,8 @@
     const motes = Array.from({ length: 36 }, () => ({ x: Math.random(), y: Math.random(), r: 1 + Math.random() * 3.5, v: 0.00002 + Math.random() * 0.00005, a: Math.random() * 0.5 + 0.2 }));
     function frame(t) {
       if (stopped) return;
+      if (canvas.clientWidth !== W || canvas.clientHeight !== H) resize();
+      if (W < 2 || H < 2) { raf = requestAnimationFrame(frame); return; }
       const g = ctx.createLinearGradient(0, 0, 0, H);
       g.addColorStop(0, P.bg[0]); g.addColorStop(0.45, P.bg[1]); g.addColorStop(0.8, P.bg[2]); g.addColorStop(1, P.bg[3]);
       ctx.globalCompositeOperation = 'source-over';
