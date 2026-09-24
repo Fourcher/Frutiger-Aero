@@ -855,7 +855,7 @@
 
     function drawBubbles() {
       for (const b of S.bubbles) {
-        const r = b.r;
+        const r = Math.max(0.1, b.r);
         ctx.fillStyle = 'rgba(255,255,255,0.08)';
         ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
         ctx.strokeStyle = b.rim ? 'rgba(200,245,255,0.95)' : 'rgba(255,255,255,0.75)';
@@ -884,7 +884,7 @@
       for (const r of S.ripples) {
         ctx.strokeStyle = `rgba(255,255,255,${r.life})`;
         ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.45, 0, 0, TAU); ctx.stroke();
+        ctx.beginPath(); ctx.ellipse(r.x, r.y, Math.max(0.1, r.r), Math.max(0.1, r.r * 0.45), 0, 0, TAU); ctx.stroke();
       }
       for (const p of S.particles) {
         ctx.fillStyle = p.c + (p.life / p.max) + ')';
@@ -992,7 +992,8 @@
       if (!running) return;
       raf = requestAnimationFrame(frame);
       if (now < slowUntil) return;
-      const dt = Math.min(0.05, (now - last) / 1000 || 0.016);
+      // rAF timestamps can land a hair before the resume time; never step backwards.
+      const dt = Math.min(0.05, Math.max(0, (now - last) / 1000) || 0.016);
       last = now;
       // Barely animate when a maximized window covers the desktop.
       const covered = !preview && A.wm && A.wm.windows.some((w) => w.state === 'maximized');

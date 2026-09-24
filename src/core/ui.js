@@ -395,7 +395,8 @@
         const title = target.getAttribute('data-tip-title');
         if (title) tip.appendChild(h('b', null, title));
         tip.appendChild(h('span', null, text));
-        document.getElementById('ae-overlays').appendChild(tip);
+        // On the body, above full-screen experiences like Channels.
+        document.body.appendChild(tip);
         const w = tip.offsetWidth, hh = tip.offsetHeight;
         let left = x + 2, top = y + 22;
         if (left + w > window.innerWidth - 4) left = window.innerWidth - w - 4;

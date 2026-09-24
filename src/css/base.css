@@ -44,7 +44,7 @@ body.ae-dragging iframe { pointer-events: none; }
 .wp-fit-center { background-size: auto; background-color: #1b3a5c; }
 #ae-desktop { position: absolute; left: 0; top: 0; right: 0; bottom: var(--taskbar-h); overflow: clip; }
 #ae-icons { position: absolute; inset: 0; }
-#ae-gadgets { position: absolute; inset: 0; pointer-events: none; }
+#ae-gadgets { position: absolute; inset: 0; pointer-events: none; isolation: isolate; }
 #ae-gadgets > * { pointer-events: auto; }
 #ae-windows { position: absolute; inset: 0; pointer-events: none; }
 #ae-windows > * { pointer-events: auto; }
