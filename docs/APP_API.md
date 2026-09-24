@@ -82,6 +82,8 @@ node tools/shoot.mjs --query "boot=skip&open=paint" --eval "Aerium.sound.play('w
 
 Dialogs you open with `parent: win` are modal to that window.
 
+Extra windows: `Aerium.wm.create({ app: 'myapp', title, icon, width, height, ... })` opens another window for your app (conversation windows, tool palettes). Pass `background: true` to open it just beneath the active window without stealing focus. The window `launch` created is marked `win.main`, so relaunching a `single` app focuses that one rather than an extra window.
+
 ## Global API
 
 ### `Aerium.util`
@@ -126,30 +128,33 @@ Prefix every class with your app's short name (`pt-` for Paint, `mp-` for Media 
 
 ### `Aerium.sound`
 `play(name)` with name in: startup logon logoff shutdown notify ding error exclamation question navigate click menu open close minimize maximize message signin signout nudge recycle empty pop plop bubble hover zap whooshIn whooshOut select back win lose balloon snap card shuffle coin flag lock connect disconnect type.
-Synthesis primitives for your own sounds (all times are `AudioContext` seconds; `sound.ctx` is null until the user's first click, so guard with `if (!A.sound.ctx) return`): `bell(freq|'C5', t, { dur, vel, ratio, index, rev, pan })`, `epiano(f, t, o)`, `pluck(f, t, o)`, `pad(['C4','E4'], t, { dur, vel, attack, release })`, `noise(t, { dur, vel, type, f1, f2, q })`, `blip(f1, f2, t, { dur, vel, type })`. Connect custom nodes to `A.sound.sfx` (effects) or `A.sound.musicBus` (music) so system volume and mute apply. `A.sound.freq('A4')` converts note names.
+Synthesis primitives for your own sounds (all times are `AudioContext` seconds; `sound.ctx` is null until the user's first click, so guard with `if (!A.sound.ctx) return`): `bell(freq|'C5', t, { dur, vel, ratio, index, rev, pan })`, `epiano(f, t, o)`, `pluck(f, t, o)`, `pad(['C4','E4'], t, { dur, vel, attack, release })`, `noise(t, { dur, vel, type, f1, f2, q })`, `blip(f1, f2, t, { dur, vel, type })`. Connect custom nodes to `A.sound.sfx` (effects) or `A.sound.musicBus` (music) so system volume and mute apply. `A.sound.freq('A4')` converts note names. `A.sound.register(name, (t) => { ... })` adds a named sound built from those primitives; after that `play(name)` works anywhere, with the usual rate limiting and mute.
 
 ### `Aerium.fs` (virtual file system, persisted in localStorage)
 Paths look like `/Documents/notes.txt`. Standard folders: `/Desktop /Documents /Pictures /Music /Videos /Downloads /Recycle Bin`.
 `list(dir)` (items: `{ path, name, type: 'file'|'folder', ext, size, modified, mime, readonly }`), `read(path)`, `write(path, data, { mime })`, `mkdir`, `rename(path, newName)`, `move(path, destDir)`, `copy`, `remove(path)` (to the Recycle Bin), `restore(recyclePath)`, `emptyRecycleBin()`, `exists`, `isDir`, `stat`, `uniqueName(dir, name)`, `join/dirname/basename/ext/stem`, `iconFor(path)`, `thumbFor(path)` (image URL for pictures), `typeName(path)`, `on(fn)` (change events `{ path, type, dir }`).
-File contents are strings. Pictures are data URLs (`data:image/png;base64,...`) or references to built-in art (`asset:imagery/meadow`); music is `track:<id>`; video is `video:aquarium`; shortcuts (`.lnk`) hold `app:<appId>`. Storage is small (about 5 MB), so keep saved images modest and catch write errors.
+File contents are strings. Pictures are data URLs (`data:image/png;base64,...`) or references to built-in art (`asset:imagery/meadow`); music is `track:<id>`; video is `video:aquarium`; shortcuts (`.lnk`) hold `app:<appId>`. Storage is small (about 5 MB), so keep saved images modest and catch write errors. `room()` estimates the bytes left. Big writes (over 32 KB) are saved immediately, and if they don't fit, `write` and `copy` throw an error with `code: 'ENOSPC'` and a friendly message, leaving the old file untouched.
 
 ### Other services
 - `Aerium.apps.launch(id, args)`, `apps.openFile(path)`, `apps.get(id)`, `apps.list({ category })`, `apps.aliases` (Run-dialog names like `calc`, `mspaint`, `cmd`).
 - `Aerium.store.get(key, fallback)` / `set(key, value)` / `on(key, fn)`: persisted settings. Namespace your keys (`paint.lastColor`).
-- `Aerium.bus.on(event, fn)` / `emit(event, ...args)`: app-to-app events. Known events: `media:nowplaying` `{ title, artist }`, `media:stopped`, `theme:change`, `glass:change`, `wallpaper:mounted`, `fs:change`, `win:open`, `win:close`, `screensaver:start`, `screensaver:stop`, `shell:start`.
+- `Aerium.bus.on(event, fn)` / `emit(event, ...args)`: app-to-app events. Known events: `media:nowplaying` `{ title, artist }`, `media:stopped`, `theme:change`, `glass:change`, `wallpaper:mounted`, `fs:change`, `win:open`, `win:close`, `screensaver:start`, `screensaver:stop` `{ id, preview }`, `shell:start`, `shell:stop`, `fs:move` `{ from, to }`, `fs:recycle` `{ path, to }`, `channels:open`, `channels:close`.
 - `Aerium.notify({ title, text, icon, onClick, timeout, sound })`: tray balloon. `Aerium.notify.toast({ title, text, avatar, app, appIcon, onClick })`: messenger-style toast from the corner.
 - `Aerium.theme`: `set('light'|'dark'|'technozen')`, `current`, `THEMES`, `GLASS` (16 swatches `{ id, name, hex, h, s, l, intensity }`), `glassColor()`, `setGlass({ color, custom: { h, s, l }, intensity: 0-100, transparency })`, `wallpapers` (Map of `{ id, name, group, kind: 'image'|'animated', asset, theme }`), `setWallpaper(id | 'file:/Pictures/x.png', fit)`, `currentWallpaper()`, `thumb(id)` (preview element), `CURSORS`, `applyCursor()`. Settings live in the store: `glass.color`, `glass.intensity`, `glass.transparency`, `wallpaper`, `wallpaper.fit` (fill fit stretch tile center), `cursor.scheme`, `cursor.trails`, `sound.enabled`, `sound.volume`, `screensaver.id`, `screensaver.wait` (minutes), `screensaver.text`, `user.name`, `user.avatar`, `effects.level`.
 - `Aerium.screensaver`: `register({ id, name, overDesktop, create(container, { preview, text, width, height }) -> { destroy() } })`, `list()`, `start(id)`, `stop()`, `preview(id, container) -> stopFn`.
-- `Aerium.taskbar.addTrayIcon({ id, icon, tip, onClick(el), onContext(el) })` returns `{ setIcon, setTip, remove }`.
-- `Aerium.wm.windows`, `wm.byApp(id)`, `wm.active`.
+- `Aerium.taskbar.addTrayIcon({ id, icon, tip, onClick(el), onContext(el) })` returns `{ setIcon, setTip, remove }`. `taskbar.openTray(id)` opens a tray flyout (`volume`, `network`, `battery`, `action`).
+- `Aerium.wm.windows`, `wm.byApp(id)`, `wm.active`, `wm.z` (the current top z-index, for always-on-top tricks).
 - `Aerium.effects.flip3d()`, `Aerium.startmenu.show()`, `Aerium.boot.shutdown()`, `boot.logoff()`, `boot.lock()`, `boot.sleep()`.
 - `Aerium.music` (see below), `Aerium.aquarium` (see below), `Aerium.gadgets` (see below).
 
 ### `Aerium.music` (implemented in `src/core/music.js`)
 A single global music player that synthesizes original tracks live.
 - `tracks`: `[{ id, title, artist, album, genre, year, duration, bpm, color }]`. Required ids: `bubble-garden`, `sky-mall`, `aurora-drift`, `hydration-station`, `glass-city`, `dolphin-dreams` (sample music), plus the loops `channels` (calm Technozen menu music) and `shop` (bossa shop music).
-- `getTrack(id)`, `play(id, { loop, fadeIn })` (Promise), `playFile(url, meta)` for a user-chosen audio file, `pause()`, `resume()`, `stop({ fadeOut })`, `seek(seconds)`, `state` (`stopped | playing | paused`), `current` (track), `position`, `duration`, `volume` (0 to 1, the player's own level), `analyser` (an `AnalyserNode` for visualizations), `on(event, fn)` with events `play pause stop end time`.
-- Emits `media:nowplaying` and `media:stopped` on `Aerium.bus`.
+- `getTrack(id)`, `play(id, { loop, fadeIn })` (Promise), `playFile(url, meta)` for a user-chosen audio file, `pause()`, `resume()`, `stop({ fadeOut })`, `seek(seconds)`, `state` (`stopped | playing | paused`), `current` (track), `position`, `duration`, `volume` (0 to 1, the player's own level), `analyser` (an `AnalyserNode` for visualizations), `on(event, fn)` with events `play pause stop end time meta error volume`.
+- `fadeIn` and `fadeOut` are in seconds; `true` means one second.
+- Extras: `muted`, `eq` and `setEQ(bands)`, `bpm`, `beat`, `render()` (offline render). The two sample videos have soundtracks reachable with `getTrack('video:aquarium')` and `getTrack('video:clouds')`; they are not listed in `tracks`.
+- Emits `media:nowplaying` and `media:stopped` on `Aerium.bus`. Sample videos also emit `media:nowplaying` with an id starting `video:`.
+- `Aerium.visualizers` (in `src/apps/mediaplayer/visualizers.js`): `mount(el, id)`, `list`, `groups`, `register`, if a screensaver or gadget wants the player's visualizations.
 
 ### `Aerium.aquarium` (implemented in `src/wallpapers/aquarium.js`)
 `create(container, { mode: 'tank' | 'betta', preview, interactive })` draws a live fish tank into `container` and returns `{ destroy(), pause(), resume() }`. Use it for previews (Channels, screensaver) instead of drawing your own fish.

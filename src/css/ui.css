@@ -212,7 +212,7 @@ textarea.ae-input { resize: none; }
 
 /* ---------- tooltips ---------- */
 .ae-tooltip {
-  position: fixed; z-index: 99000; max-width: 320px; padding: 4px 8px 5px;
+  position: fixed; z-index: 199000; max-width: 320px; padding: 4px 8px 5px; pointer-events: none;
   font: 400 12px/16px var(--font-aero); color: #3b3b3b;
   background: linear-gradient(to bottom, #ffffff, #e4e5f0);
   border: 1px solid #767676; border-radius: 3px;
@@ -222,6 +222,7 @@ textarea.ae-input { resize: none; }
 }
 [data-theme="dark"] .ae-tooltip { color: #e6f3ff; background: linear-gradient(to bottom, #1d3563, #0f2146); border-color: #4f7fae; }
 .ae-tooltip b { display: block; font-weight: 600; margin-bottom: 1px; }
+.ae-tooltip span { white-space: pre-line; }
 @keyframes ae-fade-in { from { opacity: 0; } }
 
 /* ---------- dialogs ---------- */
@@ -275,3 +276,19 @@ textarea.ae-input { resize: none; }
 /* ---------- progress marquee ---------- */
 .ae-progress-marquee .fa-progress-fill { width: 30% !important; animation: ae-marquee 1.6s linear infinite; }
 @keyframes ae-marquee { from { transform: translateX(-110%); } to { transform: translateX(360%); } }
+
+/* ---------- permission prompt ---------- */
+.ae-uac-dim { position: fixed; inset: 0; z-index: 250000; display: grid; place-items: center; background: rgba(0,0,0,0); transition: background .3s; }
+.ae-uac-dim.on { background: rgba(0,6,18,.62); }
+.ae-uac { width: min(470px, calc(100vw - 32px)); border-radius: 6px; overflow: hidden; background: var(--surface-raised); color: var(--ink); border: 1px solid rgba(0,0,0,.6); box-shadow: 0 20px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.3); transform: scale(.96); opacity: 0; transition: transform .25s, opacity .25s; }
+.ae-uac-dim.on .ae-uac { transform: none; opacity: 1; }
+.ae-uac-band { display: flex; align-items: center; gap: 10px; padding: 12px 14px; font: 400 15px/20px var(--font-aero); color: #fff; }
+.ae-uac-band.ok { background: linear-gradient(to bottom, #3fb3c9, #1f8aa8); }
+.ae-uac-band.unknown { background: linear-gradient(to bottom, #f5b041, #d9840a); }
+.ae-uac-band img { width: 36px; height: 36px; flex: none; }
+.ae-uac-body { padding: 14px 16px; }
+.ae-uac-prog { display: flex; gap: 12px; align-items: center; font-size: 12.5px; line-height: 20px; }
+.ae-uac-prog img { width: 40px; height: 40px; }
+.ae-uac-foot { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface-sunken); border-top: 1px solid var(--divider); font-size: 12px; }
+.ae-uac-foot .fa-btn { min-width: 80px; }
+html.ae-launching, html.ae-launching * { cursor: progress !important; }

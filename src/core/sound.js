@@ -54,7 +54,16 @@
       comp.ratio.value = 3;
       comp.attack.value = 0.004;
       comp.release.value = 0.25;
-      comp.connect(ctx.destination);
+      const makeup = ctx.createGain();
+      makeup.gain.value = 1.9;
+      // A fast limiter keeps transients from clipping after the makeup gain.
+      const limiter = ctx.createDynamicsCompressor();
+      limiter.threshold.value = -2;
+      limiter.knee.value = 0;
+      limiter.ratio.value = 20;
+      limiter.attack.value = 0.001;
+      limiter.release.value = 0.12;
+      comp.connect(makeup).connect(limiter).connect(ctx.destination);
       sound.master = ctx.createGain();
       sound.master.connect(comp);
       sound.sfx = ctx.createGain();
@@ -362,7 +371,7 @@
     bubble(t) {
       sound.blip(700 + Math.random() * 500, 1600 + Math.random() * 800, t, { dur: 0.05, vel: 0.05, glide: 0.035 });
     },
-    hover(t) { sound.bell(3000, t, { vel: 0.035, dur: 0.05, ratio: 2.7, index: 0.8, rev: 0.05 }); },
+    hover(t) { sound.bell(3000, t, { vel: 0.05, dur: 0.05, ratio: 2.7, index: 0.8, rev: 0.05 }); },
     zap(t) { sound.blip(900, 2800, t, { dur: 0.08, vel: 0.06, glide: 0.07, type: 'triangle' }); },
     whooshIn(t) { sound.noise(t, { dur: 0.35, vel: 0.07, f1: 400, f2: 3000, q: 1.2, shape: 'swell', rev: 0.3 }); },
     whooshOut(t) { sound.noise(t, { dur: 0.35, vel: 0.07, f1: 3000, f2: 400, q: 1.2, shape: 'swell', rev: 0.3 }); },

@@ -412,22 +412,52 @@
           group.forEach((g) => g.el.classList.add('dragging'));
         }
         group.forEach((g) => { g.el.style.left = g.x + dx + 'px'; g.el.style.top = g.y + dy + 'px'; });
-        // Drop targets: Recycle Bin and folders
-        const under = document.elementsFromPoint(ev.clientX, ev.clientY).find((n) => n.classList && n.classList.contains('dk-icon') && !n.classList.contains('dragging'));
-        const t = under && under.item && under.item.drop ? under : null;
+        // Drop targets: Recycle Bin and folders on the desktop, or any
+        // Explorer folder (marked with data-exdrop) in a window on top.
+        const stack = document.elementsFromPoint(ev.clientX, ev.clientY).filter((n) => !(n.closest && n.closest('.dk-icon.dragging, .dk-ghost')));
+        overWin = !!(stack[0] && stack[0].closest && stack[0].closest('.win, #ae-taskbar'));
+        let t = null;
+        if (overWin) {
+          t = stack[0].closest('[data-exdrop]');
+        } else {
+          const under = stack.find((n) => n.classList && n.classList.contains('dk-icon'));
+          t = under && under.item && under.item.drop ? under : null;
+        }
         if (t !== hoverTarget) {
-          hoverTarget && hoverTarget.classList.remove('drop-target');
+          hoverTarget && hoverTarget.classList.remove('drop-target', 'ex-drop-hover');
           hoverTarget = t;
-          hoverTarget && hoverTarget.classList.add('drop-target');
+          hoverTarget && hoverTarget.classList.add(overWin ? 'ex-drop-hover' : 'drop-target');
+        }
+        // Over a window the icons would hide behind it, so a ghost follows the cursor.
+        if (overWin && !ghost) {
+          const first = group[0].el.item;
+          ghost = h('div.dk-ghost', null, A.img(first.icon || A.fs.iconFor(first.path || '')), group.length > 1 ? h('span.dk-ghost-count', null, String(group.length)) : null);
+          document.getElementById('ae-overlays').appendChild(ghost);
+        }
+        if (ghost) {
+          ghost.style.display = overWin ? '' : 'none';
+          ghost.style.transform = `translate(${ev.clientX + 8}px, ${ev.clientY + 10}px)`;
         }
       };
-      const up = () => {
+      let overWin = false, ghost = null;
+      const up = (ev) => {
         window.removeEventListener('pointermove', move);
         window.removeEventListener('pointerup', up);
         if (!started) return;
         dragState = null;
         document.body.classList.remove('ae-dragging');
         group.forEach((g) => g.el.classList.remove('dragging'));
+        if (ghost) { ghost.remove(); ghost = null; }
+        if (overWin) {
+          // Dropped into an Explorer folder: move (or copy with Ctrl) the files there.
+          const dest = hoverTarget && hoverTarget.dataset.exdrop;
+          if (hoverTarget) hoverTarget.classList.remove('ex-drop-hover');
+          const movable = dest ? group.map((g) => g.el.item).filter((it) => it.path && it.path !== dest && fs.dirname(it.path) !== dest) : [];
+          if (dest === fs.RECYCLE) deleteItems(movable);
+          else movable.forEach((it) => { try { if (ev.ctrlKey) fs.copy(it.path, dest); else fs.move(it.path, dest); } catch (err) { A.ui.messageBox({ icon: 'error', message: err.message }); } });
+          desktop.render();
+          return;
+        }
         if (hoverTarget) {
           const dest = hoverTarget.item.drop;
           hoverTarget.classList.remove('drop-target');

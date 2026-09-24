@@ -197,6 +197,11 @@
     return handle;
   };
   const glyphNames = ['volume', 'mute', 'network', 'battery', 'flag'];
+  // Opens a tray icon's flyout as if it were clicked ('volume', 'network', 'battery', 'action').
+  taskbar.openTray = function (id) {
+    const t = taskbar.tray.get(id);
+    if (t && t.el.isConnected) t.el.click();
+  };
 
   let openFly = null;
   function toggleFly(anchor, build, cls) {
@@ -219,7 +224,7 @@
   }
 
   const NETWORKS = [
-    ['Aerium Home Network', 4, true], ['linksys', 3], ['NETGEAR', 3], ['2WIRE836', 2], ['Belkin54g', 2], ['default', 1], ['FBI Surveillance Van', 1], ['Free Public WiFi', 1],
+    ['Aerium Home Network', 4, true], ['wireless', 3], ['HOME-2G-54', 3], ['WLAN_83F6', 2], ['Pretty Fly for a WiFi', 2], ['default', 1], ['FBI Surveillance Van', 1], ['Free Public WiFi', 1],
   ];
   function networkFly() {
     const connected = A.store.get('net.connected', 'Aerium Home Network');

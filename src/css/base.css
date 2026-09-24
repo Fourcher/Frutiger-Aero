@@ -1,6 +1,6 @@
 /* Aerium base: reset, root layers, glass variables, scrollbars. */
 *, *::before, *::after { box-sizing: border-box; }
-html, body { margin: 0; height: 100%; overflow: hidden; }
+html, body { margin: 0; height: 100%; overflow: hidden; overflow: clip; }
 html {
   --taskbar-h: 40px;
   --glass-h: 207; --glass-s: 92%; --glass-l: 70%; --glass-a: .5; --glass-a-inactive: .3; --glass-blur: 9px;
@@ -32,7 +32,8 @@ body.ae-dragging, body.ae-dragging * { user-select: none !important; }
 body.ae-dragging iframe { pointer-events: none; }
 
 /* ---------- root layers ---------- */
-#ae-root { position: fixed; inset: 0; overflow: hidden; }
+/* clip, not hidden: nothing can scroll these by accident (focus, scrollIntoView). */
+#ae-root { position: fixed; inset: 0; overflow: hidden; overflow: clip; }
 #ae-wallpaper { position: absolute; inset: 0; overflow: hidden; background: #0a4f86; }
 .wp-layer { position: absolute; inset: 0; transition: opacity .8s ease; background-repeat: no-repeat; background-position: center; background-size: cover; }
 .wp-layer canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
@@ -41,9 +42,9 @@ body.ae-dragging iframe { pointer-events: none; }
 .wp-fit-stretch { background-size: 100% 100%; }
 .wp-fit-tile { background-size: auto; background-repeat: repeat; background-position: 0 0; }
 .wp-fit-center { background-size: auto; background-color: #1b3a5c; }
-#ae-desktop { position: absolute; left: 0; top: 0; right: 0; bottom: var(--taskbar-h); }
+#ae-desktop { position: absolute; left: 0; top: 0; right: 0; bottom: var(--taskbar-h); overflow: clip; }
 #ae-icons { position: absolute; inset: 0; }
-#ae-gadgets { position: absolute; inset: 0; pointer-events: none; }
+#ae-gadgets { position: absolute; inset: 0; pointer-events: none; isolation: isolate; }
 #ae-gadgets > * { pointer-events: auto; }
 #ae-windows { position: absolute; inset: 0; pointer-events: none; }
 #ae-windows > * { pointer-events: auto; }
@@ -66,7 +67,11 @@ body.ae-dragging iframe { pointer-events: none; }
 ::-webkit-scrollbar-thumb:hover { border-color: var(--accent); background: linear-gradient(to right, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
 ::-webkit-scrollbar-thumb:horizontal:hover { background: linear-gradient(to bottom, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
 ::-webkit-scrollbar-corner { background: var(--surface); }
-* { scrollbar-color: var(--pearl-500) var(--surface-sunken); }
+/* Chromium ignores ::-webkit-scrollbar wherever scrollbar-color is set, so
+   the plain colors are only for browsers without the glossy styles. */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-color: var(--pearl-500) var(--surface-sunken); }
+}
 
 /* Reduced effects / no transparency */
 html.no-transparency .win, html.no-transparency #ae-taskbar, html.no-transparency .startmenu { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

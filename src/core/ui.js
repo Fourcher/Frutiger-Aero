@@ -371,7 +371,7 @@
       },
     };
     function outside(e) { if (!el.contains(e.target) && !anchor.contains(e.target) && !(e.target.closest && e.target.closest('.ae-menu'))) handle.close(); }
-    function esc(e) { if (e.key === 'Escape') handle.close(); }
+    function esc(e) { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); handle.close(); } }
     setTimeout(() => { document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', esc, true); }, 0);
     return handle;
   };
@@ -395,7 +395,8 @@
         const title = target.getAttribute('data-tip-title');
         if (title) tip.appendChild(h('b', null, title));
         tip.appendChild(h('span', null, text));
-        document.getElementById('ae-overlays').appendChild(tip);
+        // On the body, above full-screen experiences like Channels.
+        document.body.appendChild(tip);
         const w = tip.offsetWidth, hh = tip.offsetHeight;
         let left = x + 2, top = y + 22;
         if (left + w > window.innerWidth - 4) left = window.innerWidth - w - 4;
@@ -606,6 +607,34 @@
         onOpen: (win) => { dialogWin = win; render(); setTimeout(() => { nameField.focus(); nameField.select(); }, 80); },
       }).then(() => wrapped(null));
       nameField.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); confirm(); } });
+    });
+  };
+
+  // Permission prompt: the screen dims and a single question asks for consent.
+  // ui.uac({ program, publisher, verified }) resolves true for Yes.
+  ui.uac = function (o = {}) {
+    return new Promise((resolve) => {
+      const verified = o.verified !== false;
+      const overlay = h('div.ae-uac-dim');
+      const yes = ui.button('Yes', { tone: 'aqua' });
+      const no = ui.button('No', { default: true });
+      const box = h('div.ae-uac', { role: 'alertdialog', 'aria-label': 'Permission' },
+        h('div.ae-uac-band', { class: verified ? 'ok' : 'unknown' }, A.img('icons/defender'), h('span', null, 'Do you want to let this program make changes to your computer?')),
+        h('div.ae-uac-body', null,
+          h('div.ae-uac-prog', null, A.img(o.icon || 'icons/settings'), h('div', null,
+            h('div', null, h('span.ae-muted', null, 'Program name: '), o.program || 'Aerium'),
+            h('div', null, h('span.ae-muted', null, 'Verified publisher: '), verified ? (o.publisher || 'Aerium Playground') : 'Unknown'),
+            h('div', null, h('span.ae-muted', null, 'File origin: '), 'Hard drive on this computer')))),
+        h('div.ae-uac-foot', null, h('button.ae-link', { type: 'button', onclick: (e) => { e.target.textContent = 'It is all just for fun. Nothing here can change your real computer.'; } }, 'Show details'), h('span', { style: { flex: 1 } }), yes, no));
+      overlay.appendChild(box);
+      document.body.appendChild(overlay);
+      requestAnimationFrame(() => overlay.classList.add('on'));
+      A.sound.play('exclamation');
+      const done = (v) => { overlay.classList.remove('on'); setTimeout(() => overlay.remove(), 300); resolve(v); };
+      yes.addEventListener('click', () => done(true));
+      no.addEventListener('click', () => done(false));
+      overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') done(false); });
+      setTimeout(() => no.focus(), 50);
     });
   };
 

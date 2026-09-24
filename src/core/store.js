@@ -26,6 +26,7 @@
     'glass.intensity': 46,
     'glass.transparency': true,
     'sound.enabled': true,
+    'sound.startup': true,
     'sound.volume': 70,
     'screensaver.id': 'bubbles',
     'screensaver.wait': 3,
@@ -51,9 +52,11 @@
     persistent: usable,
     get(key, fallback) {
       let raw = null;
-      if (usable) {
+      // A value that didn't fit in storage lives in memory and is newer.
+      if (mem.has(key)) raw = mem.get(key);
+      else if (usable) {
         try { raw = localStorage.getItem(PREFIX + key); } catch (e) { raw = null; }
-      } else if (mem.has(key)) raw = mem.get(key);
+      }
       if (raw == null) return fallback !== undefined ? fallback : clone(DEFAULTS[key]);
       try { return JSON.parse(raw); } catch (e) { return fallback !== undefined ? fallback : clone(DEFAULTS[key]); }
     },
@@ -61,7 +64,7 @@
       const raw = JSON.stringify(value);
       let ok = true;
       if (usable) {
-        try { localStorage.setItem(PREFIX + key, raw); } catch (e) { ok = false; mem.set(key, raw); }
+        try { localStorage.setItem(PREFIX + key, raw); mem.delete(key); } catch (e) { ok = false; mem.set(key, raw); }
       } else mem.set(key, raw);
       A.bus.emit('store:' + key, value);
       A.bus.emit('store', key, value);

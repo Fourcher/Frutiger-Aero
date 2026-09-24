@@ -42,8 +42,12 @@
       history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
     }
     if (params.get('theme') && A.theme.THEMES[params.get('theme')]) {
+      const t = A.theme.THEMES[params.get('theme')];
+      const glass = A.theme.GLASS.find((g) => g.id === t.glass);
       A.store.set('theme', params.get('theme'));
-      A.store.set('glass.color', A.theme.THEMES[params.get('theme')].glass);
+      A.store.set('glass.color', t.glass);
+      if (glass) A.store.set('glass.intensity', glass.intensity);
+      A.store.set('wallpaper', t.wallpaper);
     }
     A.theme.apply();
     A.wm.init(document.getElementById('ae-windows'));

@@ -198,6 +198,11 @@
     const c = cmd.trim();
     A.store.set('run.last', c);
     const lower = c.toLowerCase().replace(/\.exe$/, '');
+    if (lower === 'regedit' || lower === 'msconfig') {
+      const ok = await A.ui.uac({ program: lower === 'regedit' ? 'Registry Editor' : 'System Configuration', icon: 'icons/settings' });
+      if (ok) A.ui.messageBox({ title: lower === 'regedit' ? 'Registry Editor' : 'System Configuration', icon: 'info', instruction: 'Nice try', message: 'The registry is where the fish keep their secrets. It is locked for their privacy.' });
+      return;
+    }
     if (/^https?:\/\/|^www\.|\.(com|net|org)$/.test(lower)) return A.apps.launch('browser', { url: c });
     if (A.fs.exists(c)) return A.apps.openFile(c);
     if (A.apps.get(lower)) return A.apps.launch(lower);

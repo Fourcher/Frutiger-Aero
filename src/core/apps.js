@@ -13,6 +13,14 @@
     'desk.cpl': 'personalize', sysdm: 'system', 'sysdm.cpl': 'system', winver: 'winver', photos: 'photos',
   };
 
+  // Default programs, so double-clicking doesn't depend on script order.
+  const DEFAULT_APPS = {
+    jpg: 'photos', jpeg: 'photos', png: 'photos', gif: 'photos', bmp: 'photos',
+    txt: 'notepad', log: 'notepad', ini: 'notepad',
+    mp3: 'mediaplayer', wma: 'mediaplayer', wav: 'mediaplayer', wmv: 'mediaplayer', avi: 'mediaplayer',
+    htm: 'browser', html: 'browser', url: 'browser',
+  };
+
   const apps = {
     registry,
     aliases: ALIASES,
@@ -41,8 +49,12 @@
         return null;
       }
       rememberRecent(def.id);
+      document.documentElement.classList.add('ae-launching');
+      clearTimeout(apps._busyT);
+      apps._busyT = setTimeout(() => document.documentElement.classList.remove('ae-launching'), 650);
       if (def.single) {
-        const existing = A.wm.byApp(def.id)[0];
+        const mine = A.wm.byApp(def.id);
+        const existing = mine.find((w) => w.main) || mine[0];
         if (existing) {
           existing.focus();
           if (existing.ctrl && existing.ctrl.onArgs) existing.ctrl.onArgs(args);
@@ -54,6 +66,7 @@
       }
       const w = def.window || {};
       const win = A.wm.create(Object.assign({}, w, { app: def.id, title: w.title || def.name, icon: def.icon }));
+      win.main = true; // the app's main window, preferred when a single app is relaunched
       let ctrl = {};
       try {
         ctrl = def.launch(win, args) || {};
@@ -96,6 +109,8 @@
 
     appForExt(ext) {
       ext = String(ext || '').toLowerCase();
+      const pref = DEFAULT_APPS[ext];
+      if (pref && registry.has(pref)) return pref;
       for (const def of registry.values()) if ((def.fileTypes || []).includes(ext)) return def.id;
       return null;
     },

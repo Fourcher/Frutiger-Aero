@@ -27,7 +27,7 @@
 
   const THEMES = {
     light: { id: 'light', name: 'Aerium', desc: 'Daylight glass over clear skies and green hills.', glass: 'sky', wallpaper: 'aquarium' },
-    dark: { id: 'dark', name: 'Aerium Night', desc: 'Dark Aero: smoked glass, navy skies and aurora glow.', glass: 'twilight', wallpaper: 'aurora-live' },
+    dark: { id: 'dark', name: 'Aerium Night', desc: 'Dark Aero: smoked glass, navy skies and a moonlit fish tank.', glass: 'twilight', wallpaper: 'aquarium' },
     technozen: { id: 'technozen', name: 'Technozen', desc: 'White, calm and rounded, like a living-room console.', glass: 'frost', wallpaper: 'technozen-live' },
   };
 
@@ -62,9 +62,9 @@
   }
   [
     ['clear-sky', 'Clear Sky', 'light'], ['meadow', 'Meadow', 'light'], ['sunrise', 'Sunrise', 'light'], ['ocean', 'Ocean', 'light'],
-    ['water', 'Underwater', 'light'], ['bokeh-day', 'Bokeh', 'light'], ['vectorgarden', 'Garden', 'light'], ['technozen', 'Pearl', 'technozen'],
+    ['water', 'Underwater', 'light'], ['bokeh-day', 'Bokeh', 'light'], ['vectorgarden', 'Garden', 'light'], ['technozen', 'Pearl', 'technozen', 'dark'],
     ['aurora', 'Aurora', 'dark'], ['bokeh-night', 'Night Lights', 'dark'], ['dark-ribbons', 'Ribbons', 'dark'], ['deep-sea', 'Deep Sea', 'dark'],
-  ].forEach(([id, name, t]) => registerWallpaper({ id, name, group: 'Aerium Wallpapers', kind: 'image', asset: 'imagery/' + id, theme: t }));
+  ].forEach(([id, name, t, ink]) => registerWallpaper({ id, name, group: 'Aerium Wallpapers', kind: 'image', asset: 'imagery/' + id, theme: t, ink }));
 
   let host = null;
   let current = null; // { id, layer, ctrl }
@@ -85,7 +85,8 @@
     let def = resolveWallpaper(id);
     if (!def) def = wallpapers.get('aquarium') || wallpapers.get('clear-sky');
     if (current && current.id === def.id) return;
-    const layer = h('div.wp-layer');
+    const layer = h('div.wp-layer', { style: { opacity: '0' } });
+    host.appendChild(layer);
     const fit = A.store.get('wallpaper.fit');
     let ctrl = null;
     if (def.kind === 'animated' && def.create) {
@@ -101,9 +102,10 @@
       layer.classList.add('wp-fit-' + fit);
       layer.style.backgroundImage = `url("${src}")`;
     }
-    host.appendChild(layer);
     const old = current;
     current = { id: def.id, layer, ctrl, def };
+    // Pale wallpapers get dark desktop labels so they stay readable.
+    document.documentElement.dataset.wpInk = def.ink || 'light';
     if (instant || !old) {
       layer.style.opacity = '1';
       if (old) destroyLayer(old);
@@ -225,7 +227,11 @@
         current.layer.className = 'wp-layer wp-fit-' + fit;
         return;
       }
-      if (current && current.id === id) return;
+      if (current && current.id === id) {
+        // The same picture file may have been re-saved, so read it again.
+        if (String(id).startsWith('file:')) theme.refreshWallpaper();
+        return;
+      }
       mountWallpaper(id);
     },
     refreshWallpaper() {
