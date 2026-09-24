@@ -256,7 +256,7 @@
   // ============================================================ 1. Bubbles
   // Glass soap bubbles drifting over the live desktop. Every bubble is drawn
   // from cached sprites: a lit glass body (an environment reflection with a
-  // bright window, a fresnel rim and the fainter inverted reflection from the
+  // soft studio light, a fresnel rim and the fainter inverted reflection from the
   // back wall), two swirling thin-film layers that turn independently, and a
   // soft caustic shadow on the desktop beneath.
 
@@ -279,13 +279,12 @@
       const v = (rx * WIN_V[0] + ry * WIN_V[1] + rz * WIN_V[2]) / c;
       const halo = Math.exp(-(u * u + v * v) * 4) * 0.7 * smooth(0.25, 0.6, c);
       r += halo; g += halo; b += halo * 1.05;
-      // a tall window of six panes: one upright, two cross bars
-      const au = Math.abs(u), av = Math.abs(v);
-      const inside = smooth(0.3, 0.27, au) * smooth(0.46, 0.43, av);
+      // a soft studio light: one rounded panel, brightest near the top
+      // (no panes or bars, so it never reads as a logo)
+      const q = Math.pow(Math.abs(u) / 0.28, 4) + Math.pow(Math.abs(v) / 0.42, 4);
+      const inside = smooth(1.25, 0.8, q);
       if (inside > 0) {
-        const bar = Math.abs(av - 0.15);
-        const pane = inside * smooth(0.01, 0.028, au) * smooth(0.008, 0.024, bar);
-        const L = 20 * pane * (0.8 + 0.25 * (0.5 - v));
+        const L = 14 * inside * (0.8 + 0.25 * (0.5 - v));
         r += L; g += L * 1.02; b += L * 1.06;
       }
     }
