@@ -39,6 +39,9 @@ html.ae-large-text body { font-size: 14px; }
   border: 1px solid #000; background: #fff; padding: 1px 2px; outline: none; min-height: 18px;
 }
 .dk-refreshing .dk-icon { opacity: 0; transition: none; }
+.dk-ghost { position: fixed; left: 0; top: 0; z-index: 9000; width: 40px; height: 40px; pointer-events: none; opacity: .8; filter: drop-shadow(0 2px 4px rgba(0,0,0,.35)); }
+.dk-ghost img { width: 100%; height: 100%; }
+.dk-ghost-count { position: absolute; right: -8px; bottom: -4px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: linear-gradient(#5fb8ff, #1a78d8); border: 1px solid #fff; color: #fff; font: 700 11px/16px var(--font-aero); text-align: center; box-sizing: border-box; }
 .dk-marquee { position: absolute; display: none; border: 1px solid rgba(51,153,255,.95); background: rgba(51,153,255,.26); pointer-events: none; z-index: 20; }
 .dk-props { padding: 14px 16px; font-size: 12.5px; }
 .dk-props-head { display: flex; align-items: center; gap: 12px; }

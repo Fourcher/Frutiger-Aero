@@ -261,6 +261,7 @@
       dest.c[name] = node;
       changed(p, 'delete');
       changed(join(destDir, name), 'create');
+      A.bus.emit('fs:move', { from: p, to: join(destDir, name) });
       return join(destDir, name);
     },
     copy(p, destDir) {
@@ -283,15 +284,18 @@
       const node = get(p), parent = get(dirname(p));
       if (!node || !parent) return false;
       delete parent.c[basename(p)];
+      let binPath = null;
       if (!opts.permanent && !p.startsWith(RECYCLE + '/')) {
         const bin = get(RECYCLE);
         const name = fs.uniqueName(RECYCLE, basename(p));
         node.meta = Object.assign({}, node.meta, { origin: p, deleted: now() });
         bin.c[name] = node;
+        binPath = join(RECYCLE, name);
       }
       changed(p, 'delete');
-      A.bus.emit('fs:recycle', { path: p });
-      return true;
+      A.bus.emit('fs:recycle', { path: p, to: binPath });
+      // Where it landed in the Recycle Bin, or true when deleted for good.
+      return binPath || true;
     },
     restore(recyclePath) {
       const node = get(recyclePath);
@@ -335,7 +339,9 @@
       if (n.t === 'd') return 'icons/folder';
       const e = ext(p);
       if (e === 'lnk') {
-        const app = A.apps && A.apps.get(String(n.d).replace(/^app:/, ''));
+        const target = String(n.d || '');
+        if (target.startsWith('file:')) return target.slice(5).endsWith('.lnk') ? 'icons/run' : fs.iconFor(target.slice(5));
+        const app = A.apps && A.apps.get(target.replace(/^app:/, ''));
         return app ? app.icon : 'icons/run';
       }
       return EXT_ICON[e] || 'icons/document';
@@ -354,7 +360,7 @@
       if (!n) return '';
       if (n.t === 'd') return 'File Folder';
       const e = ext(p);
-      return ({ txt: 'Text Document', log: 'Text Document', png: 'PNG Image', jpg: 'JPEG Image', jpeg: 'JPEG Image', bmp: 'Bitmap Image', gif: 'GIF Image', svg: 'SVG Image', mp3: 'MP3 Audio File', wma: 'Windows Media Audio File', wav: 'Wave Sound', wmv: 'Windows Media Video File', avi: 'Video Clip', lnk: 'Shortcut', htm: 'HTML Document', html: 'HTML Document', url: 'Internet Shortcut', theme: 'Aerium Theme File' }[e]) || (e ? e.toUpperCase() + ' File' : 'File');
+      return ({ txt: 'Text Document', log: 'Text Document', png: 'PNG Image', jpg: 'JPEG Image', jpeg: 'JPEG Image', bmp: 'Bitmap Image', gif: 'GIF Image', svg: 'SVG Image', mp3: 'MP3 Audio File', wma: 'Media Audio File', wav: 'Wave Sound', wmv: 'Media Video File', avi: 'Video Clip', lnk: 'Shortcut', htm: 'HTML Document', html: 'HTML Document', url: 'Internet Shortcut', theme: 'Aerium Theme File' }[e]) || (e ? e.toUpperCase() + ' File' : 'File');
     },
     capacity: 160 * 1024 * 1024 * 1024,
     used() {

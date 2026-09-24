@@ -13,6 +13,14 @@
     'desk.cpl': 'personalize', sysdm: 'system', 'sysdm.cpl': 'system', winver: 'winver', photos: 'photos',
   };
 
+  // Default programs, so double-clicking doesn't depend on script order.
+  const DEFAULT_APPS = {
+    jpg: 'photos', jpeg: 'photos', png: 'photos', gif: 'photos', bmp: 'photos',
+    txt: 'notepad', log: 'notepad', ini: 'notepad',
+    mp3: 'mediaplayer', wma: 'mediaplayer', wav: 'mediaplayer', wmv: 'mediaplayer', avi: 'mediaplayer',
+    htm: 'browser', html: 'browser', url: 'browser',
+  };
+
   const apps = {
     registry,
     aliases: ALIASES,
@@ -99,6 +107,8 @@
 
     appForExt(ext) {
       ext = String(ext || '').toLowerCase();
+      const pref = DEFAULT_APPS[ext];
+      if (pref && registry.has(pref)) return pref;
       for (const def of registry.values()) if ((def.fileTypes || []).includes(ext)) return def.id;
       return null;
     },
