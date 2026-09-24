@@ -82,6 +82,8 @@ node tools/shoot.mjs --query "boot=skip&open=paint" --eval "Aerium.sound.play('w
 
 Dialogs you open with `parent: win` are modal to that window.
 
+Extra windows: `Aerium.wm.create({ app: 'myapp', title, icon, width, height, ... })` opens another window for your app (conversation windows, tool palettes). Pass `background: true` to open it just beneath the active window without stealing focus. The window `launch` created is marked `win.main`, so relaunching a `single` app focuses that one rather than an extra window.
+
 ## Global API
 
 ### `Aerium.util`

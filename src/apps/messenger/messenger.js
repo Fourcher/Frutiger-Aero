@@ -114,7 +114,6 @@
     contacts: new Map(),
     convs: new Map(),
     timers: new Set(),
-    offs: [],
     tray: null,
     np: null,
     lastOpener: 0,
@@ -181,6 +180,7 @@
 
   function mountMain(win, args) {
     M.win = win;
+    if (args && args.contact) M.pendingContact = args.contact;
     win.body.classList.add('bm-main');
     M.root = h('div.bm-main-root');
     win.body.appendChild(M.root);
@@ -215,7 +215,6 @@
       onResize() { if (M.view === 'list') layoutList(); },
     };
     M.ctrl = ctrl;
-    if (args && args.contact) M.pendingContact = args.contact;
     return ctrl;
   }
 
@@ -936,6 +935,7 @@
     const conv = S.convs.get(c.id);
     if (!conv) return;
     conv.notices.status = null;
+    conv.returnSoon = false;
     if (!conv.pending.length && !c.saidAway) return;
     let acts = c.saidAway || conv.pending.length ? c.bot.returnLine() : [];
     c.saidAway = false;

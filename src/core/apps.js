@@ -53,7 +53,8 @@
       clearTimeout(apps._busyT);
       apps._busyT = setTimeout(() => document.documentElement.classList.remove('ae-launching'), 650);
       if (def.single) {
-        const existing = A.wm.byApp(def.id)[0];
+        const mine = A.wm.byApp(def.id);
+        const existing = mine.find((w) => w.main) || mine[0];
         if (existing) {
           existing.focus();
           if (existing.ctrl && existing.ctrl.onArgs) existing.ctrl.onArgs(args);
@@ -65,6 +66,7 @@
       }
       const w = def.window || {};
       const win = A.wm.create(Object.assign({}, w, { app: def.id, title: w.title || def.name, icon: def.icon }));
+      win.main = true; // the app's main window, preferred when a single app is relaunched
       let ctrl = {};
       try {
         ctrl = def.launch(win, args) || {};

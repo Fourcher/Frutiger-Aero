@@ -222,6 +222,7 @@ textarea.ae-input { resize: none; }
 }
 [data-theme="dark"] .ae-tooltip { color: #e6f3ff; background: linear-gradient(to bottom, #1d3563, #0f2146); border-color: #4f7fae; }
 .ae-tooltip b { display: block; font-weight: 600; margin-bottom: 1px; }
+.ae-tooltip span { white-space: pre-line; }
 @keyframes ae-fade-in { from { opacity: 0; } }
 
 /* ---------- dialogs ---------- */

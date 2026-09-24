@@ -66,7 +66,11 @@ body.ae-dragging iframe { pointer-events: none; }
 ::-webkit-scrollbar-thumb:hover { border-color: var(--accent); background: linear-gradient(to right, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
 ::-webkit-scrollbar-thumb:horizontal:hover { background: linear-gradient(to bottom, var(--aqua-100), var(--aqua-300) 50%, var(--aqua-500) 50%, var(--aqua-300)); }
 ::-webkit-scrollbar-corner { background: var(--surface); }
-* { scrollbar-color: var(--pearl-500) var(--surface-sunken); }
+/* Chromium ignores ::-webkit-scrollbar wherever scrollbar-color is set, so
+   the plain colors are only for browsers without the glossy styles. */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-color: var(--pearl-500) var(--surface-sunken); }
+}
 
 /* Reduced effects / no transparency */
 html.no-transparency .win, html.no-transparency #ae-taskbar, html.no-transparency .startmenu { -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }

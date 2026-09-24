@@ -504,7 +504,13 @@
     if (win.el.animate) win.el.animate([{ opacity: 0, transform: 'scale(.95)' }, { opacity: 1, transform: 'none' }], { duration: 180, easing: 'cubic-bezier(.2,.7,.3,1)' });
     if (o.sound !== false && !o.modal) A.sound.play('open');
     A.bus.emit('win:open', win);
-    win.focus();
+    if (o.background && wm.active && !wm.active.closed) {
+      // Opens just beneath the active window without taking focus.
+      const act = wm.active;
+      win.el.style.zIndex = ++wm.z;
+      act.el.style.zIndex = ++wm.z;
+      if (act.modalChild) act.modalChild.el.style.zIndex = ++wm.z;
+    } else win.focus();
     if (o.maximized) win.maximize();
     return win;
   };
