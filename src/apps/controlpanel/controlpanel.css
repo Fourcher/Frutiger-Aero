@@ -1269,3 +1269,5 @@ html.pz-tb-autohide:has(.tb-thumbs) #ae-taskbar, html.pz-tb-autohide:has(.tb-jum
   box-shadow: var(--shadow-gloss), 0 0 30px color-mix(in srgb, var(--aqua-500) 70%, transparent), 0 10px 30px rgba(11, 42, 74, .3);
 }
 .hp-content { position: relative; }
+.sy-wei-grid { flex-basis: 360px; }
+.sy-wei-row { grid-template-columns: minmax(110px, 140px) 1fr 56px; }

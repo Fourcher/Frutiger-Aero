@@ -197,6 +197,11 @@
     return handle;
   };
   const glyphNames = ['volume', 'mute', 'network', 'battery', 'flag'];
+  // Opens a tray icon's flyout as if it were clicked ('volume', 'network', 'battery', 'action').
+  taskbar.openTray = function (id) {
+    const t = taskbar.tray.get(id);
+    if (t && t.el.isConnected) t.el.click();
+  };
 
   let openFly = null;
   function toggleFly(anchor, build, cls) {

@@ -61,7 +61,7 @@
     }, 350);
     A.theme.resume();
     lastActivity = Date.now();
-    A.bus.emit('screensaver:stop');
+    A.bus.emit('screensaver:stop', { id: a.id, preview: a.preview });
   };
 
   // Runs a screensaver inside a small element (the Personalization monitor).

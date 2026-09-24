@@ -26,6 +26,7 @@
     'glass.intensity': 46,
     'glass.transparency': true,
     'sound.enabled': true,
+    'sound.startup': true,
     'sound.volume': 70,
     'screensaver.id': 'bubbles',
     'screensaver.wait': 3,

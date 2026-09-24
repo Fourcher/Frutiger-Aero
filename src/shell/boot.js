@@ -242,7 +242,7 @@
           } }, '▲'))));
     el._stop = ribbonScene(canvas, theme);
     show(el);
-    if (!quick && mode !== 'locked' && mode !== 'switch') setTimeout(() => A.sound.play('startup'), 250);
+    if (!quick && mode !== 'locked' && mode !== 'switch' && A.store.get('sound.startup') !== false) setTimeout(() => A.sound.play('startup'), 250);
 
     if (!A.store.get('user.created')) renderSetup(center);
     else renderTile(center, mode);

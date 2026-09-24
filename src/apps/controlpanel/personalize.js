@@ -566,6 +566,7 @@
           h('div.pz-snd-controls', null,
             h('div.cp-row', null, enabled, h('label.pz-snd-scheme', null, h('span', null, 'Sound scheme:'), scheme)),
             h('label.pz-snd-vol', null, h('span', null, 'Volume:'), vol, volVal),
+            A.ui.checkbox({ label: 'Play Aerium Startup Sound', checked: A.store.get('sound.startup') !== false, onChange: (v) => A.store.set('sound.startup', v) }),
             hint)),
         h('div.pz-snd-bar', null, h('span.pz-field-title', null, 'Program events (' + rows.length + ' sounds)'), h('span.cp-spacer'), surprise),
         list,

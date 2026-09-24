@@ -1223,12 +1223,15 @@
       layout();
       later(() => deal(true), 60);
 
+      // The saved-game question runs on its own timer: the opening deal clears pending timers.
+      let savedT = 0;
       const saved = K.get(ID, 'saved', null);
       if (saved && saved.tab) {
         const go = () => { cancelPending(); resume(saved); K.set(ID, 'saved', null); };
-        if (opts.autoContinue) later(go, 120);
+        if (opts.autoContinue) savedT = setTimeout(() => { if (!win.closed) go(); }, 120);
         else {
-          later(async () => {
+          savedT = setTimeout(async () => {
+            if (win.closed) return;
             const r = await K.choose(win, {
               title: 'Saved game', icon: 'icons/cards', sound: false,
               instruction: 'Do you want to continue your saved game?',
@@ -1237,6 +1240,7 @@
                 { value: 'no', label: 'Start a new game', note: 'The saved game counts as a loss in your statistics.' },
               ],
             });
+            if (win.closed) return;
             if (r === 'yes') go();
             else if (r === 'no') { K.record(ID, saved.draw === 3 ? 'three' : 'one', { won: false }); K.set(ID, 'saved', null); }
           }, 500);
@@ -1286,6 +1290,7 @@
         },
         onClose() {
           cancelPending();
+          clearTimeout(savedT);
           clearTimeout(hintTimer);
           stopCascade();
           timer.destroy();
