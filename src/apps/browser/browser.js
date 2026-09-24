@@ -1798,7 +1798,14 @@
       if (realBtn) realBtn.addEventListener('click', (e) => { e.preventDefault(); openReal(url); });
     }
     function openReal(url) {
-      try { window.open(url.replace(/^http:\/\//, 'https://'), '_blank', 'noopener,noreferrer'); } catch (e) { /* ignore */ }
+      // A real link opens a new tab even where window.open is blocked (embedded pages).
+      const a = document.createElement('a');
+      a.href = url.replace(/^http:\/\//, 'https://');
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
     }
     function diagnose(host, url, real) {
       const steps = [
