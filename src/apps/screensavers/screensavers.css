@@ -1,1 +1,9 @@
-/* placeholder: styles for this app */
+/* Aerium screensavers. Everything lives inside .ss-root, which fills the
+   full-screen host (#ae-screensaver) or the Personalization monitor. */
+.ss-root { position: absolute; inset: 0; overflow: hidden; isolation: isolate; pointer-events: none; user-select: none; contain: strict; }
+.ss-root canvas.ss-layer { position: absolute; left: 0; top: 0; width: 100%; height: 100%; display: block; }
+
+/* Preview stand-in for the live desktop (Bubbles floats over the real one). */
+.ss-desk { position: absolute; inset: 0; background: linear-gradient(180deg, #1f8fe6 0%, #7cc8ff 55%, #e6f7ff 100%); background-size: cover; background-position: center; }
+.ss-desk-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 7%; min-height: 6px; background: linear-gradient(180deg, rgba(40,70,100,.55), rgba(10,25,45,.75)); box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.ss-desk-orb { position: absolute; left: 1.5%; top: 50%; width: 5.5%; aspect-ratio: 1; min-width: 5px; transform: translateY(-50%); border-radius: 50%; background: radial-gradient(circle at 50% 110%, #bff4ff 0%, #2cb6ea 45%, #0b3d73 100%); box-shadow: 0 0 3px rgba(120,220,255,.8); }
