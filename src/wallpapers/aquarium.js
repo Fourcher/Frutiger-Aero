@@ -763,7 +763,7 @@
       const sc = (0.55 + 0.6 * best.z) * (best.heroScale || S.fishScale || 1);
       const label = best.name;
       ctx.save();
-      ctx.font = '600 12px "Segoe UI", Selawik, sans-serif';
+      ctx.font = '600 12px Selawik, sans-serif';
       const tw = ctx.measureText(label).width + 18;
       const lx = clamp(best.x - tw / 2, 6, W - tw - 6), ly = Math.max(6, best.y - best.len * sc * best.sp.h * 1.4 - 26);
       const g = ctx.createLinearGradient(0, ly, 0, ly + 22);
