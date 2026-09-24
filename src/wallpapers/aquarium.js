@@ -81,6 +81,7 @@
       bubblers: [],
       nextPearl: 0,
       party: 0,
+      snail: null,
     };
     let bg = null, sand = null, front = null, glass = null, caus = null, causCtx = null, causImg = null, causWall = null, causWallCtx = null, causWallImg = null;
 
@@ -244,6 +245,7 @@
       causWallImg = causWallCtx.createImageData(120, 48);
 
       buildPlants();
+      if (!preview && !S.snail) S.snail = { x: W * 0.55, y: H * 0.62, dir: 1, hide: 0, ph: 0, v: 7 };
       S.bubblers = preview ? [{ x: W * 0.8 }] : [{ x: W * 0.78 }, { x: W * 0.17 }];
       S.rays = Array.from({ length: preview ? 4 : 7 }, (_, i) => ({ x: (i + 0.5) / (preview ? 4 : 7) + rand(-0.05, 0.05), w: rand(0.04, 0.09), ph: rand(0, TAU), a: rand(0.05, 0.1) }));
       S.bokeh = Array.from({ length: preview ? 3 : 6 }, () => ({ x: rand(0, W), y: rand(H * 0.1, H * 0.9), r: rand(20, 55), vy: rand(-6, -2), ph: rand(0, TAU) }));
@@ -746,6 +748,111 @@
       }
     }
 
+    // Hover near a fish to see its name.
+    function drawNameLabel() {
+      const pt = S.pointer;
+      if (!pt.inside || pt.still < 0.35 || preview) return;
+      let best = null, bd = 1e9;
+      for (const f of S.fish) {
+        if (!f.name || f.partyGuest) continue;
+        const sc = (0.55 + 0.6 * f.z) * (f.heroScale || S.fishScale || 1);
+        const d = Math.hypot(f.x - pt.x, f.y - pt.y);
+        if (d < Math.max(26, f.len * sc * 0.7) && d < bd) { bd = d; best = f; }
+      }
+      if (!best) return;
+      const sc = (0.55 + 0.6 * best.z) * (best.heroScale || S.fishScale || 1);
+      const label = best.name;
+      ctx.save();
+      ctx.font = '600 12px "Segoe UI", Selawik, sans-serif';
+      const tw = ctx.measureText(label).width + 18;
+      const lx = clamp(best.x - tw / 2, 6, W - tw - 6), ly = Math.max(6, best.y - best.len * sc * best.sp.h * 1.4 - 26);
+      const g = ctx.createLinearGradient(0, ly, 0, ly + 22);
+      g.addColorStop(0, 'rgba(255,255,255,0.92)'); g.addColorStop(0.5, 'rgba(230,246,255,0.85)'); g.addColorStop(0.5, 'rgba(205,236,252,0.85)'); g.addColorStop(1, 'rgba(230,246,255,0.9)');
+      ctx.fillStyle = g;
+      ctx.strokeStyle = 'rgba(10,111,209,0.55)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(lx, ly, tw, 22, 11); else ctx.rect(lx, ly, tw, 22);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#0b2a4a';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, lx + tw / 2, ly + 11.5);
+      ctx.restore();
+    }
+
+    // A small snail crawls across the front glass and hides when clicked.
+    function updateSnail(dt) {
+      const sn = S.snail;
+      if (!sn) return;
+      if (sn.hide > 0) { sn.hide -= dt; return; }
+      sn.ph += dt;
+      sn.x += sn.dir * sn.v * dt;
+      sn.y += Math.sin(sn.ph * 0.3) * 3 * dt;
+      if (sn.x > W - 40) sn.dir = -1;
+      if (sn.x < 40) sn.dir = 1;
+    }
+    function drawSnail() {
+      const sn = S.snail;
+      if (!sn) return;
+      const k = Math.max(0.8, S.decor * 1.2);
+      ctx.save();
+      ctx.translate(sn.x, sn.y);
+      ctx.scale(sn.dir * k, k);
+      const out = sn.hide > 0 ? 0 : Math.min(1, sn.ph * 2);
+      if (out > 0) {
+        // soft body with eye stalks
+        const stretch = 1 + Math.sin(sn.ph * 2) * 0.06;
+        ctx.fillStyle = 'rgba(214,200,170,0.85)';
+        ctx.beginPath();
+        ctx.moveTo(-14, 8);
+        ctx.quadraticCurveTo(0, 12, 20 * stretch, 7);
+        ctx.quadraticCurveTo(24 * stretch, 2, 16 * stretch, 1);
+        ctx.lineTo(-10, 3);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(214,200,170,0.95)';
+        ctx.lineWidth = 1.6;
+        ctx.lineCap = 'round';
+        const wob = Math.sin(sn.ph * 3) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(17 * stretch, 2); ctx.lineTo(22 * stretch + wob, -7);
+        ctx.moveTo(15 * stretch, 2); ctx.lineTo(17 * stretch - wob, -8);
+        ctx.stroke();
+        ctx.fillStyle = '#2a2420';
+        ctx.beginPath(); ctx.arc(22 * stretch + wob, -7.5, 1.4, 0, TAU); ctx.arc(17 * stretch - wob, -8.5, 1.4, 0, TAU); ctx.fill();
+      }
+      // glossy spiral shell
+      const g = ctx.createRadialGradient(-4, -6, 1, 0, -2, 12);
+      g.addColorStop(0, '#fff4d0'); g.addColorStop(0.45, '#e8a948'); g.addColorStop(1, '#8a5520');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(0, -1, 10.5, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(110,60,20,0.7)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (let a = 0; a < TAU * 2.2; a += 0.2) {
+        const r = 9.5 - a * 0.66;
+        const px = Math.cos(a) * r, py = -1 + Math.sin(a) * r;
+        a === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.75)';
+      ctx.beginPath(); ctx.ellipse(-3.5, -6.5, 4, 2.2, -0.5, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
+    function hitSnail(x, y) {
+      const sn = S.snail;
+      if (!sn) return false;
+      const k = Math.max(0.8, S.decor * 1.2);
+      if (Math.hypot(x - sn.x, y - (sn.y - 2 * k)) < 16 * k) {
+        sn.hide = 4;
+        sn.ph = 0;
+        A.sound.play('pop');
+        return true;
+      }
+      return false;
+    }
+
     function drawBubbles() {
       for (const b of S.bubbles) {
         const r = b.r;
@@ -905,6 +1012,7 @@
         updateBubbles(dt);
         S.fish.forEach(drawFish);
         drawBubbles();
+        drawNameLabel();
         return;
       }
 
@@ -940,8 +1048,11 @@
       drawPlankton();
       drawRays();
       drawSurface();
+      updateSnail(dt);
+      drawSnail();
       drawBokeh();
       ctx.drawImage(glass, 0, 0, W, H);
+      drawNameLabel();
     }
 
     // ---------------------------------------------------------- party
@@ -1000,7 +1111,7 @@
           pt.inside = false;
         } else if (type === 'click') {
           if (mode === 'betta') { blowSeven(S.fish[0]); A.sound.play('bubble'); }
-          else { dropFood(lx, ly); startle(lx, ly, 50, 0.4); }
+          else if (!hitSnail(lx, ly)) { dropFood(lx, ly); startle(lx, ly, 50, 0.4); }
           return true;
         }
         return false;
