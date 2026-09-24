@@ -22,7 +22,7 @@ Turn your sound on. Every sound and song is synthesized live in the browser.
 
 The shell
 - A power button, a quick POST screen, a glowing boot animation, the startup chord and a logon screen where you pick your name and picture
-- The living aquarium desktop: glossy fish that school, explore, eat the food you drop and come say hello when you hold the cursor still, with name tags, a snail on the glass and a moonlit mode at night
+- The living aquarium desktop: lifelike glossy fish with scales, flexing bodies and see-through fins in a planted tank with gravel, driftwood, sunbeams and rippling light. They school, explore, eat the food you drop and come say hello when you hold the cursor still, with name tags, a snail on the glass and a moonlit mode at night
 - Glass windows you can drag, resize, snap to the screen edges, shake to clear the desktop, minimize into the taskbar and flip through in 3D
 - A taskbar with a glowing start orb, hover glow that follows your cursor, live window thumbnails, jump lists, a clock with a calendar, and volume, network and battery flyouts
 - A start menu with search, All Programs and the user picture that turns into whatever you hover
