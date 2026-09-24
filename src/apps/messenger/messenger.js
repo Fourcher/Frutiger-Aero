@@ -705,3 +705,875 @@
     if (conv && conv.win) conv.win.close();
     renderList();
   }
+
+  // ------------------------------------------------------------ session
+  function startSession(status) {
+    S.sid++;
+    S.active = true;
+    S.status = STATUS_IDS.includes(status) ? status : 'online';
+    S.startedAt = Date.now();
+    S.lastOpener = Date.now();
+    S.ritualDone = false;
+    memory = get('memory', {}) || {};
+    const ls = listState();
+    S.contacts = new Map();
+    NS.friends.forEach((def) => {
+      const c = makeContact(def, ls);
+      c.status = BOTS.pickStart(def);
+      c.pm = chance(0.7) ? def.pms[0] : pick(def.pms);
+      if (def.songs.length && c.status !== 'offline' && chance(0.35)) c.song = pick(def.songs);
+      S.contacts.set(def.id, c);
+    });
+    S.convs = new Map();
+    ensureAppListeners();
+    const cur = A.music && A.music.state === 'playing' && A.music.current;
+    if (cur && !String(cur.id || '').startsWith('video:')) S.np = { title: cur.title, artist: cur.artist || 'Unknown artist', id: cur.id };
+    addTray();
+    play('signin');
+    if (M.win && !M.win.closed) showList();
+    scriptOpening();
+    scheduleTick();
+  }
+
+  function signOut(o = {}) {
+    if (S.signingIn) cancelSignIn(true);
+    if (!S.active) return;
+    S.active = false;
+    S.sid++;
+    clearTimers();
+    const convs = Array.from(S.convs.values());
+    S.convs = new Map();
+    convs.forEach((conv) => { stopPlans(conv); if (conv.win && !conv.win.closed) conv.win.close(true); });
+    if (S.tray) { S.tray.remove(); S.tray = null; }
+    saveMemory();
+    if (!o.silent) play('signout');
+    if (M.win && !M.win.closed) showSignIn();
+    else appIdle();
+  }
+
+  function exitApp() {
+    signOut();
+    if (M.win && !M.win.closed) M.win.close();
+    appIdle();
+  }
+
+  // App-wide listeners live while the contact list is open or you're signed in.
+  function ensureAppListeners() {
+    if (M.appOffs) return;
+    M.appOffs = [
+      A.bus.on('media:nowplaying', onNowPlaying),
+      A.bus.on('media:stopped', () => { S.np = null; updateMe(); }),
+      A.bus.on('theme:change', () => { updateMe(); S.convs.forEach((cv) => { if (cv.win) updateConvHeader(cv); }); }),
+      A.store.on('user.name', () => { if (M.view === 'list') updateMe(); else if (M.view === 'signin' && M.win) showSignIn(); }),
+      A.store.on('user.avatar', () => refreshMyPicture()),
+      A.bus.on('shell:stop', () => { if (S.active) signOut({ silent: true }); }),
+    ];
+  }
+  function appIdle() {
+    if (S.active || S.signingIn || (M.win && !M.win.closed)) return;
+    (M.appOffs || []).forEach((off) => { try { off(); } catch (e) { /* already gone */ } });
+    M.appOffs = null;
+  }
+
+  // ------------------------------------------------------------ tray
+  const trayTip = () => 'Bubble Messenger - ' + ST.label(S.status);
+  function addTray() {
+    if (S.tray || !A.taskbar || !A.taskbar.addTrayIcon) return;
+    S.trayEl = h('span.bm-tray', null, A.img('icons/users'), h('i.bm-tray-orb'));
+    S.tray = A.taskbar.addTrayIcon({ id: 'messenger', icon: S.trayEl, tip: trayTip(), onClick: () => showMain(), onContext: (btn) => trayMenu(btn) });
+    updateTray();
+  }
+  function updateTray() {
+    if (!S.tray) return;
+    S.trayEl.querySelector('.bm-tray-orb').style.backgroundImage = `url("${orbUrl(S.status)}")`;
+    S.tray.setTip(trayTip());
+    if (S.tray.el) S.tray.el.setAttribute('aria-label', trayTip());
+  }
+  function trayMenu(btn) {
+    const r = btn.getBoundingClientRect();
+    A.ui.menu([
+      { label: 'Open Bubble Messenger', bold: true, icon: 'icons/users', onClick: () => showMain() },
+      { label: 'My status', submenu: MENU_STATUSES.map((id) => ({ label: ST.label(id), icon: orbUrl(id), bold: id === S.status, onClick: () => setMyStatus(id) })) },
+      { separator: true },
+      { label: 'Sign out', onClick: () => signOut() },
+      { label: 'Exit', onClick: exitApp },
+    ], r.left - 80, r.top, { anchorTop: r.top - 2 });
+  }
+
+  function setMyStatus(id) {
+    if (!S.active || !STATUS_IDS.includes(id)) return;
+    const prev = S.status;
+    if (prev === id) return;
+    S.status = id;
+    set('status', id);
+    updateMe();
+    updateTray();
+    S.convs.forEach((conv) => { if (conv.win) updateConvSelf(conv); });
+    if (prev === 'offline') friendsNoticeYou();
+  }
+
+  // ------------------------------------------------------------ the living contact list
+  const canMessageYou = () => S.active && S.status !== 'offline' && A.shellReady !== false;
+  const isChatting = (c) => { const cv = S.convs.get(c.id); return !!(cv && (cv.replying || (cv.win && Date.now() - cv.lastActivity < 90000))); };
+  function weighted(list) {
+    const total = list.reduce((s, x) => s + x[1], 0);
+    let r = Math.random() * total;
+    for (const x of list) { r -= x[1]; if (r <= 0) return x[0]; }
+    return list.length ? list[list.length - 1][0] : null;
+  }
+
+  function scriptOpening() {
+    later(rand(6500, 9000), () => {
+      const k = contact('kayla');
+      if (canMessageYou() && k && k.status !== 'offline' && !k.blocked && !k.removed) friendOpens(k);
+    });
+    later(rand(15000, 21000), () => { const j = contact('jordan'); if (j && j.status === 'offline' && !j.removed) friendSignsIn(j, 'online'); });
+    later(rand(36000, 46000), () => {
+      const g = contact('grandma');
+      if (!g || g.removed || g.status !== 'offline') return;
+      friendSignsIn(g, 'online');
+      later(rand(11000, 16000), () => { if (canMessageYou() && g.status !== 'offline' && !g.blocked && !isChatting(g)) friendOpens(g); });
+    });
+  }
+
+  function scheduleTick() { later(rand(22000, 42000), () => { tick(); scheduleTick(); }); }
+  function tick() {
+    if (!S.active || A.shellReady === false) return;
+    const cs = visibleContacts().filter((c) => !c.def.bot);
+    const offline = cs.filter((c) => c.status === 'offline');
+    const online = cs.filter((c) => c.status !== 'offline');
+    const quiet = online.filter((c) => !isChatting(c));
+    const events = [];
+    if (offline.length && online.length < 8) events.push(['signin', 3]);
+    if (quiet.length > 3 && Date.now() - S.startedAt > 90000) events.push(['signout', 1]);
+    if (quiet.length) events.push(['status', 3], ['pm', 2]);
+    const openerW = S.status === 'offline' ? 0 : S.status === 'busy' || S.status === 'phone' ? 0.6 : 2.2;
+    const openers = quiet.filter((c) => c.status === 'online' && !c.blocked && c.def.opener);
+    if (openerW && openers.length && Date.now() - S.lastOpener > 80000) events.push(['opener', openerW]);
+    const marcus = contact('marcus');
+    if (!S.ritualDone && marcus && !marcus.removed && !marcus.blocked && marcus.status !== 'offline' && !isChatting(marcus) && Date.now() - S.startedAt > 120000) events.push(['ritual', 0.4]);
+    const ev = weighted(events);
+    if (ev === 'signin') friendSignsIn(pick(offline));
+    else if (ev === 'signout') friendSignsOut(pick(quiet.filter((c) => c.id !== 'kayla' || Date.now() - S.startedAt > 300000)) || quiet[0]);
+    else if (ev === 'status') {
+      const c = pick(quiet);
+      if (c.status === 'online') setFriendStatus(c, weighted([['away', 3], ['brb', 2], ['busy', 2], ['lunch', 1], ['phone', c.id === 'mom' ? 3 : 0.3]]), rand(40000, 150000));
+      else friendReturns(c);
+    } else if (ev === 'pm') {
+      const c = pick(quiet);
+      if (c.def.songs.length && chance(0.5)) c.song = c.song ? null : pick(c.def.songs);
+      else if (!c.blocked) { c.pm = pick(c.def.pms.filter((p) => p !== c.pm)) || c.pm; c.song = null; }
+      refreshContact(c);
+    } else if (ev === 'opener') {
+      friendOpens(weighted(openers.map((c) => [c, c.def.opener])));
+    } else if (ev === 'ritual') ritual();
+  }
+
+  function toastSignIn(c) {
+    if (!get('alerts', true) || c.blocked || A.shellReady === false) return;
+    A.notify.toast({
+      title: plain(c.def.screen), text: 'has just signed in.', avatar: ART.pictureUrl(c.def.picture), app: 'Bubble Messenger', appIcon: 'icons/users',
+      sound: get('sounds', true) ? 'signin' : false, onClick: () => openConversation(c.id, { focus: true }),
+    });
+  }
+
+  function friendSignsIn(c, status) {
+    if (!S.active || !c || c.status !== 'offline' || c.removed) return;
+    c.status = status || (chance(0.8) ? 'online' : pick(['away', 'busy']));
+    c.lastSignIn = Date.now();
+    c.song = c.def.songs.length && chance(0.3) ? pick(c.def.songs) : null;
+    if (!c.blocked && c.pm === c.bot.blockedPm()) c.pm = pick(c.def.pms);
+    refreshContact(c);
+    toastSignIn(c);
+    const conv = S.convs.get(c.id);
+    if (conv) { conv.notices.offline = false; addSystem(conv, c.def.name + ' has signed in.', 'info'); }
+    // Messages you sent while they were offline get delivered, and answered.
+    if (c.queue.length && !c.blocked) {
+      const text = c.queue.splice(0).join('\n');
+      later(rand(3500, 6500), () => {
+        if (c.status === 'offline') { c.queue.unshift(text); return; }
+        const cv = getConv(c.id);
+        runPlan(cv, c.bot.reply(text, replyCtx()));
+      });
+    }
+  }
+
+  function friendSignsOut(c) {
+    if (!c || c.status === 'offline') return;
+    cancel(c.statusTimer);
+    c.statusTimer = null;
+    c.status = 'offline';
+    c.song = null;
+    c.saidAway = false;
+    const conv = S.convs.get(c.id);
+    if (conv) {
+      stopPlans(conv);
+      if (conv.pending.length) { c.queue.push(...conv.pending); conv.pending = []; }
+      addSystem(conv, c.def.name + ' has signed out. Messages you send will be delivered when they sign back in.', 'info');
+    }
+    refreshContact(c);
+  }
+
+  function setFriendStatus(c, status, backAfter) {
+    if (!c || c.status === 'offline') return;
+    cancel(c.statusTimer);
+    c.statusTimer = null;
+    c.status = status;
+    refreshContact(c);
+    if (backAfter) c.statusTimer = later(backAfter, () => friendReturns(c));
+    if (status === 'online') flushAfterReturn(c);
+  }
+
+  function friendReturns(c) {
+    if (!S.active || !c || c.status === 'offline') return;
+    cancel(c.statusTimer);
+    c.statusTimer = null;
+    c.status = 'online';
+    refreshContact(c);
+    flushAfterReturn(c);
+  }
+  function flushAfterReturn(c) {
+    const conv = S.convs.get(c.id);
+    if (!conv) return;
+    conv.notices.status = null;
+    if (!conv.pending.length && !c.saidAway) return;
+    let acts = c.saidAway || conv.pending.length ? c.bot.returnLine() : [];
+    c.saidAway = false;
+    if (conv.pending.length) acts = acts.concat(c.bot.reply(conv.pending.splice(0).join('\n'), replyCtx()));
+    runPlan(conv, acts);
+  }
+  // A friend who's away comes back sooner when you message them.
+  function ensureReturn(c, conv) {
+    if (c.status === 'phone' && !conv.notices.phoneReply) {
+      conv.notices.phoneReply = true;
+      runPlan(conv, c.bot.plan(c.def.style === 'mom' ? 'On a call, sweetie! Give me five minutes. :-)' : c.def.style === 'grandma' ? 'on the telephone dear, one minute' : 'on the phone, one sec!'));
+    }
+    if (conv.returnSoon) return;
+    conv.returnSoon = true;
+    const back = chance(0.8) ? rand(15000, 40000) : rand(50000, 90000);
+    cancel(c.statusTimer);
+    c.statusTimer = later(back, () => { conv.returnSoon = false; friendReturns(c); });
+  }
+
+  function friendOpens(c) {
+    if (!c || !canMessageYou() || c.blocked || c.removed || c.status === 'offline') return;
+    const conv = getConv(c.id);
+    if (conv.replying || conv.pending.length) return;
+    // No "hey, you're on!" when you're already talking.
+    if (conv.history.some((it) => it.kind === 'msg') && Date.now() - conv.lastActivity < 300000) return;
+    S.lastOpener = Date.now();
+    runPlan(conv, c.bot.opener());
+  }
+
+  // Marcus signs out and back in to get noticed, then brags about it.
+  function ritual() {
+    const m = contact('marcus');
+    if (!m) return;
+    S.ritualDone = true;
+    const step = (i) => {
+      if (!S.active || m.removed || m.blocked) return;
+      if (i >= 3) {
+        later(3500, () => { if (canMessageYou() && m.status !== 'offline') runPlan(getConv('marcus'), m.bot.plan(['lol did u see me sign in like 5 times', 'i was testing the pop-up thingy XD'])); });
+        return;
+      }
+      friendSignsOut(m);
+      later(2200, () => { friendSignsIn(m, 'online'); later(3000, () => step(i + 1)); });
+    };
+    step(0);
+  }
+
+  function friendsNoticeYou() {
+    const k = contact('kayla');
+    if (!k || k.blocked || k.removed || k.status === 'offline' || !chance(0.6)) return;
+    later(rand(2500, 5000), () => { const acts = k.bot.onUserSignedIn(); if (acts && canMessageYou()) runPlan(getConv('kayla'), acts); });
+  }
+  function friendsNoticePm(pm) {
+    if (!pm || !S.active || S.status === 'offline' || Date.now() - (S.lastPmNotice || 0) < 120000 || !chance(0.35)) return;
+    const k = contact('kayla');
+    if (!k || k.blocked || k.removed || k.status !== 'online') return;
+    S.lastPmNotice = Date.now();
+    later(rand(4000, 8000), () => runPlan(getConv('kayla'), k.bot.plan(pick(['ooh whats ur personal message about?? :D', 'omg i love ur new personal message lol', 'wait what does ur personal message mean?? lol']))));
+  }
+
+  function onNowPlaying(t) {
+    if (!t || !t.title || String(t.id || '').startsWith('video:')) return;
+    const prev = S.np;
+    S.np = { title: t.title, artist: t.artist || 'Unknown artist', id: t.id };
+    M.editingPm = false;
+    updateMe();
+    if (!S.active || S.status === 'offline' || !get('listening', true)) return;
+    if ((prev && prev.title === S.np.title) || /^(channels|shop)$/.test(String(t.id))) return;
+    const open = Array.from(S.convs.values()).filter((cv) => cv.win && !cv.c.blocked && cv.c.status === 'online' && !cv.c.def.bot);
+    const cv = open.sort((a, b) => b.lastActivity - a.lastActivity)[0];
+    if (cv && chance(0.75)) {
+      later(rand(3000, 6000), () => { const acts = cv.c.bot.onSong(S.np); if (acts && S.np) runPlan(cv, acts); });
+      return;
+    }
+    if (Date.now() - (S.lastSongOpener || 0) < 150000 || !chance(0.5)) return;
+    const fans = visibleContacts().filter((c) => c.status === 'online' && !c.blocked && !c.def.bot && c.def.lines.nowplaying && !isChatting(c));
+    if (!fans.length) return;
+    const c = pick(fans);
+    S.lastSongOpener = Date.now();
+    later(rand(4000, 9000), () => { const acts = S.np && c.bot.onSong(S.np); if (acts && canMessageYou()) runPlan(getConv(c.id), acts); });
+  }
+
+  // ------------------------------------------------------------ conversations
+  const replyCtx = () => ({ appearOffline: S.status === 'offline', userBusy: S.status === 'busy' || S.status === 'phone' });
+  const SAFETY = 'Never share your password or personal info in a chat, even with friends.';
+
+  function getConv(id) {
+    let conv = S.convs.get(id);
+    if (!conv) {
+      conv = {
+        id, c: contact(id), win: null, els: null, history: [], pending: [], planQueue: [], replyTimer: null, replying: false, token: 0,
+        typing: false, lastReceived: 0, lastActivity: 0, notices: {}, toastAt: 0, lastNudgeSent: 0, wink: null, fly: null, closedAt: 0,
+      };
+      conv.history.push({ kind: 'sys', text: SAFETY, icon: 'info', time: Date.now(), hint: true });
+      S.convs.set(id, conv);
+    }
+    return conv;
+  }
+
+  function openConversation(id, o = {}) {
+    if (!S.active) return null;
+    const c = contact(id);
+    if (!c || c.removed) return null;
+    const conv = getConv(id);
+    if (conv.win && !conv.win.closed) {
+      if (o.focus) {
+        if (conv.win.state === 'minimized') conv.win.restore(); else conv.win.focus();
+        focusInput(conv);
+      }
+      return conv;
+    }
+    const prev = A.wm.active;
+    const prevFocus = document.activeElement;
+    const n = Array.from(S.convs.values()).filter((x) => x.win).length;
+    const layer = A.wm.layer;
+    const W = layer ? layer.clientWidth : 1200, H = layer ? layer.clientHeight : 700;
+    const w = Math.min(510, W - 30), hh = Math.min(490, H - 16);
+    const x = Math.max(8, Math.min(W - w - 8, Math.round(W * 0.12) + (n % 6) * 32));
+    const y = Math.max(0, Math.min(H - hh - 8, 28 + (n % 6) * 28));
+    const win = A.wm.create({
+      app: 'messenger', title: c.def.name + ' - Conversation', icon: 'icons/chat', width: w, height: hh, minWidth: 390, minHeight: 380,
+      glassBody: true, sound: o.background ? false : undefined, x, y,
+    });
+    conv.win = win;
+    conv.justOpened = !!o.background;
+    // Launching the app again from a conversation brings back the contact list.
+    win.ctrl = { onArgs: () => showMain() };
+    buildConvUI(conv);
+    win.on('close', () => closeConvWindow(conv, win));
+    win.on('minimize', () => { if (conv.wink) conv.wink.stop(); if (conv.fly) conv.fly.close(); });
+    win.on('resize', () => scrollDown(conv, true));
+    if (o.background && prev && !prev.closed && prev !== win) {
+      // Open behind whatever you're doing, and keep your caret where it was.
+      prev.focus();
+      if (prevFocus && prevFocus !== document.body && prev.el.contains(prevFocus)) prevFocus.focus({ preventScroll: true });
+    } else setTimeout(() => focusInput(conv), 60);
+    if (c.def.bot && !conv.welcomed && !conv.history.some((it) => it.kind === 'msg')) {
+      conv.welcomed = true;
+      runPlan(conv, BOTS.askWelcome(c.bot));
+    }
+    return conv;
+  }
+
+  function focusInput(conv) {
+    if (conv.els && !conv.els.input.disabled && conv.win && conv.win.state !== 'minimized') conv.els.input.focus({ preventScroll: true });
+  }
+
+  // An emoticon image without its own tooltip, for use inside labelled buttons.
+  const quietEmo = (id, size) => { const i = E.img(id, size); i.removeAttribute('data-tip'); return i; };
+  function tool(content, tip, cls) {
+    return h('button.bm-tool', { type: 'button', class: cls, 'aria-label': tip, 'data-tip': tip }, content);
+  }
+
+  function buildConvUI(conv) {
+    const { c, win } = conv;
+    win.body.classList.add('bm-conv-body');
+    const headDp = dp(c.def.picture, 78, c.blocked ? 'blocked' : c.status, 'bm-cv-dp');
+    const headDpBtn = h('button.bm-cv-dpbtn', { type: 'button', 'aria-label': 'View ' + c.def.name + '\'s profile', 'data-tip': 'View profile' }, headDp);
+    headDpBtn.addEventListener('click', () => viewProfile(c.id, win));
+    const name = h('div.bm-cv-name');
+    const status = h('div.bm-cv-status');
+    const pm = h('div.bm-cv-pm');
+    const mail = h('div.bm-cv-mail', null, '<' + c.def.email + '>');
+    const head = h('div.bm-cv-head', null, h('div.bm-cv-scene', { 'aria-hidden': 'true' }), headDpBtn, h('div.bm-cv-who', null, name, status, pm, mail));
+    const history = h('div.bm-cv-history', { role: 'log', 'aria-live': 'polite', 'aria-label': 'Conversation with ' + c.def.name, tabIndex: 0 });
+    const typing = h('div.bm-cv-typing', { role: 'status' });
+    const fontBtn = tool(h('span.bm-tool-font', null, 'A', h('i.bm-tool-swatch')), 'Change your font and color', 'bm-tool-fontbtn');
+    const emoBtn = tool([quietEmo('smile', 18), svgEl(GLYPH.caret, 'bm-caret')], 'Emoticons');
+    const winkBtn = tool([quietEmo('wink', 18), h('span', null, 'Winks'), svgEl(GLYPH.caret, 'bm-caret')], 'Send a wink');
+    const nudgeBtn = tool([svgEl(GLYPH.nudge, 'bm-tool-svg'), h('span', null, 'Nudge')], 'Send a nudge');
+    fontBtn.addEventListener('click', () => fontFlyout(conv));
+    emoBtn.addEventListener('click', () => emoticonFlyout(conv));
+    winkBtn.addEventListener('click', () => winkFlyout(conv));
+    nudgeBtn.addEventListener('click', () => sendNudge(conv));
+    const input = h('textarea.bm-cv-input', { rows: 3, maxLength: 400, spellcheck: true, 'aria-label': 'Type a message to ' + c.def.name });
+    const sendBtn = A.ui.button('Send', { tone: 'aqua', className: 'bm-cv-send', onClick: () => sendFromInput(conv) });
+    const selfDp = dp(myPicture(), 72, S.status, 'bm-cv-selfdp');
+    const selfBtn = h('button.bm-cv-selfbtn', { type: 'button', 'aria-label': 'Change your display picture', 'data-tip': 'Change your display picture' }, selfDp);
+    selfBtn.addEventListener('click', () => changePicture(win));
+    const root = h('div.bm-conv', null,
+      head,
+      h('div.bm-cv-main', null,
+        history,
+        typing,
+        h('div.bm-cv-bottom', null,
+          h('div.bm-cv-compose', null,
+            h('div.bm-cv-tools', null, fontBtn, emoBtn, h('span.bm-tool-sep'), winkBtn, nudgeBtn),
+            h('div.bm-cv-inputrow', null, input, sendBtn)),
+          selfBtn)));
+    win.body.appendChild(root);
+    conv.els = { root, head, headDp, name, status, pm, mail, history, typing, input, sendBtn, selfDp, fontBtn, emoBtn, winkBtn, nudgeBtn };
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); sendFromInput(conv); }
+    });
+    win.el.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !win.modalChild && !document.querySelector('.ae-flyout, .ae-menu')) { e.preventDefault(); win.close(); }
+    });
+    applyMyFont(conv);
+    updateConvHeader(conv);
+    updateConvSelf(conv);
+    updateCompose(conv);
+    renderHistory(conv);
+    setTyping(conv, conv.typing);
+  }
+
+  function closeConvWindow(conv, win) {
+    if (conv.win !== win) return;
+    stopPlans(conv);
+    cancel(conv.replyTimer);
+    conv.replyTimer = null;
+    if (conv.wink) conv.wink.stop();
+    if (conv.fly) conv.fly.close();
+    conv.win = null;
+    conv.els = null;
+    conv.closedAt = conv.history.length;
+    conv.returnSoon = false;
+  }
+
+  function stopPlans(conv) {
+    conv.token++;
+    conv.planQueue = [];
+    conv.replying = false;
+    setTyping(conv, false);
+  }
+
+  function updateConvHeader(conv) {
+    const { c, els, win } = conv;
+    if (!els || !win) return;
+    const st = c.blocked ? 'blocked' : c.status;
+    els.head.style.setProperty('--bm-scene', sceneUrl(c.def.scene));
+    els.headDp.update(null, st);
+    els.name.innerHTML = '';
+    els.name.appendChild(E.render(c.def.screen, { size: 18, breaks: false }));
+    els.status.innerHTML = '';
+    els.status.append(orb(st, 'bm-cv-orb'), h('span', null, friendStatusLabel(c)));
+    els.pm.innerHTML = '';
+    if (c.song && c.status !== 'offline') els.pm.append(h('span.bm-song', null, songText(c.song)));
+    else if (c.pm) els.pm.append(E.render(c.pm, { size: 16, breaks: false }));
+  }
+  function updateConvSelf(conv) { if (conv.els) conv.els.selfDp.update(myPicture(), S.status); }
+  function updateCompose(conv) {
+    if (!conv.els) return;
+    const blocked = conv.c.blocked;
+    conv.els.input.disabled = blocked;
+    conv.els.input.placeholder = blocked ? 'You blocked ' + conv.c.def.name + '. Unblock them to chat.' : '';
+    [conv.els.sendBtn, conv.els.nudgeBtn, conv.els.winkBtn].forEach((b) => { b.disabled = blocked; });
+  }
+  function applyMyFont(conv) {
+    if (!conv.els) return;
+    const f = myFont();
+    const vars = colorVars(f.color, f.family);
+    conv.els.input.style.setProperty('--c', vars['--c']);
+    conv.els.input.style.setProperty('--cd', vars['--cd']);
+    conv.els.input.style.fontFamily = vars.fontFamily;
+    conv.els.fontBtn.querySelector('.bm-tool-swatch').style.background = f.color;
+  }
+
+  // ------------------------------------------------------------ history
+  function renderHistory(conv) {
+    const hist = conv.els.history;
+    hist.innerHTML = '';
+    conv.lastBlock = null;
+    const items = conv.history.slice(-80);
+    const offset = conv.history.length - items.length;
+    items.forEach((item, i) => {
+      const old = offset + i < conv.closedAt && !item.hint;
+      appendItem(conv, item, old);
+      if (old && offset + i === conv.closedAt - 1) { hist.appendChild(h('div.bm-divider', null, h('span', null, 'Earlier today'))); conv.lastBlock = null; }
+    });
+    scrollDown(conv, true);
+  }
+
+  function appendItem(conv, item, old) {
+    const hist = conv.els.history;
+    if (item.kind === 'sys') {
+      const el = sysEl(conv, item);
+      if (old) el.classList.add('bm-old');
+      hist.appendChild(el);
+      conv.lastBlock = null;
+      return el;
+    }
+    let block = conv.lastBlock;
+    if (!block || block.from !== item.from || item.time - block.time > 180000 || block.old !== !!old) {
+      const who = item.from === 'me' ? userName() : conv.c.def.screen;
+      const says = h('div.bm-says', null, E.render(who, { size: 15, breaks: false }), ' says:');
+      const lines = h('div.bm-lines');
+      const el = h('div.bm-msg', { class: ['bm-from-' + item.from, old && 'bm-old'] }, says, lines);
+      hist.appendChild(el);
+      block = conv.lastBlock = { from: item.from, time: item.time, lines, old: !!old };
+    }
+    block.time = item.time;
+    const font = item.from === 'me' ? item.font || myFont() : { color: conv.c.def.color, family: conv.c.def.font };
+    const line = h('div.bm-line', { style: colorVars(font.color, font.family) }, E.render(item.text, { size: 19 }));
+    block.lines.appendChild(line);
+    return line;
+  }
+
+  function sysEl(conv, item) {
+    let icon;
+    if (item.icon === 'nudge') icon = svgEl(GLYPH.nudge, 'bm-sys-svg');
+    else if (item.icon === 'wink') icon = E.img('wink', 16);
+    else if (item.icon === 'block') icon = h('img.bm-sys-img', { src: orbUrl('blocked'), alt: '' });
+    else icon = h('img.bm-sys-img', { src: A.asset('icons/info'), alt: '' });
+    const el = h('div.bm-sys', { class: ['bm-sys-' + (item.icon || 'info'), item.hint && 'bm-sys-hint'] }, icon, h('span', null, item.text));
+    if (item.wink) {
+      const link = h('button.ae-link.bm-sys-link', { type: 'button' }, 'Play again');
+      link.addEventListener('click', () => playWink(conv, item.wink));
+      el.appendChild(link);
+    }
+    return el;
+  }
+
+  function scrollDown(conv, force) {
+    if (!conv.els) return;
+    const hist = conv.els.history;
+    const near = hist.scrollHeight - hist.scrollTop - hist.clientHeight < 90;
+    if (force || near) requestAnimationFrame(() => { hist.scrollTop = hist.scrollHeight; });
+  }
+
+  function remember(conv, item) {
+    conv.history.push(item);
+    if (conv.history.length > 240) {
+      const cut = conv.history.length - 200;
+      conv.history.splice(1, cut);
+      conv.closedAt = Math.max(0, conv.closedAt - cut);
+    }
+  }
+  function addMessage(conv, from, text) {
+    const item = { kind: 'msg', from, text, time: Date.now(), font: from === 'me' ? myFont() : null };
+    remember(conv, item);
+    conv.lastActivity = item.time;
+    if (conv.els) { appendItem(conv, item); scrollDown(conv, from === 'me'); }
+    return item;
+  }
+  function addSystem(conv, text, icon, extra) {
+    const item = Object.assign({ kind: 'sys', text, icon: icon || 'info', time: Date.now() }, extra || {});
+    remember(conv, item);
+    if (conv.els) { appendItem(conv, item); scrollDown(conv); }
+    return item;
+  }
+
+  function setTyping(conv, on) {
+    conv.typing = !!on;
+    if (!conv.els) return;
+    const t = conv.els.typing;
+    t.innerHTML = '';
+    t.classList.toggle('bm-is-typing', !!on);
+    if (on) t.append(svgEl(GLYPH.pencil, 'bm-typing-pencil'), h('span', null, conv.c.def.name + ' is typing a message...'));
+    else if (conv.lastReceived) {
+      const d = new Date(conv.lastReceived);
+      t.append(h('span', null, 'Last message received at ' + A.util.fmtTime(d) + ' on ' + A.util.fmtDate(d) + '.'));
+    }
+  }
+
+  // ------------------------------------------------------------ sending
+  function sendFromInput(conv) {
+    if (!conv.els) return;
+    const input = conv.els.input;
+    const text = input.value.replace(/\s+$/, '').replace(/^\n+/, '');
+    if (!text.trim()) { input.focus(); return; }
+    input.value = '';
+    addMessage(conv, 'me', text);
+    deliver(conv, text);
+    input.focus();
+  }
+
+  function deliver(conv, text) {
+    const c = conv.c;
+    if (c.blocked) { addSystem(conv, 'You blocked ' + c.def.name + '. Unblock them to send messages.', 'block'); return; }
+    if (c.status === 'offline') {
+      c.queue.push(text);
+      if (!conv.notices.offline) { conv.notices.offline = true; addSystem(conv, c.def.name + ' is offline. Messages you send will be delivered when they sign in.', 'info'); }
+      return;
+    }
+    if ((ST.awayish(c.status) || c.status === 'busy' || c.status === 'phone') && conv.notices.status !== c.status) {
+      conv.notices.status = c.status;
+      addSystem(conv, c.def.name + ' might not reply right away because their status is set to ' + ST.label(c.status, true) + '.', 'info');
+    }
+    conv.pending.push(text);
+    scheduleReply(conv);
+  }
+
+  function scheduleReply(conv) {
+    const c = conv.c;
+    if (conv.replying || !conv.pending.length) return;
+    cancel(conv.replyTimer);
+    if (ST.awayish(c.status) || c.status === 'phone') { ensureReturn(c, conv); return; }
+    const read = c.def.bot ? rand(250, 500) : rand(600, 1500) * (c.status === 'busy' ? 2.2 : 1);
+    conv.replyTimer = later(read, () => {
+      conv.replyTimer = null;
+      if (!conv.pending.length || conv.replying) return;
+      const text = conv.pending.splice(0).join('\n');
+      runPlan(conv, c.bot.reply(text, replyCtx()));
+    });
+  }
+
+  // ------------------------------------------------------------ friends typing back
+  function runPlan(conv, acts) {
+    if (!acts || !acts.length || !S.active) return;
+    conv.planQueue.push(acts);
+    if (!conv.replying) pump(conv);
+  }
+  async function pump(conv) {
+    const token = conv.token, sid = S.sid;
+    conv.replying = true;
+    while (conv.planQueue.length) {
+      const acts = conv.planQueue.shift();
+      const ok = await playActs(conv, acts, sid, token);
+      if (sid !== S.sid || token !== conv.token) return;
+      if (!ok) { stopPlans(conv); return; }
+    }
+    conv.replying = false;
+    setTyping(conv, false);
+    if (conv.pending.length) scheduleReply(conv);
+  }
+  async function playActs(conv, acts, sid, token) {
+    const c = conv.c, def = c.def;
+    const alive = () => sid === S.sid && token === conv.token && S.active && !c.blocked && !c.removed && c.status !== 'offline';
+    for (const a of acts) {
+      if (!alive()) return false;
+      if (a.pause) { await wait(a.pause); continue; }
+      if (a.say != null) {
+        await wait(a.quick ? rand(250, 700) : BOTS.thinkMs(def));
+        if (!alive()) return false;
+        if (!a.quick && def.hesitate && chance(def.hesitate) && conv.win) {
+          setTyping(conv, true);
+          await wait(rand(900, 1800));
+          if (!alive()) return false;
+          setTyping(conv, false);
+          await wait(rand(700, 1400));
+          if (!alive()) return false;
+        }
+        setTyping(conv, true);
+        await wait(BOTS.typingMs(def, a.say, a.quick));
+        if (!alive()) return false;
+        receive(conv, a.say);
+        if (a.launch || a.theme || a.flip) { await wait(700); if (!alive()) return false; doAction(a); }
+        continue;
+      }
+      if (a.nudge) { await wait(400); if (!alive()) return false; receiveNudge(conv); await wait(900); continue; }
+      if (a.wink) { receiveWink(conv, a.wink); await wait(1200); continue; }
+      if (a.away) {
+        const ok = await playActs(conv, c.bot.awayLine(), sid, token);
+        if (!ok || !alive()) return false;
+        c.saidAway = true;
+        setFriendStatus(c, pick(['brb', 'brb', 'away']), rand(35000, 90000));
+        return true;
+      }
+    }
+    return true;
+  }
+
+  function doAction(a) {
+    try {
+      if (a.launch && A.apps.get(a.launch)) A.apps.launch(a.launch);
+      if (a.theme && A.theme.THEMES[a.theme]) A.theme.set(a.theme);
+      if (a.flip && A.effects && A.effects.flip3d) A.effects.flip3d();
+    } catch (e) { console.warn('[Bubble Messenger] action failed', e); }
+  }
+
+  const preview = (text) => { const p = plain(text).replace(/\s+/g, ' '); return p.length > 90 ? p.slice(0, 88) + '...' : p; };
+  function receive(conv, text) {
+    if (!conv.win || conv.win.closed) openConversation(conv.id, { background: true });
+    conv.lastReceived = Date.now();
+    addMessage(conv, 'them', text);
+    setTyping(conv, false);
+    play('message');
+    const win = conv.win;
+    if (win && (A.wm.active !== win || win.state === 'minimized')) {
+      win.flash();
+      if (conv.justOpened || Date.now() - conv.toastAt > 20000) {
+        conv.toastAt = Date.now();
+        conv.justOpened = false;
+        if (A.shellReady !== false) {
+          A.notify.toast({
+            title: plain(conv.c.def.screen) + ' says:', text: preview(text), avatar: ART.pictureUrl(conv.c.def.picture), app: 'Bubble Messenger', appIcon: 'icons/users',
+            sound: false, onClick: () => openConversation(conv.id, { focus: true }),
+          });
+        }
+      }
+    }
+  }
+
+  // ------------------------------------------------------------ nudges
+  function sendNudge(conv) {
+    const c = conv.c;
+    if (!conv.win) return;
+    if (c.blocked) { addSystem(conv, 'You blocked ' + c.def.name + '. Unblock them to send nudges.', 'block'); return; }
+    if (c.status === 'offline') { addSystem(conv, 'You can\'t send a nudge to someone who is offline.', 'info'); return; }
+    const now = Date.now();
+    if (now - conv.lastNudgeSent < 3000) { addSystem(conv, 'Slow down! Wait a moment before sending another nudge.', 'info'); return; }
+    conv.lastNudgeSent = now;
+    addSystem(conv, 'You have just sent a nudge!', 'nudge');
+    play('nudge');
+    conv.win.shake();
+    if (conv.nudgeReply) return;
+    conv.nudgeReply = true;
+    later(rand(1600, 3200), () => {
+      conv.nudgeReply = false;
+      if (ST.awayish(c.status) || c.status === 'phone' || c.status === 'offline') return;
+      runPlan(conv, c.def.bot ? [{ say: 'Whoa, that tickles! :D A nudge shakes your friend\'s window. Use your powers wisely.' }] : c.bot.onNudge());
+    });
+  }
+  function receiveNudge(conv) {
+    if (!conv.win || conv.win.closed) openConversation(conv.id, { background: true });
+    addSystem(conv, conv.c.def.name + ' just sent you a nudge!', 'nudge');
+    play('nudge');
+    const win = conv.win;
+    if (!win) return;
+    if (win.state !== 'minimized') win.focus();
+    win.shake();
+  }
+
+  // ------------------------------------------------------------ winks
+  function playWink(conv, id) {
+    if (!conv.win || conv.win.state === 'minimized' || !conv.els) return;
+    if (conv.wink) conv.wink.stop();
+    conv.wink = WINKS.play(conv.els.root, id, { sound: get('sounds', true), onDone: () => { conv.wink = null; } });
+  }
+  function sendWink(conv, id) {
+    const c = conv.c, w = WINKS.byId[id];
+    if (!w) return;
+    if (c.blocked) { addSystem(conv, 'You blocked ' + c.def.name + '. Unblock them to send winks.', 'block'); return; }
+    if (c.status === 'offline') { addSystem(conv, 'You can\'t send a wink to someone who is offline.', 'info'); return; }
+    addSystem(conv, 'You sent a wink: ' + w.name + '.', 'wink', { wink: id });
+    playWink(conv, id);
+    later(w.duration + rand(500, 1400), () => {
+      if (ST.awayish(c.status) || c.status === 'phone' || c.status === 'offline') return;
+      runPlan(conv, c.def.bot ? [{ say: 'Ooh, ' + w.name + '! Winks are little animations that play for both of you. (*)' }] : c.bot.onWink(id));
+    });
+  }
+  function receiveWink(conv, id) {
+    const w = WINKS.byId[id];
+    if (!w) return;
+    if (!conv.win || conv.win.closed) openConversation(conv.id, { background: true });
+    addSystem(conv, conv.c.def.name + ' sent you a wink: ' + w.name + '.', 'wink', { wink: id });
+    if (conv.win && conv.win.state !== 'minimized') playWink(conv, id);
+    else if (conv.win) conv.win.flash();
+  }
+
+  // ------------------------------------------------------------ pickers
+  function toggleFly(conv, anchor, build, cls) {
+    if (conv.fly) { const same = conv.fly.anchor === anchor; conv.fly.close(); if (same) return; }
+    const fly = A.ui.flyout(anchor, build(), { placement: 'top', align: 'left', className: 'bm-flyout ' + (cls || ''), onClose: () => { if (conv.fly === fly) conv.fly = null; } });
+    fly.anchor = anchor;
+    conv.fly = fly;
+  }
+  function insertText(conv, str) {
+    const input = conv.els && conv.els.input;
+    if (!input || input.disabled) return;
+    input.focus();
+    const s = input.selectionStart == null ? input.value.length : input.selectionStart;
+    const e = input.selectionEnd == null ? s : input.selectionEnd;
+    const before = input.value.slice(0, s), after = input.value.slice(e);
+    const text = (before && !/\s$/.test(before) ? ' ' : '') + str + (after.startsWith(' ') ? '' : ' ');
+    if (input.value.length + text.length > 400) return;
+    input.setRangeText(text, s, e, 'end');
+  }
+  function emoticonFlyout(conv) {
+    toggleFly(conv, conv.els.emoBtn, () => h('div.bm-fly', null,
+      h('div.bm-fly-title', null, 'Emoticons'),
+      E.picker((e) => { insertText(conv, e.codes[0]); if (conv.fly) conv.fly.close(); play('click'); }),
+      h('div.bm-fly-hint', null, 'Tip: you can also type codes like :) (L) or (fish).')), 'bm-fly-emo');
+  }
+  function winkFlyout(conv) {
+    toggleFly(conv, conv.els.winkBtn, () => h('div.bm-fly', null,
+      h('div.bm-fly-title', null, 'Winks'),
+      h('div.bm-wink-grid', null, WINKS.list.map((w) => {
+        const b = h('button.bm-wink-opt', { type: 'button', 'aria-label': 'Send ' + w.name }, A.img(w.icon), h('span', null, w.name));
+        b.addEventListener('click', () => { if (conv.fly) conv.fly.close(); sendWink(conv, w.id); });
+        return b;
+      }))), 'bm-fly-wink');
+  }
+  function fontFlyout(conv) {
+    toggleFly(conv, conv.els.fontBtn, () => {
+      const cur = myFont();
+      const sample = h('div.bm-font-sample');
+      const drawSample = () => {
+        sample.innerHTML = '';
+        const vars = colorVars(cur.color, cur.family);
+        sample.style.setProperty('--c', vars['--c']);
+        sample.style.setProperty('--cd', vars['--cd']);
+        sample.style.fontFamily = vars.fontFamily;
+        sample.appendChild(E.render('This is how your messages look :)', { size: 19 }));
+      };
+      const sw = h('div.bm-swatches', { role: 'group', 'aria-label': 'Font color' });
+      COLORS.forEach((col) => {
+        const b = h('button.bm-swatch', { type: 'button', class: col === cur.color ? 'selected' : '', style: { background: col }, 'aria-label': 'Color ' + col });
+        b.addEventListener('click', () => { cur.color = col; sw.querySelectorAll('.bm-swatch').forEach((x) => x.classList.toggle('selected', x === b)); save(); });
+        sw.appendChild(b);
+      });
+      const fam = A.ui.select({ options: Object.keys(FONTS).map((k) => [k, FONTS[k][0]]), value: cur.family, label: 'Font', onChange: (v) => { cur.family = v; save(); } });
+      function save() { set('font', Object.assign({}, cur)); drawSample(); S.convs.forEach((cv) => applyMyFont(cv)); }
+      drawSample();
+      return h('div.bm-fly.bm-fontfly', null,
+        h('div.bm-fly-title', null, 'Font and color'),
+        h('label.bm-font-row', null, h('span', null, 'Font:'), fam),
+        sw, sample);
+    }, 'bm-fly-font');
+  }
+
+  // ------------------------------------------------------------ app
+  function quickStatus(id) {
+    if (S.active) setMyStatus(id);
+    else { set('status', id); A.apps.launch('messenger'); }
+  }
+
+  A.apps.register({
+    id: 'messenger',
+    name: 'Bubble Messenger',
+    icon: 'icons/users',
+    color: '#45c93a',
+    category: 'internet',
+    description: 'Chat with your friends and family. Send nudges, winks and emoticons.',
+    keywords: ['chat', 'instant message', 'im', 'friends', 'buddies', 'nudge', 'wink', 'emoticons', 'contacts'],
+    single: true,
+    window: MAIN_OPTS,
+    tasks: [
+      { label: 'Online', icon: orbUrl('online'), onClick: () => quickStatus('online') },
+      { label: 'Busy', icon: orbUrl('busy'), onClick: () => quickStatus('busy') },
+      { label: 'Away', icon: orbUrl('away'), onClick: () => quickStatus('away') },
+      { label: 'Appear Offline', icon: orbUrl('offline'), onClick: () => quickStatus('offline') },
+    ],
+    launch(win, args) { return mountMain(win, args || {}); },
+  });
+
+  // Hooks for the screenshot helper and curious tinkerers (Aerium.bubbleMessenger.debug).
+  NS.debug = {
+    state: S,
+    signIn: (status) => beginSignIn(status || 'online'),
+    signOut: () => signOut(),
+    open: (id) => openConversation(id, { focus: true }),
+    say: (id, text) => { const conv = openConversation(id, { focus: true }); if (conv && conv.els) { conv.els.input.value = text; sendFromInput(conv); } },
+    opener: (id) => { const c = contact(id); if (!c) return; if (c.status === 'offline') friendSignsIn(c, 'online'); friendOpens(c); },
+    friendSignIn: (id) => { const c = contact(id); if (!c) return; if (c.status !== 'offline') friendSignsOut(c); friendSignsIn(c, 'online'); },
+    friendStatus: (id, st) => { const c = contact(id); if (c) { if (st === 'offline') friendSignsOut(c); else if (c.status === 'offline') friendSignsIn(c, st); else setFriendStatus(c, st); } },
+    nudge: (id) => { const conv = S.active && getConv(id); if (conv) receiveNudge(conv); },
+    wink: (id, w) => { const conv = S.active && getConv(id); if (conv) receiveWink(conv, w || 'hearts'); },
+    sendWink: (id, w) => { const conv = openConversation(id, { focus: true }); if (conv) sendWink(conv, w || 'bubbles'); },
+    sendNudge: (id) => { const conv = openConversation(id, { focus: true }); if (conv) sendNudge(conv); },
+  };
+})();

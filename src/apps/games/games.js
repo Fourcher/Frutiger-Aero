@@ -699,9 +699,13 @@
       },
     },
     {
-      id: 'bubblepop', name: 'Bubble Pop', genre: 'Arcade', rating: 'Bubble popping', perf: [2.0, 3.0],
+      id: 'bubblepop', name: 'Bubble Pop', genre: 'Arcade', rating: 'Bubble popping', perf: [2.0, 3.0], noWins: true,
       desc: 'Pop glossy bubbles before they float away. Pop the same color in a row for a combo, grab golden bubbles for extra time, and steer clear of spiky urchins.',
-      best: (sum) => bestScore(sum),
+      best: (sum) => {
+        const s = sum.levels.all || {};
+        const x = s.extra || {};
+        return bestScore(sum).concat([['Best level', x.bestLevel ? String(x.bestLevel) : 'None yet'], ['Best combo', x.bestCombo ? 'x' + x.bestCombo : 'None yet']]);
+      },
     },
     {
       id: 'tilelagoon', name: 'Tile Lagoon', genre: 'Tile matching', rating: 'Calm water', perf: [1.5, 2.5],
@@ -720,7 +724,7 @@
     description: 'Play the games that come with Aerium and see your statistics.',
     keywords: ['games', 'play', 'fun', 'explorer', 'folder'],
     single: true,
-    window: { width: 880, height: 580, minWidth: 560, minHeight: 400 },
+    window: { width: 880, height: 640, minWidth: 560, minHeight: 420 },
     launch(win) {
       const items = K.catalog.filter((c) => A.apps.get(c.id)).concat([{ id: 'more', name: 'More games', genre: 'Coming soon', more: true }]);
       let selected = null;
@@ -809,10 +813,9 @@
             h('div.gx-perf-row', null, h('span', null, 'Recommended rating'), h('b', null, it.perf[1].toFixed(1))),
             h('div.gx-perf-row', null, h('span', null, 'Required rating'), h('b', null, it.perf[0].toFixed(1))),
             h('div.gx-perf-row.gx-perf-you', null, A.img('icons/check'), h('span', null, 'Your system'), h('b', null, '5.9'))));
-        const rows = [
-          ['Games played', String(sum.played)],
-          ['Games won', sum.played ? sum.won + ' (' + K.pct(sum) + ')' : '0'],
-        ].concat(it.best(sum), [['Last played', sum.last ? A.util.fmtDate(new Date(sum.last)) : 'Never']]);
+        const rows = [['Games played', String(sum.played)]]
+          .concat(it.noWins ? [] : [['Games won', sum.played ? sum.won + ' (' + K.pct(sum) + ')' : '0']])
+          .concat(it.best(sum), [['Last played', sum.last ? A.util.fmtDate(new Date(sum.last)) : 'Never']]);
         strip.append(
           A.img(app.icon, { class: 'gx-strip-icon' }),
           h('div.gx-strip-main', null,
@@ -836,7 +839,7 @@
         const it = info(selected);
         if (!it || it.more) return;
         const sum = K.summary(it.id);
-        const rows = [['Games played', String(sum.played)], ['Games won', String(sum.won)], ['Win percentage', K.pct(sum)]].concat(it.best(sum));
+        const rows = [['Games played', String(sum.played)]].concat(it.noWins ? [] : [['Games won', String(sum.won)], ['Win percentage', K.pct(sum)]], it.best(sum));
         A.ui.dialog({
           parent: win, title: it.name + ' Statistics', icon: A.apps.get(it.id).icon, width: 380,
           content: h('div.gx-stats', null, h('div.gx-stats-head', null, A.img(A.apps.get(it.id).icon), h('div', null, h('div.gx-stats-name', null, it.name), h('div.ae-muted', null, 'Open the game and press F4 for every detail.'))), K.statRows(rows)),

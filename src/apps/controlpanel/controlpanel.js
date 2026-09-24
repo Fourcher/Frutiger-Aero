@@ -133,6 +133,21 @@
     return (same ? 'Today' : A.util.fmtDate(d)) + ' at ' + A.util.fmtTime(d);
   };
   K.sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+  // Scrolls only the given container (never the shell's own layers) so that el is visible.
+  K.reveal = function (el, container, o = {}) {
+    if (!el || !container) return;
+    const cr = container.getBoundingClientRect(), er = el.getBoundingClientRect();
+    const top = er.top - cr.top + container.scrollTop;
+    let to = null;
+    if (o.center) to = top - (container.clientHeight - er.height) / 2;
+    else if (er.top < cr.top) to = top - 8;
+    else if (er.bottom > cr.bottom) to = top - container.clientHeight + er.height + 8;
+    if (to == null) return;
+    to = Math.max(0, to);
+    if (o.smooth && container.scrollTo) container.scrollTo({ top: to, behavior: 'smooth' });
+    else container.scrollTop = to;
+  };
+  K.focus = (el) => { if (el && el.focus) el.focus({ preventScroll: true }); };
 
   K.head = (title, lead, extra) => h('header.cp-head', null,
     h('div.cp-head-text', null, h('h1.cp-title', null, title), lead ? h('p.cp-lead', null, lead) : null), extra || null);
@@ -579,7 +594,7 @@
       if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); back(); }
       else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); forward(); }
       else if (e.key === 'Backspace' && !A.util.isTyping(e)) { e.preventDefault(); back(); }
-      else if ((e.ctrlKey && e.key.toLowerCase() === 'f') || e.key === 'F3') { e.preventDefault(); search.focus(); search.select(); }
+      else if ((e.ctrlKey && e.key.toLowerCase() === 'f') || e.key === 'F3') { e.preventDefault(); K.focus(search); search.select(); }
     });
     win.el.addEventListener('mouseup', (e) => {
       if (e.button === 3) { e.preventDefault(); back(); }
@@ -1323,12 +1338,19 @@
         statusBox.append(A.img(ok ? 'icons/check' : 'icons/search', { class: 'cp-def-status-icon' }), h('div', null, h('b', null, title), h('span', null, text)));
       };
       setStatus(true, 'No unwanted or harmful software detected.', 'Your computer is running normally.');
-      const info = K.kv([
-        ['Last scan:', last ? K.when(last.ts) + ' (' + (last.type === 'full' ? 'Full' : 'Quick') + ' scan)' : 'Never'],
-        ['Scan schedule:', 'Daily around 2:00 AM (Quick scan)'],
-        ['Real-time protection:', 'On'],
-        ['Definition version:', '1.21.2007, created ' + A.util.fmtDate(new Date()) + ' at 6:00 AM'],
-      ]);
+      const infoBox = h('div');
+      const renderInfo = () => {
+        const ls = A.store.get('security.lastScan', null);
+        infoBox.innerHTML = '';
+        infoBox.appendChild(K.kv([
+          ['Last scan:', ls ? K.when(ls.ts) + ' (' + (ls.type === 'full' ? 'Full' : 'Quick') + ' scan, ' + (ls.objects || 0).toLocaleString('en-US') + ' objects)' : 'Never'],
+          ['Scan schedule:', 'Daily around 2:00 AM (Quick scan)'],
+          ['Real-time protection:', 'On'],
+          ['Definition version:', '1.21.2007, created ' + A.util.fmtDate(new Date()) + ' at 6:00 AM'],
+        ]));
+      };
+      renderInfo();
+      void last;
       async function scan(type) {
         if (scanning) return;
         scanning = true;
@@ -1368,8 +1390,9 @@
           return;
         }
         A.store.set('security.lastScan', { ts: Date.now(), type: full ? 'full' : 'quick', objects });
+        renderInfo();
         A.sound.play('notify');
-        setStatus(true, 'No threats found. Your fish are safe.', objects.toLocaleString('en-US') + ' objects scanned in ' + time.textContent.slice(2) + '.');
+        setStatus(true, 'No unwanted or harmful software detected.', 'Your computer is running normally. The last scan took ' + time.textContent.slice(2) + '.');
         scanBox.innerHTML = '';
         scanBox.appendChild(h('div.cp-def-done', null,
           h('div.cp-def-bubbles', { 'aria-hidden': 'true' }, Array.from({ length: 9 }, (_, i) => h('i', { style: { left: 8 + i * 10.5 + '%', animationDelay: (i * 0.23).toFixed(2) + 's' } }))),
@@ -1386,7 +1409,7 @@
       return h('div', null,
         h('div.cp-def-head', null, A.img('icons/defender', { class: 'cp-def-logo' }), h('div', null, h('div.cp-title', null, 'Aerium Defender'), h('p.cp-lead', null, 'Protection against unwanted software, and the occasional grumpy toolbar.')), h('span.cp-spacer'), h('div.cp-def-actions', null, scanBtn, more)),
         statusBox, scanBox,
-        h('div.cp-panel', null, h('div.cp-panel-title', null, 'Status'), info));
+        h('div.cp-panel', null, h('div.cp-panel-title', null, 'Status'), infoBox));
     },
   });
 
@@ -1662,7 +1685,7 @@
       renderAll();
       return {
         el: h('div', null, K.head('Uninstall or change a program', 'To uninstall a program, select it from the list and then click Uninstall, Change or Repair.'), h('div.cp-prog', null, tools, listEl, detailsEl)),
-        onShow() { const s2 = listEl.querySelector('.selected'); if (s2) s2.scrollIntoView({ block: 'nearest' }); },
+        onShow() { const s2 = listEl.querySelector('.selected'); if (s2) K.reveal(s2, listEl); },
       };
     },
   });
@@ -1809,7 +1832,7 @@
       field.classList.add('cp-name-field');
       function save() {
         const v = field.input.value.trim();
-        if (!v) { hint.textContent = 'Type a name first. Even "Captain Bubbles" works.'; A.sound.play('ding'); field.input.focus(); return; }
+        if (!v) { hint.textContent = 'Type a name first. Even "Captain Bubbles" works.'; A.sound.play('ding'); K.focus(field.input); return; }
         A.store.set('user.name', v);
         A.sound.play('select');
         ctx.up();
@@ -1819,7 +1842,7 @@
           K.head('Type a new account name for ' + K.sys.userName, 'This name will appear on the Welcome screen, the Start menu and the desktop.'),
           h('div.cp-user-card', null, framedPic(K.sys.avatar, 72), h('div.cp-user-info', null, field, hint)),
           K.footer(h('span.cp-footer-space'), A.ui.button('Change Name', { tone: 'aqua', onClick: save }), A.ui.button('Cancel', { onClick: () => ctx.up() }))),
-        onShow() { field.input.focus(); field.input.select(); },
+        onShow() { K.focus(field.input); field.input.select(); },
       };
     },
   });
@@ -1848,7 +1871,7 @@
           h('div.cp-user-card', null, framedPic(K.sys.avatar, 72), h('div.cp-pw-fields', null, p1, p2, hint)),
           msg,
           K.footer(h('span.cp-footer-space'), A.ui.button('Create password', { tone: 'aqua', onClick: create }), A.ui.button('Cancel', { onClick: () => { [p1, p2, hint].forEach((f) => { f.input.value = ''; }); ctx.up(); } }))),
-        onShow() { p1.input.focus(); },
+        onShow() { K.focus(p1.input); },
         onLeave() { [p1, p2, hint].forEach((f) => { f.input.value = ''; }); },
       };
     },
@@ -1895,7 +1918,7 @@
     panel.addEventListener('pointerleave', () => lens.classList.remove('on'));
     const zoomSel = A.ui.select({ options: [['1.5', '150%'], ['2', '200%'], ['3', '300%'], ['4', '400%']], value: '2', label: 'Zoom', onChange: (v) => { zoom = Number(v); } });
     const wrap = h('div.cp-mag', null, h('div.cp-row', null, h('span.cp-muted', null, 'Zoom:'), zoomSel, h('span.cp-fine', null, 'The lens follows your pointer inside the panel.')), panel);
-    wrap.flash = () => { panel.classList.remove('cp-flash'); void panel.offsetWidth; panel.classList.add('cp-flash'); panel.scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    wrap.flash = () => { panel.classList.remove('cp-flash'); void panel.offsetWidth; panel.classList.add('cp-flash'); K.reveal(panel, ctx.content, { center: true, smooth: true }); };
     return wrap;
   }
   function oskToy() {
@@ -1947,7 +1970,7 @@
         h('div.cp-quick-grid', null,
           tool('icons/search', 'Start Magnifier', () => { mag.flash(); A.sound.play('select'); }),
           tool('icons/chat', 'Start Narrator', () => narrate(ctx, 'Narrator is on. You are in the Ease of Access Center. Here you can turn on large text, thicker focus rectangles and pointer trails, or try the magnifier. The fish say hello.')),
-          tool('keyboard', 'Start On-Screen Keyboard', () => { osk.hidden = !osk.hidden; A.sound.play(osk.hidden ? 'back' : 'select'); if (!osk.hidden) osk.scrollIntoView({ behavior: 'smooth', block: 'center' }); }),
+          tool('keyboard', 'Start On-Screen Keyboard', () => { osk.hidden = !osk.hidden; A.sound.play(osk.hidden ? 'back' : 'select'); if (!osk.hidden) K.reveal(osk, ctx.content, { center: true, smooth: true }); }),
           tool('icons/moon', 'Set up High Contrast', () => A.ui.messageBox({ parent: ctx.win, title: 'High Contrast', icon: 'icons/moon', instruction: 'Would you like a darker look?', message: 'Aerium Night uses smoked glass and navy skies, which many people find easier on the eyes.', buttons: [{ label: 'Switch to Aerium Night', value: 'dark', default: true }, { label: 'Not now', value: 'no', cancel: true }] }).then((v) => { if (v === 'dark') A.theme.set('dark'); }))),
         osk);
       return h('div', null,

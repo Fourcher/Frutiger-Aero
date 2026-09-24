@@ -721,7 +721,7 @@
     ['bored', /\b(bored|boring|nothing to do)\b/],
     ['tired', /\b(tired|sleepy|exhausted|yawn)\b/],
     ['happy', /\b(happy|excited|so good|great day|awesome day|yay+|woo+|best day)\b/],
-    ['school', /\b(school|homework|test|quiz|teacher|class|math|science|project|essay|report card|grades?|exam)\b/],
+    ['school', /\b(school|college|homework|test|quiz|teacher|class|classes|math|science|project|essay|report card|grades?|exam)\b/],
     ['music', /\b(music|song|songs|band|album|concert|singer|playlist)\b/],
     ['games', /\b(game|games|gaming|video games?|level|boss|minesweeper|solitaire|bubble pop|high score)\b/],
     ['sports', /\b(soccer|basketball|football|baseball|swim|swimming|practice|team|coach|goal|sports?|tennis|volleyball|track)\b/],
@@ -823,7 +823,7 @@
     }
 
     fill(str) {
-      const song = this.host.nowPlaying();
+      const song = this.songOverride || this.host.nowPlaying();
       const like = (this.mem.likes && this.mem.likes[0]) || 'that';
       const online = this.host.onlineFriends().filter((id) => id !== this.d.id && id !== 'askbubbles');
       const out = String(str)
@@ -1081,7 +1081,10 @@
       const key = song.title + '|' + song.artist;
       if (this.songsSeen.has(key) || !this.L.nowplaying) return null;
       this.songsSeen.add(key);
-      return this.plan(this.choose('nowplaying'));
+      this.songOverride = song;
+      const acts = this.plan(this.choose('nowplaying'));
+      this.songOverride = null;
+      return acts;
     }
     onUserSignedIn() { return this.L.signin ? this.plan(this.choose('signin')) : null; }
     awayLine() { return this.plan(this.choose('away')); }

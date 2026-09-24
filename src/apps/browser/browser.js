@@ -363,7 +363,8 @@
       tab.page = h('div.hz-page', { tabIndex: -1 });
       tab.curtain = h('div.hz-curtain');
       tab.infoSlot = h('div.hz-info-slot');
-      tab.frame = h('div.hz-frame', { hidden: true }, tab.infoSlot, h('div.hz-pagewrap', null, tab.page, tab.curtain));
+      tab.wrap = h('div.hz-pagewrap', null, tab.page, tab.curtain);
+      tab.frame = h('div.hz-frame', { hidden: true }, tab.infoSlot, tab.wrap);
       bindPage(tab);
       const fav = h('img.hz-tab-fav', { alt: '', src: BLANK_FAV });
       const spin = h('span.hz-tab-spin', { hidden: true });
@@ -586,8 +587,9 @@
         go(href, o) {
           if (!alive()) return;
           const target = resolveHref(href, u.href);
-          if (o && o.newTab) openTab(target, { afterActive: true });
-          else navigate(tab, target, o || {});
+          const run = () => { if (!alive()) return; if (o && o.newTab) openTab(target, { afterActive: true }); else navigate(tab, target, o || {}); };
+          if (tab.rendering) setTimeout(run, 0);
+          else run();
         },
         reload: () => alive() && reload(tab),
         back: () => alive() && goBack(tab),
@@ -646,6 +648,27 @@
           return true;
         },
         keepAwake(on) { if (alive()) tab.awake = !!on; },
+        // Lifts an element out of the page into a layer that covers the page viewport.
+        fullscreen(el, on) {
+          if (!alive() || !el) return false;
+          if (on && !el._hzPh) {
+            const ph = document.createComment('hz-fullscreen');
+            el.parentNode.insertBefore(ph, el);
+            const layer = h('div.hz-fs-layer');
+            layer.appendChild(el);
+            tab.wrap.appendChild(layer);
+            el._hzPh = ph; el._hzLayer = layer;
+            const undo = () => { if (el._hzPh) ctx.fullscreen(el, false); };
+            el._hzUndo = undo;
+            tab.cleanups.push(() => { if (el._hzLayer) { el._hzLayer.remove(); el._hzPh = null; el._hzLayer = null; } });
+          } else if (!on && el._hzPh) {
+            if (el._hzPh.parentNode) el._hzPh.parentNode.insertBefore(el, el._hzPh);
+            el._hzPh.remove();
+            el._hzLayer.remove();
+            el._hzPh = null; el._hzLayer = null;
+          }
+          return true;
+        },
         focus() { tab.page.focus({ preventScroll: true }); },
         scrollTop() { tab.page.scrollTop = 0; },
         canvas(w, hh, cls) {
@@ -720,6 +743,7 @@
 
     function load(tab, url, o = {}) {
       stopLoading(tab, true);
+      tab.loadId = (tab.loadId || 0) + 1;
       let u = null;
       try { u = new URL(url); } catch (e) { u = null; }
       const internal = !u || u.protocol === 'about:' || u.protocol === 'file:';
@@ -739,13 +763,15 @@
       const sp = SPEEDS[S.speed] || SPEEDS.dsl;
       const weight = (site && site.weight) || 1;
       const wait = A.util.rand(sp.wait[0], sp.wait[1]) * weight * (o.fromHistory ? 0.45 : 1);
-      const T = (ms, fn) => tab.loadTimers.push(setTimeout(fn, ms));
+      const loadId = tab.loadId;
+      const T = (ms, fn) => tab.loadTimers.push(setTimeout(() => { if (tab.loadId === loadId && !destroyed) fn(); }, ms));
       const host = u.hostname;
       setStatus(tab, (site ? 'Finding site: ' : 'Looking up ') + host + '...', 4);
       T(wait * 0.3, () => setStatus(tab, site ? 'Website found. Waiting for reply...' : 'Connecting to ' + host + '...', 16));
       T(wait * 0.62, () => { setStatus(tab, 'Opening page ' + url + '...', 32); if (site) showCurtain(tab); });
       T(wait, () => {
         finishRender(tab, url, o);
+        if (tab.loadId !== loadId) return;
         if (!site || !S.transitions) { done(tab); return; }
         const dur = sp.reveal * weight;
         reveal(tab, dur, sp.steps);
@@ -825,7 +851,8 @@
           tab.site = site;
           ensureCss(site);
           doc.dataset.site = siteId(site);
-          site.render(ctx);
+          tab.rendering = true;
+          try { site.render(ctx); } finally { tab.rendering = false; }
         } else renderError(ctx, 'dns');
       } catch (e) {
         console.error('[Horizon] page failed to render', url, e);

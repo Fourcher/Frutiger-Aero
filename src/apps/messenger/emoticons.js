@@ -419,13 +419,14 @@
   const strip = (text) => parse(text).filter((t) => t.t === 'text').map((t) => t.v).join('').replace(/\s{2,}/g, ' ').trim();
   const codesIn = (text) => parse(text).filter((t) => t.t === 'emo').map((t) => t.id);
 
+  const quiet = (el) => { el.removeAttribute('data-tip'); return el; };
   function picker(onPick) {
     const grid = h('div.bm-emo-grid', { role: 'group', 'aria-label': 'Emoticons' });
     list.forEach((e) => {
       grid.appendChild(h('button.bm-emo-cell', {
         type: 'button', 'aria-label': e.name + ' ' + e.codes[0], 'data-tip': e.name + '   ' + e.codes[0],
         onclick: () => onPick(e),
-      }, img(e.id, 24, e.codes[0])));
+      }, quiet(img(e.id, 24, e.codes[0]))));
     });
     return grid;
   }
@@ -866,12 +867,12 @@
       id: 'stars', name: 'Star Sparkler', icon: 'icons/star', duration: 5400,
       init(W, H) {
         const rockets = Array.from({ length: 6 }, (_, i) => ({ x: rnd(W * 0.15, W * 0.85), ty: rnd(H * 0.18, H * 0.45), t0: 0.2 + i * 0.62 + rnd(0, 0.2), hue: [48, 190, 330, 120, 28, 205][i] }));
-        rockets.forEach((r) => (r.parts = Array.from({ length: 34 }, () => ({ a: rnd(0, TAU), v: rnd(60, 170), s: rnd(3, 7) }))));
+        rockets.forEach((r) => (r.parts = Array.from({ length: 40 }, () => ({ a: rnd(0, TAU), v: rnd(80, 200), s: rnd(4, 9) }))));
         return { rockets };
       },
       draw(ctx, t, W, H, st, sec) {
         const night = ctx.createLinearGradient(0, 0, 0, H);
-        night.addColorStop(0, 'rgba(8,24,70,.55)'); night.addColorStop(1, 'rgba(20,70,120,.25)');
+        night.addColorStop(0, 'rgba(6,18,60,.78)'); night.addColorStop(1, 'rgba(18,60,110,.42)');
         ctx.fillStyle = night; ctx.fillRect(0, 0, W, H);
         st.rockets.forEach((r) => {
           const age = sec - r.t0;
@@ -890,7 +891,7 @@
           const fade = 1 - e / 1.8;
           r.parts.forEach((p, i) => {
             const x = r.x + Math.cos(p.a) * p.v * e, y = r.ty + Math.sin(p.a) * p.v * e + 40 * e * e;
-            if (i % 3 === 0) drawStar(ctx, x, y, p.s * 1.3, sec * 3 + p.a, r.hue, fade);
+            if (i % 3 === 0) drawStar(ctx, x, y, p.s * 1.6, sec * 3 + p.a, r.hue, fade);
             else { ctx.save(); ctx.globalAlpha *= fade; ctx.fillStyle = `hsl(${r.hue},100%,${70 + (i % 2) * 15}%)`; ctx.shadowColor = ctx.fillStyle; ctx.shadowBlur = 8; ctx.beginPath(); ctx.arc(x, y, p.s * 0.45, 0, TAU); ctx.fill(); ctx.restore(); }
           });
           if (e < 0.25) { ctx.save(); ctx.globalAlpha *= 1 - e / 0.25; ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(r.x, r.ty, 26 * (1 - e * 2), 0, TAU); ctx.fill(); ctx.restore(); }

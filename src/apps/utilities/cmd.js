@@ -1,769 +1,962 @@
 /* Command Prompt: a black console with a blinking block cursor, command
-   history, Tab completion, the legacy color palette, the real virtual file
-   system and a pile of era-accurate commands (and a few secret ones). */
+   history, Tab completion, the legacy 16-color palette and the real virtual
+   file system (C:\Users\<you> is your Aerium home folder). Plus ping,
+   tracert, tasklist, a shutdown countdown and a few secrets for the curious. */
 (function () {
   'use strict';
   const A = window.Aerium;
-  const { h, sleep } = A.util;
-  const fs = A.fs;
+  const { h } = A.util;
+  const vfs = A.fs;
 
-  // Legacy 16-color console palette (see docs/FEEL.md).
+  // Legacy 16-color console palette (docs/FEEL.md): color XY sets background X, text Y.
   const PALETTE = {
     0: '#000000', 1: '#000080', 2: '#008000', 3: '#008080', 4: '#800000', 5: '#800080', 6: '#808000', 7: '#c0c0c0',
     8: '#808080', 9: '#0000ff', a: '#00ff00', b: '#00ffff', c: '#ff0000', d: '#ff00ff', e: '#ffff00', f: '#ffffff',
   };
+  const COLOR_NAMES = ['Black', 'Blue', 'Green', 'Aqua', 'Red', 'Purple', 'Yellow', 'White', 'Gray', 'Light Blue', 'Light Green', 'Light Aqua', 'Light Red', 'Light Purple', 'Light Yellow', 'Bright White'];
+  const RAINBOW = ['#ff5f5f', '#ffaf3f', '#ffff5f', '#5fff5f', '#5fffff', '#5fafff', '#ff5fff'];
   const VERSION = 'Aerium [Version 7.0.2007]';
+  const INSTALL = new Date(2007, 8, 1, 15, 7).getTime();
+  const BOOTED = Date.now();
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const num = (n) => Math.round(n).toLocaleString('en-US');
+  const user = () => A.store.get('user.name') || 'User';
+  const hostName = () => (user().replace(/[^A-Za-z0-9-]/g, '').slice(0, 12) || 'AERIUM').toUpperCase() + '-PC';
+  function dirStamp(t) {
+    const d = new Date(t);
+    let hh = d.getHours();
+    const ap = hh >= 12 ? 'PM' : 'AM';
+    hh = hh % 12 || 12;
+    return pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + '/' + d.getFullYear() + '  ' + pad2(hh) + ':' + pad2(d.getMinutes()) + ' ' + ap;
+  }
+  function hash(s) { let n = 2166136261; for (let i = 0; i < s.length; i++) { n ^= s.charCodeAt(i); n = Math.imul(n, 16777619); } return n >>> 0; }
+
+  // ============================================================ the pretend C: drive
+  // Real files live in the virtual file system under C:\Users\<you>. Everything
+  // around it is a believable, read-only system tree for exploring.
+  const DIR = (c = {}, o = {}) => Object.assign({ d: true, c }, o);
+  const FILE = (text, o = {}) => Object.assign({ d: false, text: text || '', size: o.size != null ? o.size : (text || '').length }, o);
+  const BIN = (size) => FILE('', { size, bin: true });
+  const HOSTS = '# Copyright (c) 2007 Aerium Playground\r\n#\r\n# This is a sample HOSTS file used by Aerium.\r\n#\r\n# Each entry is an IP address followed by a host name.\r\n\r\n127.0.0.1       localhost\r\n127.0.0.1       fish.tank\r\n::1             localhost\r\n';
+  let fakeRoot = null, appData = null;
+  function buildFake() {
+    const rnd = A.util.seeded(2007);
+    const hex = (n) => Array.from({ length: n }, () => '0123456789abcdef'[Math.floor(rnd() * 16)]).join('');
+    const pick = (arr) => arr[Math.floor(rnd() * arr.length)];
+    const repo = {};
+    const parts = ['aqua', 'bubble', 'coral', 'glass', 'wave', 'breeze', 'pearl', 'sky', 'lagoon', 'ripple', 'dolphin', 'sunny', 'cloud', 'drop', 'reef', 'kelp'];
+    const kinds = ['net', 'snd', 'usb', 'vid', 'kbd', 'hid', 'prn', 'cam', 'bt', 'disk', 'mou', 'wifi'];
+    for (let i = 0; i < 96; i++) repo[pick(parts) + pick(kinds) + '.inf_x86_neutral_' + hex(16)] = DIR({ [pick(parts) + pick(kinds) + '.sys']: BIN(8192 + Math.floor(rnd() * 90000)) });
+    const winsxs = {};
+    for (let i = 0; i < 60; i++) winsxs['x86_aerium-' + pick(parts) + '-' + pick(['shell', 'theme', 'audio', 'glass', 'fonts', 'help', 'games']) + '_' + hex(16) + '_7.0.2007.' + (1000 + Math.floor(rnd() * 9000)) + '_none_' + hex(16)] = DIR();
+    const exe = (n) => BIN(n);
+    fakeRoot = DIR({
+      Aerium: DIR({
+        Cursors: DIR({ 'aero_arrow.cur': BIN(4286), 'aero_busy.ani': BIN(79592), 'bubble_arrow.cur': BIN(4286) }),
+        Fonts: DIR({ 'selawik.ttf': BIN(44224), 'selawksl.ttf': BIN(44260), 'michroma.ttf': BIN(17908), 'rounded.ttf': BIN(22040) }),
+        Help: DIR({ 'aerium.chm': BIN(1203456) }),
+        Media: DIR({ 'Aerium Startup.wav': BIN(1204650), 'Aerium Logon.wav': BIN(324124), 'Aerium Ding.wav': BIN(85334), 'Aerium Error.wav': BIN(71114), 'Bubble Pop.wav': BIN(26414) }),
+        System32: DIR({
+          config: DIR({ systemprofile: DIR(), RegBack: DIR() }),
+          drivers: DIR({ etc: DIR({ hosts: FILE(HOSTS), networks: FILE('# Aerium network names\r\n\r\nloopback 127\r\ncampus   284.122.107\r\nlondon   284.122.108\r\n'), services: FILE('echo 7/tcp\r\nftp 21/tcp\r\nhttp 80/tcp www\r\nfishfeed 7734/tcp # feeds the fish\r\n') }), 'aquafx.sys': BIN(53248), 'glassdrv.sys': BIN(146944), 'bubble.sys': BIN(33280) }),
+          DriverStore: DIR({ FileRepository: DIR(repo) }),
+          'en-US': DIR(), spool: DIR({ PRINTERS: DIR(), drivers: DIR({ x86: DIR() }) }), Tasks: DIR(), wbem: DIR({ Repository: DIR(), Logs: DIR() }),
+          'calc.exe': exe(776192), 'cmd.exe': exe(302592), 'notepad.exe': exe(179712), 'taskmgr.exe': exe(257024), 'paint.exe': exe(6341632), 'control.exe': exe(115712), 'shutdown.exe': exe(26112), 'ping.exe': exe(16896), 'tracert.exe': exe(11776), 'fishfood.dll': BIN(7734),
+        }),
+        Temp: DIR(),
+        Web: DIR({ Wallpaper: DIR({ Aerium: DIR(), Nature: DIR(), Technozen: DIR() }) }),
+        winsxs: DIR(winsxs),
+        'explorer.exe': exe(2614784), 'aerium.ini': FILE('[boot]\r\nshell=aeroshell.exe\r\nfish=happy\r\n'),
+      }, { sys: true }),
+      'Program Files': DIR({
+        'Aerium Games': DIR({ Minesweeper: DIR(), Solitaire: DIR(), Pairs: DIR(), 'Bubble Pop': DIR() }),
+        'Aerium Media Player': DIR({ Skins: DIR(), Visualizations: DIR(), 'aeplayer.exe': exe(4452352) }),
+        'Bubble Messenger': DIR({ Emoticons: DIR(), Sounds: DIR(), 'bubblemsgr.exe': exe(5134336) }),
+        'Common Files': DIR({ System: DIR({ 'Ole DB': DIR() }), Services: DIR() }),
+        'Horizon Browser': DIR({ Plugins: DIR(), 'horizon.exe': exe(638976) }),
+        'Aerium Sidebar': DIR({ Gadgets: DIR(), 'sidebar.exe': exe(1175552) }),
+      }),
+      Users: DIR({ Public: DIR({ 'Public Documents': DIR(), 'Public Music': DIR(), 'Public Pictures': DIR(), 'Public Videos': DIR(), 'Public Downloads': DIR() }) }),
+      'autoexec.bat': FILE('@ECHO OFF\r\nREM This file does nothing. It is here for old times\' sake.\r\n'),
+      'config.sys': FILE('FILES=40\r\nBUFFERS=20\r\nDEVICE=C:\\AERIUM\\FISHFOOD.SYS\r\n'),
+      'pagefile.sys': FILE('', { size: 2146951168, bin: true, hidden: true }),
+    });
+    appData = DIR({
+      Local: DIR({
+        Aerium: DIR({ Explorer: DIR({ Thumbnails: DIR() }), Sidebar: DIR({ Gadgets: DIR(), Settings: DIR() }), Burn: DIR() }),
+        'Horizon Browser': DIR({ Cache: DIR({ Images: DIR(), Scripts: DIR() }), Cookies: DIR() }),
+        Temp: DIR({ Low: DIR() }),
+      }),
+      LocalLow: DIR(),
+      Roaming: DIR({
+        Aerium: DIR({ Recent: DIR(), 'Start Menu': DIR({ Programs: DIR({ Accessories: DIR(), Games: DIR(), Startup: DIR() }) }), Themes: DIR() }),
+        'Bubble Messenger': DIR({ 'My Emoticons': DIR(), 'Chat Logs': DIR(), 'Display Pictures': DIR() }),
+        Aquarium: DIR({ 'Fish Names': DIR(), 'Feeding Log': DIR() }),
+      }),
+    }, { hidden: true });
+  }
+
+  // ============================================================ scheduled shutdown
+  // Shared by every Command Prompt window, like the real system-wide timer.
+  let pending = null;
+  const ACTION_TEXT = { shutdown: 'shut down', restart: 'restart', logoff: 'log off' };
+  function runAction(action) {
+    if (action === 'logoff') A.boot.logoff();
+    else if (action === 'hibernate') A.boot.sleep(true);
+    else A.boot.shutdown(action === 'restart');
+  }
+  function scheduleShutdown(action, secs, comment) {
+    if (pending) return false;
+    const deadline = Date.now() + secs * 1000;
+    const timeEl = h('b.cmd-sd-time', null, '');
+    const p = { action, deadline, timer: null, win: null, done: false };
+    pending = p;
+    const tick = () => {
+      const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      timeEl.textContent = pad2(Math.floor(left / 3600)) + ':' + pad2(Math.floor((left % 3600) / 60)) + ':' + pad2(left % 60);
+      if (left <= 0 && !p.done) {
+        p.done = true;
+        clearInterval(p.timer);
+        if (pending === p) pending = null;
+        if (p.win) p.win.close(true);
+        runAction(action);
+      }
+    };
+    const content = h('div.cmd-sd', null,
+      A.img('icons/warning', { class: 'cmd-sd-icon' }),
+      h('div.cmd-sd-text', null,
+        h('div.cmd-sd-title', null, 'Aerium is about to ' + ACTION_TEXT[action]),
+        h('div', null, 'Please save all work in progress, and close any programs you are using.'),
+        comment ? h('div.cmd-sd-comment', null, 'Message: ' + comment) : null,
+        h('div.cmd-sd-count', null, 'Time before ' + (action === 'logoff' ? 'log off' : action) + ': ', timeEl),
+        h('div.ae-muted', null, 'Changed your mind? Type shutdown -a, or press Cancel.')));
+    A.ui.dialog({
+      title: 'System Shutdown', icon: 'icons/warning', width: 430, content,
+      buttons: [{ label: 'Cancel', cancel: true, value: 'cancel' }],
+      onOpen: (win) => { p.win = win; },
+    }).then(() => { if (!p.done) abortShutdown(p); });
+    p.timer = setInterval(tick, 250);
+    tick();
+    A.sound.play('exclamation');
+    return true;
+  }
+  function abortShutdown(which) {
+    const p = which || pending;
+    if (!p || p.done) return false;
+    p.done = true;
+    clearInterval(p.timer);
+    if (pending === p) pending = null;
+    if (p.win && !p.win.closed) p.win.close(true);
+    A.notify({ title: 'Shutdown canceled', text: 'The scheduled ' + (p.action === 'logoff' ? 'log off' : p.action) + ' was canceled.', icon: 'icons/info' });
+    return true;
+  }
+
+  const ABORT = { abort: true };
+  const MAX_LINES = 1500;
 
   A.apps.register({
     id: 'cmd',
     name: 'Command Prompt',
     icon: 'icons/cmd',
-    color: '#2b2b2b',
+    color: '#3a4a5a',
     category: 'system',
-    description: 'Runs commands the way the family computer did.',
-    keywords: ['cmd', 'command', 'console', 'terminal', 'dos', 'prompt'],
-    window: { width: 660, height: 420, minWidth: 380, minHeight: 240 },
+    description: 'Type commands the way the family computer did. Try "help".',
+    keywords: ['cmd', 'command', 'console', 'terminal', 'dos', 'prompt', 'shell'],
+    window: { width: 680, height: 430, minWidth: 380, minHeight: 220 },
     launch(win, args) {
-      const name = A.store.get('user.name') || 'User';
-      let cwd = '/';                 // virtual path; '/' shows as C:\Users\<name>
-      let running = false;           // a command is animating
-      let abort = false;             // Ctrl+C requested
-      let overlay = null;            // active full-screen animation cleanup
-      let closed = false;
+      if (!fakeRoot) buildFake();
+      const USER = user();
+      const HOME = ['Users', USER];
+      let cwd = HOME.slice();
+      let fg = PALETTE[7], bg = PALETTE[0], rainbow = false, rainbowIdx = 0;
+      let echoOn = true, promptFmt = '$P$G';
+      let closed = false, overwrite = false;
+      let job = null;          // the running command, if any
+      let submitFn = null;     // what Enter does right now
+      let keyWaiter = null;    // pause / press-any-key
+      let overlayStop = null;  // matrix or fish tank
       const hist = [];
-      let histIdx = -1;
-      let stash = '';
+      let histPos = -1, histDraft = '';
+      const vars = {
+        USERNAME: USER, COMPUTERNAME: hostName(), USERPROFILE: 'C:\\Users\\' + USER, HOMEDRIVE: 'C:', HOMEPATH: '\\Users\\' + USER,
+        SYSTEMDRIVE: 'C:', SYSTEMROOT: 'C:\\Aerium', OS: 'Aerium', PROCESSOR_ARCHITECTURE: 'x86', NUMBER_OF_PROCESSORS: '2',
+        PATH: 'C:\\Aerium\\System32;C:\\Aerium;C:\\Program Files\\Common Files', PATHEXT: '.COM;.EXE;.BAT;.CMD',
+        TEMP: 'C:\\Users\\' + USER + '\\AppData\\Local\\Temp', FAVORITE_FISH: 'Captain Bubbles',
+      };
 
-      const screen = h('div.cmd-screen', { tabIndex: 0 });
+      // ------------------------------------------------------------ DOM
       win.body.classList.add('cmd');
-      win.body.appendChild(screen);
-      screen.style.setProperty('--cmd-fg', PALETTE[7]);
-      screen.style.setProperty('--cmd-bg', PALETTE[0]);
+      const screen = h('div.cmd-screen', { role: 'log', 'aria-live': 'polite' });
+      const kb = h('textarea.cmd-kb', { spellcheck: false, autocomplete: 'off', autocapitalize: 'off', rows: 1, 'aria-label': 'Command input' });
+      win.body.append(screen, kb);
+      applyColors();
+      let lineCount = 0;
+      let inputLine = null, promptEl = null, textEl = null;
+
+      function applyColors() {
+        screen.style.setProperty('--cmd-fg', fg);
+        screen.style.setProperty('--cmd-bg', bg);
+        win.body.style.background = bg;
+      }
 
       // ------------------------------------------------------------ output
-      function esc(s) { return A.util.escapeHTML(s); }
-      function write(text, cls) {
-        const line = h('div.cmd-line', { class: cls });
-        line.textContent = text;
-        insertBeforeInput(line);
-        scroll();
+      function addNode(node) {
+        if (inputLine && inputLine.parentNode === screen) screen.insertBefore(node, inputLine);
+        else screen.appendChild(node);
+        if (++lineCount > MAX_LINES) {
+          const old = Array.from(screen.children).filter((n) => n !== inputLine).slice(0, 200);
+          old.forEach((n) => n.remove());
+          lineCount -= old.length;
+        }
+      }
+      // print('text') adds one or more lines; color is an optional CSS color.
+      function print(text, color) {
+        let last = null;
+        String(text == null ? '' : text).split(/\r?\n/).forEach((t) => {
+          const line = h('div.cmd-line');
+          line.textContent = t;
+          if (color) line.style.color = color;
+          else if (rainbow) line.style.color = RAINBOW[rainbowIdx++ % RAINBOW.length];
+          addNode(line);
+          last = line;
+        });
+        scrollDown();
+        return last;
+      }
+      // A line built from colored pieces: [['text', color], ...]
+      function printParts(parts) {
+        const line = h('div.cmd-line');
+        parts.forEach(([t, c]) => line.appendChild(c ? h('span', { style: { color: c } }, t) : document.createTextNode(t)));
+        addNode(line);
+        scrollDown();
         return line;
       }
-      function writeHTML(html, cls) {
-        const line = h('div.cmd-line', { class: cls });
-        line.innerHTML = html;
-        insertBeforeInput(line);
-        scroll();
-        return line;
+      const blank = () => print('');
+      function scrollDown() { screen.scrollTop = screen.scrollHeight; }
+
+      // ------------------------------------------------------------ the input line
+      function promptString() {
+        if (!echoOn) return '';
+        const d = new Date();
+        return promptFmt.replace(/\$(.)/g, (m, c) => {
+          switch (c.toUpperCase()) {
+            case 'P': return pathText(cwd);
+            case 'G': return '>';
+            case 'L': return '<';
+            case 'N': return 'C';
+            case 'T': return A.util.fmtTime(d, true);
+            case 'D': return A.util.fmtDate(d);
+            case 'V': return VERSION;
+            case 'Q': return '=';
+            case 'S': return ' ';
+            case '$': return '$';
+            case '_': return ' ';
+            default: return '';
+          }
+        });
       }
-      function blank() { write(''); }
-      function scroll() { screen.scrollTop = screen.scrollHeight; }
-
-      // The active input line lives at the bottom; output inserts above it.
-      let inputLine = null, promptEl = null, typedEl = null, input = null;
-      function insertBeforeInput(node) { if (inputLine && inputLine.parentNode === screen) screen.insertBefore(node, inputLine); else screen.appendChild(node); }
-
-      function winPath(p) {
-        p = fs.normalize(p);
-        const rel = p === '/' ? '' : p.replace(/\//g, '\\');
-        return 'C:\\Users\\' + name + rel;
-      }
-      function promptText() { return winPath(cwd) + '>'; }
-
-      function showPrompt() {
-        if (inputLine) inputLine.remove();
-        promptEl = h('span.cmd-prompt', null, promptText());
-        typedEl = h('span.cmd-typed');
-        input = h('input.cmd-input', { type: 'text', spellcheck: false, autocomplete: 'off', autocapitalize: 'off', 'aria-label': 'Command input' });
-        inputLine = h('div.cmd-line.cmd-inputline', null, promptEl, h('span.cmd-typed-wrap', null, typedEl, input));
+      function showInput(label, onSubmit) {
+        removeInput();
+        promptEl = h('span.cmd-prompt', null, label);
+        textEl = h('span.cmd-typed');
+        inputLine = h('div.cmd-line.cmd-inputline', null, promptEl, textEl);
+        if (rainbow) inputLine.style.color = RAINBOW[rainbowIdx % RAINBOW.length];
         screen.appendChild(inputLine);
-        input.addEventListener('input', renderInput);
-        input.addEventListener('keyup', renderInput);
-        input.addEventListener('click', renderInput);
-        input.addEventListener('keydown', onInputKey);
-        renderInput();
-        focusInput();
-        scroll();
+        submitFn = onSubmit;
+        kb.value = '';
+        overwrite = false;
+        render();
+        focusKb();
+        scrollDown();
       }
-      function renderInput() {
-        if (!input) return;
-        const v = input.value;
-        const c = input.selectionStart == null ? v.length : input.selectionStart;
-        typedEl.innerHTML = esc(v.slice(0, c)) + '<span class="cmd-cursor">' + esc(v[c] || '\u00a0') + '</span>' + esc(v.slice(c + 1));
+      function removeInput() {
+        if (inputLine) inputLine.remove();
+        inputLine = null;
+        submitFn = null;
       }
-      function focusInput() { if (input) setTimeout(() => { try { input.focus({ preventScroll: true }); } catch (e) { /* ignore */ } }, 0); }
+      // Freeze the current input line into the scrollback.
+      function commitInput(suffix) {
+        if (!inputLine) return;
+        textEl.textContent = kb.value + (suffix || '');
+        textEl.classList.add('cmd-done');
+        inputLine.classList.remove('cmd-inputline');
+        inputLine = null;
+        submitFn = null;
+        lineCount++;
+      }
+      function render() {
+        if (!textEl || !inputLine) return;
+        const v = kb.value;
+        const c = kb.selectionStart == null ? v.length : kb.selectionStart;
+        textEl.textContent = '';
+        textEl.append(v.slice(0, c), h('span.cmd-cursor', { class: overwrite ? 'cmd-cursor-over' : null }, v[c] || '\u00a0'), v.slice(c + 1));
+      }
+      function focusKb() { if (!closed) setTimeout(() => { if (!closed && document.activeElement !== kb) kb.focus({ preventScroll: true }); }, 0); }
+      function caretEnd() { kb.selectionStart = kb.selectionEnd = kb.value.length; render(); }
+      ['input', 'keyup', 'select', 'click'].forEach((ev) => kb.addEventListener(ev, render));
+      kb.addEventListener('focus', () => screen.classList.add('cmd-focused'));
+      kb.addEventListener('blur', () => screen.classList.remove('cmd-focused'));
+      // Pasting several lines runs them one after another.
+      kb.addEventListener('input', () => {
+        if (!kb.value.includes('\n')) return;
+        const lines = kb.value.split(/\r?\n/);
+        kb.value = lines.shift();
+        queue.push(...lines.filter((l, i) => l.trim() || i < lines.length - 1));
+        if (submitFn) submit();
+      });
+      const queue = [];
 
-      // ------------------------------------------------------------ key handling
-      function onInputKey(e) {
-        if (running) { e.preventDefault(); if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') requestAbort(); return; }
-        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'c') {
-          if (input.selectionStart !== input.selectionEnd) return; // allow copy of selection
+      function submit() {
+        if (!submitFn) return;
+        const text = kb.value.replace(/\r?\n/g, '');
+        kb.value = text;
+        const fn = submitFn;
+        commitInput();
+        fn(text);
+      }
+
+      // ------------------------------------------------------------ keys
+      function onKey(e) {
+        const ctrl = e.ctrlKey || e.metaKey;
+        const k = e.key;
+        if (ctrl && k.toLowerCase() === 'c') {
+          const sel = window.getSelection();
+          if (sel && !sel.isCollapsed && screen.contains(sel.anchorNode)) return; // copying text
           e.preventDefault();
-          finalizeInput(input.value);
-          write('^C');
-          showPrompt();
+          if (overlayStop) { overlayStop(); return; }
+          if (job) { breakJob(); return; }
+          if (submitFn) { commitInput('^C'); showPrompt(); }
           return;
         }
-        if (e.key === 'Enter') {
+        if (overlayStop) { if (!['Shift', 'Control', 'Alt', 'Meta'].includes(k)) { e.preventDefault(); overlayStop(); } return; }
+        if (keyWaiter && !['Shift', 'Control', 'Alt', 'Meta'].includes(k)) { e.preventDefault(); const f = keyWaiter; keyWaiter = null; f(k); return; }
+        if (!submitFn) { if (k.length === 1 || k === 'Enter' || k === 'Backspace') e.preventDefault(); return; }
+        if (k !== 'Tab' && k !== 'Shift') tab = null;
+        switch (k) {
+          case 'Enter': e.preventDefault(); submit(); return;
+          case 'ArrowUp': e.preventDefault(); if (submitFn === runLine) historyNav(-1); return;
+          case 'ArrowDown': e.preventDefault(); if (submitFn === runLine) historyNav(1); return;
+          case 'Tab': e.preventDefault(); complete(e.shiftKey ? -1 : 1); return;
+          case 'Escape': e.preventDefault(); kb.value = ''; render(); return;
+          case 'F3': e.preventDefault(); if (hist.length) { kb.value = hist[hist.length - 1]; caretEnd(); } return;
+          case 'F7': e.preventDefault(); historyPopup(); return;
+          case 'Insert': e.preventDefault(); overwrite = !overwrite; render(); return;
+          case 'PageUp': e.preventDefault(); screen.scrollTop -= screen.clientHeight * 0.85; return;
+          case 'PageDown': e.preventDefault(); screen.scrollTop += screen.clientHeight * 0.85; return;
+        }
+        if (overwrite && k.length === 1 && !ctrl && !e.altKey && kb.selectionStart === kb.selectionEnd && kb.selectionStart < kb.value.length) kb.setSelectionRange(kb.selectionStart, kb.selectionStart + 1);
+        requestAnimationFrame(render);
+      }
+      kb.addEventListener('keydown', onKey);
+      // If focus drifts elsewhere in the window, send typing back to the console.
+      win.el.addEventListener('keydown', (e) => {
+        if (e.target === kb || e.defaultPrevented || A.util.isTyping(e)) return;
+        if (e.altKey || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() !== 'c')) return;
+        kb.focus({ preventScroll: true });
+        if (e.key.length === 1 && submitFn && !e.ctrlKey && !e.metaKey) {
           e.preventDefault();
-          const cmd = input.value;
-          finalizeInput(cmd);
-          submit(cmd);
-        } else if (e.key === 'ArrowUp') {
-          e.preventDefault(); historyNav(-1);
-        } else if (e.key === 'ArrowDown') {
-          e.preventDefault(); historyNav(1);
-        } else if (e.key === 'Tab') {
-          e.preventDefault(); complete(e.shiftKey ? -1 : 1);
-        } else if (e.key === 'Escape') {
-          e.preventDefault(); input.value = ''; renderInput();
-        } else if (e.key === 'PageUp') { e.preventDefault(); screen.scrollTop -= screen.clientHeight * 0.8; }
-        else if (e.key === 'PageDown') { e.preventDefault(); screen.scrollTop += screen.clientHeight * 0.8; }
-      }
-      function finalizeInput(text) {
-        if (!inputLine) return;
-        input.remove();
-        typedEl.textContent = text;
-        typedEl.classList.add('cmd-done');
-        inputLine.classList.remove('cmd-inputline');
-        inputLine = null; input = null;
-      }
+          kb.setRangeText(e.key, kb.selectionStart, kb.selectionEnd, 'end');
+          render();
+        } else onKey(e);
+      });
+      screen.addEventListener('mouseup', () => { const sel = window.getSelection(); if (!sel || sel.isCollapsed) focusKb(); });
+      win.on('focus', focusKb);
+
       function historyNav(dir) {
         if (!hist.length) return;
-        if (histIdx === -1) { stash = input.value; histIdx = hist.length; }
-        histIdx += dir;
-        if (histIdx >= hist.length) { histIdx = -1; input.value = stash; }
-        else { histIdx = Math.max(0, histIdx); input.value = hist[histIdx]; }
-        renderInput();
-        setTimeout(() => { input.selectionStart = input.selectionEnd = input.value.length; renderInput(); }, 0);
+        if (histPos === -1) { histDraft = kb.value; histPos = hist.length; }
+        histPos = Math.max(0, histPos + dir);
+        if (histPos >= hist.length) { histPos = -1; kb.value = histDraft; }
+        else kb.value = hist[histPos];
+        caretEnd();
       }
-      let tabState = null;
+      // F7: the little history box, pick a line with the arrows.
+      function historyPopup() {
+        if (!hist.length) return;
+        const list = h('div.cmd-hist-list');
+        const items = hist.slice(-12);
+        let sel = items.length - 1;
+        const box = h('div.cmd-hist', null, h('div.cmd-hist-title', null, 'History'), list);
+        const draw = () => { list.innerHTML = ''; items.forEach((t, i) => list.appendChild(h('div.cmd-hist-row', { class: i === sel && 'on' }, (i + 1) + ': ' + t))); };
+        draw();
+        win.body.appendChild(box);
+        const prevSubmit = submitFn;
+        submitFn = null;
+        keyWaiter = null;
+        const close = (useIt) => {
+          box.remove();
+          window.removeEventListener('keydown', keys, true);
+          submitFn = prevSubmit;
+          if (useIt) { kb.value = items[sel]; caretEnd(); submit(); }
+          focusKb();
+        };
+        const keys = (e) => {
+          if (!win.el.contains(document.activeElement)) return;
+          e.preventDefault();
+          e.stopPropagation();
+          if (e.key === 'ArrowUp') { sel = Math.max(0, sel - 1); draw(); }
+          else if (e.key === 'ArrowDown') { sel = Math.min(items.length - 1, sel + 1); draw(); }
+          else if (e.key === 'Enter') close(true);
+          else if (e.key === 'Escape' || e.key === 'F7') close(false);
+        };
+        setTimeout(() => window.addEventListener('keydown', keys, true), 0);
+      }
+
+      // Tab completes file and folder names (and commands, first word only).
+      let tab = null;
       function complete(dir) {
-        const v = input.value;
-        const m = /(\S*)$/.exec(v);
-        const frag = m[1];
-        // Complete against files in cwd, plus commands when it's the first word.
-        let base = frag, dir2 = cwd;
-        const slash = frag.lastIndexOf('\\');
-        if (slash >= 0) { dir2 = resolvePath(frag.slice(0, slash + 1)); base = frag.slice(slash + 1); }
-        let names = [];
-        try { names = fs.list(dir2).map((it) => it.name + (it.type === 'folder' ? '\\' : '')); } catch (e) { names = []; }
-        const firstWord = v.trimStart().indexOf(' ') === -1;
-        if (firstWord) names = names.concat(Object.keys(COMMANDS), Object.keys(A.apps.aliases));
-        const low = base.toLowerCase();
-        let matches = names.filter((n) => n.toLowerCase().startsWith(low));
-        matches = Array.from(new Set(matches)).sort();
-        if (!matches.length) { A.sound.play('error', { minGap: 200 }); return; }
-        if (!tabState || tabState.frag !== v) tabState = { frag: v, base: frag, matches, i: -1, prefix: v.slice(0, v.length - frag.length) };
-        tabState.i = (tabState.i + dir + tabState.matches.length) % tabState.matches.length;
-        let pick = tabState.matches[tabState.i];
-        if (slash >= 0) pick = frag.slice(0, slash + 1) + pick.slice(base.length + (frag.slice(slash + 1).length - base.length));
-        const full = tabState.prefix + (slash >= 0 ? frag.slice(0, slash + 1) + tabState.matches[tabState.i] : tabState.matches[tabState.i]);
-        input.value = /\s/.test(pick) && !pick.endsWith('\\') ? '"' + full + '"' : full;
-        renderInput();
-        setTimeout(() => { input.selectionStart = input.selectionEnd = input.value.length; renderInput(); }, 0);
+        if (!tab) {
+          const v = kb.value.slice(0, kb.selectionStart);
+          const after = kb.value.slice(kb.selectionStart);
+          let quoteOpen = false, start = 0;
+          for (let i = 0; i < v.length; i++) { if (v[i] === '"') quoteOpen = !quoteOpen; else if (v[i] === ' ' && !quoteOpen) start = i + 1; }
+          const token = v.slice(start).replace(/"/g, '');
+          const slash = Math.max(token.lastIndexOf('\\'), token.lastIndexOf('/'));
+          const dirPart = slash >= 0 ? token.slice(0, slash + 1) : '';
+          const prefix = token.slice(slash + 1).toLowerCase();
+          let names = [];
+          const base = dirPart ? lookup(parse(dirPart)) : lookup(cwd);
+          if (base && base.dir) names = listDir(base).filter((it) => !it.hidden || prefix).map((it) => it.name);
+          if (!v.slice(0, start).trim() && !dirPart) names = names.concat(Object.keys(COMMANDS), Object.keys(A.apps.aliases));
+          const matches = Array.from(new Set(names.filter((n) => n.toLowerCase().startsWith(prefix)))).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+          if (!matches.length) return;
+          tab = { head: v.slice(0, start), dirPart, after, matches, i: dir > 0 ? -1 : 0 };
+        }
+        tab.i = (tab.i + dir + tab.matches.length) % tab.matches.length;
+        let word = tab.dirPart + tab.matches[tab.i];
+        if (/\s/.test(word)) word = '"' + word + '"';
+        kb.value = tab.head + word + tab.after;
+        kb.selectionStart = kb.selectionEnd = (tab.head + word).length;
+        render();
       }
 
-      function requestAbort() { abort = true; }
+      // ------------------------------------------------------------ jobs
+      // A running command can sleep, read a line or wait for a key; Ctrl+C
+      // cancels whatever it is waiting on.
+      function wait(ms) {
+        return new Promise((resolve, reject) => {
+          const j = job;
+          if (!j || j.aborted) { reject(ABORT); return; }
+          const stop = () => { clearTimeout(t); reject(ABORT); };
+          const t = setTimeout(() => { j.stops.delete(stop); resolve(); }, ms);
+          j.stops.add(stop);
+        });
+      }
+      function readLine(label) {
+        return new Promise((resolve, reject) => {
+          const j = job;
+          if (!j || j.aborted) { reject(ABORT); return; }
+          const stop = () => { removeInput(); reject(ABORT); };
+          j.stops.add(stop);
+          showInput(label, (text) => { j.stops.delete(stop); resolve(text); });
+        });
+      }
+      function readKey() {
+        return new Promise((resolve, reject) => {
+          const j = job;
+          if (!j || j.aborted) { reject(ABORT); return; }
+          const stop = () => { keyWaiter = null; reject(ABORT); };
+          j.stops.add(stop);
+          keyWaiter = (k) => { j.stops.delete(stop); resolve(k); };
+        });
+      }
+      function breakJob() {
+        if (!job || job.aborted) return;
+        if (inputLine) commitInput('^C'); else print('^C');
+        job.aborted = true;
+        job.stops.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
+        job.stops.clear();
+      }
+      const aborted = () => !job || job.aborted;
 
-      async function submit(raw) {
-        const cmd = raw.trim();
-        if (cmd) { hist.push(cmd); if (hist.length > 200) hist.shift(); }
-        histIdx = -1; stash = ''; tabState = null;
-        if (!cmd) { showPrompt(); return; }
-        running = true; abort = false;
-        try { await run(cmd); }
-        catch (err) { write(String(err && err.message || err)); }
-        running = false;
-        if (!closed && !overlay) showPrompt();
+      async function runLine(raw) {
+        const line = raw.trim();
+        if (line) { if (hist[hist.length - 1] !== line) hist.push(line); if (hist.length > 100) hist.shift(); }
+        histPos = -1; histDraft = '';
+        if (line) {
+          job = { aborted: false, stops: new Set() };
+          try { await execute(line); }
+          catch (err) { if (err !== ABORT) { console.error('[cmd]', err); print('Something went wrong running that command.'); } }
+          job = null;
+        }
+        if (closed) return;
+        if (!overlayStop) {
+          if (line && echoOn && !/^cls$/i.test(line)) blank();
+          nextPrompt();
+        }
+      }
+      function nextPrompt() {
+        if (queue.length) { const next = queue.shift(); showPrompt(); kb.value = next; caretEnd(); submit(); return; }
+        showPrompt();
+      }
+      function showPrompt() { showInput(promptString(), runLine); }
+
+      // ------------------------------------------------------------ paths
+      // A path is a list of folder names from C:\. C:\Users\<you> is the Aerium home folder.
+      const pathText = (segs) => 'C:\\' + segs.join('\\');
+      function parse(arg, from) {
+        let s = String(arg || '').replace(/"/g, '').replace(/\//g, '\\');
+        const drive = /^([a-z]):/i.exec(s);
+        if (drive) {
+          if (drive[1].toUpperCase() !== 'C') return null;
+          s = s.slice(2);
+          if (!s.startsWith('\\')) s = '\\' + (from || cwd).join('\\') + (s ? '\\' + s : '');
+        }
+        const segs = s.startsWith('\\') ? [] : (from || cwd).slice();
+        s.split('\\').forEach((part) => {
+          if (!part || part === '.') return;
+          if (/^\.\.+$/.test(part)) { for (let i = 1; i < part.length; i++) segs.pop(); }
+          else segs.push(part.replace(/[. ]+$/, '') || part);
+        });
+        return segs;
+      }
+      const isHome = (segs, i) => segs[0] && segs[0].toLowerCase() === 'users' && segs[1] && segs[1].toLowerCase() === USER.toLowerCase() && i >= 1;
+      // Finds a file or folder. Returns { segs (real casing), dir, kind: 'vfs'|'fake', path|f } or null.
+      function lookup(segs) {
+        if (!segs) return null;
+        let node = { kind: 'fake', f: fakeRoot, dir: true };
+        const canon = [];
+        for (let i = 0; i < segs.length; i++) {
+          const seg = segs[i].toLowerCase();
+          if (!node.dir) return null;
+          if (node.kind === 'fake') {
+            if (i === 1 && canon[0] === 'Users' && seg === USER.toLowerCase()) { canon.push(USER); node = { kind: 'vfs', path: '/', dir: true }; continue; }
+            const key = Object.keys(node.f.c).find((k) => k.toLowerCase() === seg);
+            if (!key) return null;
+            canon.push(key);
+            node = { kind: 'fake', f: node.f.c[key], dir: node.f.c[key].d };
+          } else {
+            if (node.path === '/' && seg === 'appdata') { canon.push('AppData'); node = { kind: 'fake', f: appData, dir: true, appdata: true }; continue; }
+            const hit = vfs.list(node.path).find((it) => it.name.toLowerCase() === seg);
+            if (!hit) return null;
+            canon.push(hit.name);
+            node = { kind: 'vfs', path: hit.path, dir: hit.type === 'folder', item: hit };
+          }
+        }
+        return Object.assign({ segs: canon }, node);
+      }
+      // Children of a folder: [{ name, dir, size, time, hidden, node }]
+      function listDir(node) {
+        let out;
+        if (node.kind === 'vfs') {
+          out = vfs.list(node.path).map((it) => ({ name: it.name, dir: it.type === 'folder', size: it.size || 0, time: it.modified || BOOTED, node: { kind: 'vfs', path: it.path, dir: it.type === 'folder', item: it } }));
+          if (node.path === '/') out.push({ name: 'AppData', dir: true, size: 0, time: INSTALL, hidden: true, node: { kind: 'fake', f: appData, dir: true } });
+        } else {
+          const c = node.f.c;
+          out = Object.keys(c).map((k) => ({ name: k, dir: c[k].d, size: c[k].size || 0, time: c[k].time || INSTALL, hidden: !!c[k].hidden, node: { kind: 'fake', f: c[k], dir: c[k].d } }));
+          if (node.f === fakeRoot.c.Users) out.push({ name: USER, dir: true, size: 0, time: INSTALL, node: { kind: 'vfs', path: '/', dir: true } });
+        }
+        return out.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+      }
+      const writable = (node) => node && node.kind === 'vfs';
+      // Wildcards like *.txt and pic?.png
+      const wild = (pat) => new RegExp('^' + pat.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*').replace(/\?/g, '.') + '$', 'i');
+      // Resolves an argument that may end in a wildcard: { base (folder node), re, segs } or a direct node.
+      function target(arg) {
+        const segs = parse(arg);
+        if (!segs) return { badDrive: true };
+        const last = segs[segs.length - 1] || '';
+        if (/[*?]/.test(last)) return { base: lookup(segs.slice(0, -1)), re: wild(last), segs: segs.slice(0, -1), pattern: last };
+        return { node: lookup(segs), segs };
       }
 
-      // ------------------------------------------------------------ parsing
-      function tokenize(s) {
+      // ------------------------------------------------------------ dispatch
+      function expand(s) {
+        return s.replace(/%([^%\s]+)%/g, (m, k) => {
+          const K = k.toUpperCase();
+          if (K === 'CD') return pathText(cwd);
+          if (K === 'DATE') return A.util.DAYS[new Date().getDay()].slice(0, 3) + ' ' + A.util.fmtDate();
+          if (K === 'TIME') { const d = new Date(); return d.getHours() + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + '.' + pad2(Math.floor(d.getMilliseconds() / 10)); }
+          if (K === 'RANDOM') return String(Math.floor(Math.random() * 32768));
+          if (K === 'ERRORLEVEL') return '0';
+          return vars[K] != null ? vars[K] : m;
+        });
+      }
+      function tokens(s) {
         const out = [];
-        const re = /"([^"]*)"|(\S+)/g; let m;
+        const re = /"([^"]*)"|(\S+)/g;
+        let m;
         while ((m = re.exec(s))) out.push(m[1] != null ? m[1] : m[2]);
         return out;
       }
-      function resolvePath(arg) {
-        if (!arg) return cwd;
-        arg = arg.replace(/"/g, '');
-        // Windows-style: leading backslash = root, else relative.
-        if (/^[a-z]:\\?/i.test(arg)) arg = arg.replace(/^[a-z]:/i, '');
-        arg = arg.replace(/\\/g, '/');
-        if (arg.startsWith('/')) return fs.normalize(arg);
-        return fs.normalize(fs.join(cwd, arg));
+      async function execute(line) {
+        line = expand(line);
+        // "cd.." and "cd\" work without a space, just like the real thing.
+        const m = /^\s*(cd|chdir|md|mkdir|rd|rmdir|dir|echo|type)([.\\/].*)$/i.exec(line);
+        if (m && !/^\s*echo\./i.test(line)) line = m[1] + ' ' + m[2];
+        const tk = tokens(line);
+        if (!tk.length) return;
+        const word = tk[0].toLowerCase().replace(/\.(exe|com|bat)$/, '');
+        const args = tk.slice(1);
+        const rest = line.replace(/^\s*\S+\s?/, '');
+        if (/^[a-z]:$/.test(word)) return driveCmd(word);
+        if (args[0] === '/?' && HELP[word]) { print(HELP[word]); return; }
+        if (/^echo[.:]/.test(word)) { print(line.replace(/^\s*echo[.:]/i, '')); return; }
+        if (COMMANDS[word]) return COMMANDS[word](args, rest, line);
+        if (A.apps.get(word)) return launchApp(word, args);
+        print("'" + tk[0] + "' is not recognized as an internal or external command,\noperable program or batch file.");
+      }
+      function launchApp(id, args) {
+        const app = A.apps.get(id);
+        const a = {};
+        if (args && args[0]) {
+          const n = lookup(parse(args[0]));
+          if (n && n.kind === 'vfs') a.path = n.path;
+          else if (/^(https?:\/\/|www\.)/i.test(args[0])) a.url = args[0];
+        }
+        A.apps.launch(app.id, a);
       }
 
       // ------------------------------------------------------------ commands
       const COMMANDS = {};
-      const HELP = [];
-      function cmd(name, help, fn) { COMMANDS[name] = fn; if (help) HELP.push([name, help]); }
+      const HELP = {};
+      const LISTED = [];
+      function def(names, summary, usage, fn) {
+        names.split(' ').forEach((n, i) => { COMMANDS[n] = fn; if (i === 0 && summary) LISTED.push([n.toUpperCase(), summary]); if (usage) HELP[n] = usage; });
+      }
 
-      cmd('help', 'Lists the commands you can use.', () => {
-        writeHTML('For more information on a specific command, just try it out.', '');
+      def('help', 'Provides help information for commands.', 'Provides help information for commands.\n\nHELP [command]\n\n    command - displays help information on that command.', (a) => {
+        const c = (a[0] || '').toLowerCase();
+        if (c) { print(HELP[c] || 'This command is not supported by the help utility.  Try "' + c + ' /?".'); return; }
+        print('For more information on a specific command, type HELP command-name');
+        LISTED.slice().sort((x, y) => x[0].localeCompare(y[0])).forEach(([n, d]) => printParts([[n.padEnd(15), rainbow ? null : '#ffffff'], [d]]));
         blank();
-        HELP.forEach(([n, d]) => writeHTML('<span class="cmd-cmdname">' + esc((n.toUpperCase() + '        ').slice(0, 10)) + '</span>' + esc(d)));
-        blank();
-        write('Secret commands are not listed. The fish know a few.');
+        print('You can also type the name of a program, like notepad, calc or mspaint.');
+        print('There are a few secret commands, too. The fish know them.');
       });
-      cmd('cls', 'Clears the screen.', () => { screen.querySelectorAll('.cmd-line').forEach((n) => n.remove()); });
-      cmd('ver', 'Displays the version.', () => { blank(); write(VERSION); blank(); });
-      cmd('echo', 'Displays messages.', (a, raw) => {
-        const rest = raw.slice(raw.toLowerCase().indexOf('echo') + 4).replace(/^\s/, '');
-        if (!rest) write('ECHO is on.');
-        else if (rest === '.') blank();
-        else write(rest.replace(/^\./, ''));
+      def('cls', 'Clears the screen.', 'Clears the screen.\n\nCLS', () => {
+        Array.from(screen.children).forEach((n) => { if (n !== inputLine) n.remove(); });
+        lineCount = 0;
       });
-      cmd('date', 'Displays the date.', () => { write('The current date is: ' + A.util.DAYS[new Date().getDay()].slice(0, 3) + ' ' + A.util.fmtDate()); });
-      cmd('time', 'Displays the time.', () => { write('The current time is: ' + A.util.fmtTime(new Date(), true)); });
-      cmd('whoami', 'Shows the current user.', () => write(('aerium-pc\\' + name).toLowerCase()));
-      cmd('hostname', 'Shows the computer name.', () => write('Aerium-PC'));
-      cmd('title', 'Sets the window title.', (a, raw) => { const t = raw.replace(/^\s*title\s?/i, ''); win.setTitle(t || 'Command Prompt'); });
-      cmd('exit', 'Closes the Command Prompt.', () => { win.close(); });
-      cmd('pause', null, async () => { write('Press any key to continue . . .'); await waitKey(); });
-
-      cmd('dir', 'Lists files in a folder.', (a) => dirCmd(a));
-      cmd('cd', 'Changes the current folder.', (a) => cdCmd(a));
-      cmd('chdir', null, (a) => cdCmd(a));
-      cmd('tree', 'Shows folders as a tree.', () => treeCmd());
-      cmd('type', 'Prints a text file.', (a) => typeCmd(a));
-      cmd('mkdir', 'Creates a folder.', (a) => mkdirCmd(a));
-      cmd('md', null, (a) => mkdirCmd(a));
-      cmd('del', 'Deletes a file (to Recycle Bin).', (a) => delCmd(a));
-      cmd('erase', null, (a) => delCmd(a));
-      cmd('ren', 'Renames a file.', (a) => renCmd(a));
-      cmd('rename', null, (a) => renCmd(a));
-      cmd('copy', 'Copies a file.', (a) => copyCmd(a));
-      cmd('start', 'Opens an app.', (a) => startCmd(a));
-      cmd('color', 'Sets the console colors.', (a, raw) => colorCmd(a, raw));
-
-      cmd('tasklist', 'Lists running processes.', () => tasklist());
-      cmd('taskkill', 'Ends a process (taskkill /im app).', (a) => taskkill(a));
-      cmd('ping', 'Pings a host.', (a) => ping(a));
-      cmd('ipconfig', 'Shows network settings.', () => ipconfig());
-      cmd('tracert', 'Traces a route to a host.', (a) => tracert(a));
-      cmd('netstat', 'Shows network connections.', () => netstat());
-      cmd('systeminfo', 'Shows system information.', () => systeminfo());
-      cmd('shutdown', 'Shuts down (shutdown -s -t 30).', (a) => shutdownCmd(a));
-      cmd('about', 'About the Command Prompt.', () => about());
-
-      // Secret commands (not in HELP)
-      COMMANDS.hack = () => hack();
-      COMMANDS.matrix = () => matrix();
-      COMMANDS.fish = () => fishTank();
-      COMMANDS.format = (a) => formatCmd(a);
-      COMMANDS.sudo = (a, raw) => sudo(raw);
-      COMMANDS.cowsay = (a, raw) => cowsay(raw);
-
-      // ------------------------------------------------------------ run dispatch
-      async function run(line) {
-        const toks = tokenize(line);
-        const c = toks[0].toLowerCase();
-        const args = toks.slice(1);
-        if (c === 'color' && args[0] && args[0].toLowerCase() === 'rainbow') return colorRainbow();
-        if (COMMANDS[c]) return COMMANDS[c](args, line);
-        // bare app names / aliases
-        const appId = c.replace(/\.exe$/, '');
-        if (A.apps.get(appId)) { A.apps.launch(appId); return; }
-        blank();
-        write("'" + toks[0] + "' is not recognized as an internal or external command,");
-        write('operable program or batch file.');
-        A.sound.play('error');
+      def('ver', 'Displays the Aerium version.', 'Displays the Aerium version.\n\nVER', () => { blank(); print(VERSION); });
+      def('vol', 'Displays the disk volume label and serial number.', 'Displays the disk volume label and serial number.\n\nVOL [drive:]', () => {
+        print(' Volume in drive C is AERIUM');
+        print(' Volume Serial Number is 2007-AE71');
+      });
+      def('echo', 'Displays messages, or turns command echoing on or off.', 'Displays messages, or turns command-echoing on or off.\n\n  ECHO [ON | OFF]\n  ECHO [message]\n\nType ECHO without parameters to display the current echo setting.', (a, rest) => {
+        const r = rest.trim();
+        if (!r) print('ECHO is ' + (echoOn ? 'on.' : 'off.'));
+        else if (/^off$/i.test(r)) echoOn = false;
+        else if (/^on$/i.test(r)) echoOn = true;
+        else print(rest);
+      });
+      def('title', 'Sets the window title for the Command Prompt window.', 'Sets the window title for the command prompt window.\n\nTITLE [string]', (a, rest) => { win.setTitle(rest.trim() || 'Command Prompt'); });
+      def('exit', 'Closes the Command Prompt.', 'Quits the Command Prompt.\n\nEXIT', () => { win.close(); });
+      def('pause', 'Suspends processing and waits for a key.', 'Suspends processing and displays the message\n    Press any key to continue . . .\n\nPAUSE', async () => {
+        print('Press any key to continue . . . ');
+        await readKey();
+      });
+      def('prompt', 'Changes the command prompt.', 'Changes the command prompt.\n\nPROMPT [text]\n\n  $P  Current drive and path    $G  > (greater-than sign)\n  $T  Current time              $D  Current date\n  $N  Current drive             $V  Aerium version\n  $$  $ (dollar sign)\n\nTry: prompt $T$G', (a, rest) => { promptFmt = rest.trim() || '$P$G'; vars.PROMPT = promptFmt; });
+      def('set', 'Displays or sets environment variables.', 'Displays, sets, or removes environment variables.\n\nSET [variable=[string]]', (a, rest) => {
+        const r = rest.trim();
+        const eq = r.indexOf('=');
+        if (eq > 0) { const k = r.slice(0, eq).trim().toUpperCase(); const v = r.slice(eq + 1); if (v) vars[k] = v; else delete vars[k]; return; }
+        const list = Object.keys(vars).sort().filter((k) => !r || k.startsWith(r.toUpperCase()));
+        if (!list.length) { print('Environment variable ' + r + ' not defined'); return; }
+        list.forEach((k) => print(k + '=' + vars[k]));
+      });
+      def('whoami', 'Displays the current user name.', 'Displays the name of the current user.\n\nWHOAMI', () => print((hostName() + '\\' + USER).toLowerCase()));
+      def('hostname', 'Prints the name of this computer.', 'Prints the name of the current host.\n\nHOSTNAME', () => print(hostName()));
+      def('date', 'Displays or sets the date.', 'Displays or sets the date.\n\nDATE [/T | date]\n\nType DATE /T to display the date without asking for a new one.', async (a) => {
+        const d = new Date();
+        const today = A.util.DAYS[d.getDay()].slice(0, 3) + ' ' + pad2(d.getMonth() + 1) + '/' + pad2(d.getDate()) + '/' + d.getFullYear();
+        if (a[0] && a[0].toLowerCase() === '/t') { print(today); return; }
+        print('The current date is: ' + today);
+        const v = await readLine('Enter the new date: (mm-dd-yy) ');
+        if (v.trim()) print('A required privilege is not held by the client.');
+      });
+      def('time', 'Displays or sets the system time.', 'Displays or sets the system time.\n\nTIME [/T | time]\n\nType TIME /T to display the time without asking for a new one.', async (a) => {
+        const d = new Date();
+        if (a[0] && a[0].toLowerCase() === '/t') { print(A.util.fmtTime(d)); return; }
+        print('The current time is: ' + String(d.getHours()).padStart(2, ' ') + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + '.' + pad2(Math.floor(d.getMilliseconds() / 10)));
+        const v = await readLine('Enter the new time: ');
+        if (v.trim()) print('A required privilege is not held by the client.');
+      });
+      def('color', 'Sets the default console foreground and background colors.', colorHelp(), (a) => colorCmd(a));
+      function colorHelp() {
+        const rows = [];
+        for (let i = 0; i < 8; i++) rows.push('    ' + i.toString(16).toUpperCase() + ' = ' + COLOR_NAMES[i].padEnd(14) + (i + 8).toString(16).toUpperCase() + ' = ' + COLOR_NAMES[i + 8]);
+        return 'Sets the default console foreground and background colors.\n\nCOLOR [attr]\n\n  attr        Specifies color attribute of console output\n\nColor attributes are specified by TWO hex digits -- the first\ncorresponds to the background; the second the foreground.\nEach digit can be any of the following values:\n\n' + rows.join('\n') +
+          '\n\nIf no argument is given, this command restores the color to what it was\nwhen the Command Prompt started.\n\nExample: "COLOR 0A" makes green text on a black background.';
       }
-
-      // ------------------------------------------------------------ file commands
-      function dirCmd(a) {
-        const target = a[0] ? resolvePath(a[0]) : cwd;
-        if (!fs.exists(target) || !fs.isDir(target)) { write('File Not Found'); return; }
-        const items = fs.list(target).filter((it) => it.path !== fs.RECYCLE);
-        write(' Volume in drive C is Aerium Glass');
-        write(' Volume Serial Number is 2007-AE71');
-        blank();
-        write(' Directory of ' + winPath(target));
-        blank();
-        let files = 0, dirs = 0, bytes = 0;
-        const fmtRow = (d, sizeOrDir, nm) => {
-          const dt = new Date(d);
-          const date = A.util.fmtDate(dt).padStart(10, ' ');
-          const time = A.util.fmtTime(dt).padStart(8, ' ');
-          return date + '  ' + time + '  ' + sizeOrDir.padStart(14, ' ') + ' ' + nm;
-        };
-        if (target !== '/') { write(fmtRow(Date.now(), '<DIR>', '.')); write(fmtRow(Date.now(), '<DIR>', '..')); dirs += 2; }
-        items.forEach((it) => {
-          if (it.type === 'folder') { dirs++; write(fmtRow(it.modified, '<DIR>', it.name)); }
-          else { files++; bytes += it.size; write(fmtRow(it.modified, it.size.toLocaleString('en-US'), it.name)); }
-        });
-        write('              ' + String(files) + ' File(s)  ' + bytes.toLocaleString('en-US').padStart(14) + ' bytes');
-        const free = 108_916_781_056;
-        write('              ' + String(dirs) + ' Dir(s)   ' + free.toLocaleString('en-US').padStart(14) + ' bytes free');
-      }
-      function cdCmd(a) {
-        if (!a.length) { write(winPath(cwd)); return; }
-        const arg = a[0];
-        if (arg === '\\' || arg === '/') { cwd = '/'; return; }
-        const target = resolvePath(arg);
-        if (!fs.exists(target)) { write('The system cannot find the path specified.'); A.sound.play('error'); return; }
-        if (!fs.isDir(target)) { write('The directory name is invalid.'); return; }
-        cwd = target;
-      }
-      function typeCmd(a) {
-        if (!a.length) { write('The syntax of the command is incorrect.'); return; }
-        const target = resolvePath(a[0]);
-        if (!fs.exists(target)) { write('The system cannot find the file specified.'); A.sound.play('error'); return; }
-        if (fs.isDir(target)) { write('Access is denied.'); return; }
-        const data = String(fs.read(target) || '');
-        if (data.startsWith('asset:') || data.startsWith('data:') || data.startsWith('track:') || data.startsWith('video:') || data.startsWith('app:')) { write('(This file is not a text file.)'); return; }
-        data.split(/\r?\n/).forEach((l) => write(l));
-      }
-      function mkdirCmd(a) {
-        if (!a.length) { write('The syntax of the command is incorrect.'); return; }
-        const target = resolvePath(a[0]);
-        if (fs.exists(target)) { write('A subdirectory or file ' + a[0] + ' already exists.'); return; }
-        try { fs.mkdir(target); A.sound.play('click'); } catch (e) { write(e.message); }
-      }
-      function delCmd(a) {
-        if (!a.length) { write('The syntax of the command is incorrect.'); return; }
-        const target = resolvePath(a[0]);
-        if (!fs.exists(target)) { write('Could Not Find ' + winPath(target)); A.sound.play('error'); return; }
-        if (fs.isDir(target)) { write('Access is denied. (Use rmdir for folders.)'); return; }
-        try { fs.remove(target); A.sound.play('recycle'); } catch (e) { write(e.message); }
-      }
-      function renCmd(a) {
-        if (a.length < 2) { write('The syntax of the command is incorrect.'); return; }
-        const target = resolvePath(a[0]);
-        if (!fs.exists(target)) { write('The system cannot find the file specified.'); return; }
-        try { fs.rename(target, a[1]); A.sound.play('click'); } catch (e) { write(e.message); }
-      }
-      function copyCmd(a) {
-        if (a.length < 2) { write('The syntax of the command is incorrect.'); return; }
-        const src = resolvePath(a[0]);
-        if (!fs.exists(src)) { write('The system cannot find the file specified.'); return; }
-        let destDir = resolvePath(a[1]);
-        if (!fs.isDir(destDir)) destDir = fs.dirname(destDir);
-        try { fs.copy(src, destDir); write('        1 file(s) copied.'); A.sound.play('click'); } catch (e) { write(e.message); }
-      }
-      function startCmd(a) {
-        if (!a.length) { A.apps.launch('cmd'); return; }
-        const id = a[0].replace(/\.exe$/i, '').toLowerCase();
-        if (A.apps.get(id)) { A.apps.launch(id, a[1] ? { path: resolvePath(a[1]) } : {}); return; }
-        if (fs.exists(resolvePath(a[0]))) { A.apps.openFile(resolvePath(a[0])); return; }
-        write('The system cannot find the file ' + a[0] + '.');
-      }
-
-      // ------------------------------------------------------------ color / title
       function colorCmd(a) {
-        if (!a.length) { screen.style.setProperty('--cmd-fg', PALETTE[7]); screen.style.setProperty('--cmd-bg', PALETTE[0]); screen.classList.remove('cmd-rainbow'); return; }
-        let code = a[0].toLowerCase();
-        if (!/^[0-9a-f]{1,2}$/.test(code)) { write('The color attribute is a two-digit hexadecimal number.'); write('The first digit is the background, the second the text.'); write('Try: color 0a'); return; }
-        screen.classList.remove('cmd-rainbow');
-        const bg = code.length === 2 ? code[0] : '0';
-        const fg = code.length === 2 ? code[1] : code[0];
-        if (bg === fg) { write('The background and text colors cannot be the same.'); return; }
-        screen.style.setProperty('--cmd-bg', PALETTE[bg]);
-        screen.style.setProperty('--cmd-fg', PALETTE[fg]);
+        const code = (a[0] || '').toLowerCase();
+        if (!code) { fg = PALETTE[7]; bg = PALETTE[0]; rainbow = false; applyColors(); return; }
+        if (code === 'rainbow') {
+          rainbow = true; bg = PALETTE[0]; fg = PALETTE.f; applyColors();
+          printParts('Rainbow mode! Type COLOR to go back to normal.'.split('').map((ch, i) => [ch, RAINBOW[i % RAINBOW.length]]));
+          A.sound.play('coin');
+          return;
+        }
+        if (!/^[0-9a-f]{1,2}$/.test(code)) { print(HELP.color); return; }
+        const b = code.length === 2 ? code[0] : '0', f = code.length === 2 ? code[1] : code[0];
+        if (b === f) return; // the real one quietly refuses matching colors
+        rainbow = false;
+        bg = PALETTE[b]; fg = PALETTE[f];
+        applyColors();
         A.sound.play('click');
       }
-      function colorRainbow() {
-        screen.classList.add('cmd-rainbow');
-        screen.style.setProperty('--cmd-bg', PALETTE[0]);
-        write('Taste the rainbow. (color to reset.)');
-        A.sound.play('coin');
+      function driveCmd(d) {
+        if (d === 'c:') return;
+        if (d === 'a:' || d === 'b:') print('The device is not ready.');
+        else print('The system cannot find the drive specified.');
       }
 
-      // ------------------------------------------------------------ process commands
-      const FAKE_PROCS = [
-        ['System Idle Process', 0, 24], ['System', 4, 148], ['aerium.exe', 620, 3820], ['glass.exe', 704, 24960],
-        ['dwm.exe', 812, 41200], ['bubbles.exe', 980, 8640], ['aquarium.exe', 1024, 15380], ['defender.exe', 1180, 6420],
-        ['audiodg.exe', 1256, 12040], ['sidebar.exe', 1408, 22160], ['spoolsv.exe', 1520, 4980],
-      ];
-      function procList() {
-        const rows = FAKE_PROCS.map(([img, pid, mem]) => ({ img, pid, mem }));
-        A.wm.windows.filter((w) => w.app && w.taskbar).forEach((w, i) => {
-          const app = A.apps.get(w.app);
-          rows.push({ img: (app ? app.id : w.app) + '.exe', pid: 2000 + i * 4, mem: 18000 + Math.floor(Math.random() * 60000), win: w });
-        });
-        return rows;
+      // ------------------------------------------------------------ files and folders
+      const freeBytes = () => Math.max(0, (vfs.capacity || 171798691840) - (vfs.used ? vfs.used() : 41020000000));
+      function dirLine(it) {
+        return dirStamp(it.time) + (it.dir ? '    <DIR>          ' : num(it.size).padStart(18) + ' ') + it.name;
       }
-      function tasklist() {
-        write('Image Name'.padEnd(26) + 'PID'.padStart(8) + ' Session Name'.padEnd(16) + '   Mem Usage');
-        write('='.repeat(26) + ' ' + '='.repeat(7) + ' ' + '='.repeat(15) + ' ' + '='.repeat(12));
-        procList().forEach((p) => {
-          write(p.img.padEnd(26) + String(p.pid).padStart(7) + ' Console'.padEnd(16) + '  ' + (p.mem.toLocaleString('en-US') + ' K').padStart(11));
-        });
-      }
-      function taskkill(a) {
-        const imIdx = a.findIndex((x) => x.toLowerCase() === '/im');
-        if (imIdx < 0 || !a[imIdx + 1]) { write('ERROR: Invalid syntax. Try: taskkill /im notepad.exe'); return; }
-        const target = a[imIdx + 1].replace(/\.exe$/i, '').toLowerCase();
-        const wins = A.wm.byApp(target) .concat(A.apps.get(target) ? A.wm.byApp(A.apps.get(target).id) : []);
-        const uniq = Array.from(new Set(wins));
-        if (uniq.length) {
-          uniq.forEach((w) => { const app = A.apps.get(w.app); write('SUCCESS: Sent termination signal to the process "' + (app ? app.id : w.app) + '.exe" with PID ' + (2000 + Math.floor(Math.random() * 900)) + '.'); w.close(true); });
-          A.sound.play('close');
-        } else if (['system', 'aerium', 'glass', 'dwm'].includes(target)) {
-          write('ERROR: The process "' + target + '.exe" is a critical system process and cannot be terminated.');
-          write('Nice try. The fish would miss you.');
-          A.sound.play('error');
-        } else {
-          write('ERROR: The process "' + target + '.exe" not found.');
+      def('dir', 'Displays a list of files and subdirectories in a directory.', 'Displays a list of files and subdirectories in a directory.\n\nDIR [drive:][path][filename] [/A] [/B] [/S] [/W]\n\n  /A   Displays hidden files too.\n  /B   Uses bare format (no heading information or summary).\n  /S   Displays files in the directory and all subdirectories.\n  /W   Uses wide list format.', async (a) => {
+        const sw = a.filter((x) => /^\/./.test(x)).map((x) => x.slice(1).toLowerCase());
+        const showHidden = sw.some((x) => x.startsWith('a')), bare = sw.includes('b'), sub = sw.includes('s'), wide = sw.includes('w');
+        const argp = a.find((x) => !/^\/./.test(x));
+        const segs = argp ? parse(argp) : cwd;
+        if (!segs) { print('The system cannot find the drive specified.'); return; }
+        let node = lookup(segs), re = null;
+        if (!node || !node.dir) {
+          const parent = lookup(segs.slice(0, -1));
+          if (!parent || !parent.dir || (!node && !/[*?]/.test(segs[segs.length - 1] || '') && !sub)) {
+            if (!bare) { print(' Volume in drive C is AERIUM'); print(' Volume Serial Number is 2007-AE71'); blank(); print(' Directory of ' + pathText(parent ? parent.segs : segs.slice(0, -1))); blank(); }
+            print('File Not Found');
+            return;
+          }
+          re = wild(segs[segs.length - 1]);
+          node = parent;
         }
-      }
-
-      // ------------------------------------------------------------ network commands
-      async function ping(a) {
-        const host = a.find((x) => !x.startsWith('-')) || 'aerium.playground';
-        const ip = fakeIp(host);
-        const count = a.includes('-t') ? Infinity : 4;
-        blank();
-        write('Pinging ' + host + ' [' + ip + '] with 32 bytes of data:');
-        let sent = 0, recv = 0, times = [];
-        for (let i = 0; i < count; i++) {
-          if (abort) break;
-          await sleep(360 + Math.random() * 500);
-          if (abort) break;
-          sent++;
-          if (Math.random() < 0.04) { write('Request timed out.'); }
-          else { const t = Math.floor(6 + Math.random() * 40); times.push(t); recv++; write('Reply from ' + ip + ': bytes=32 time=' + (t < 1 ? '<1' : t) + 'ms TTL=' + (52 + Math.floor(Math.random() * 8))); }
-        }
-        blank();
-        write('Ping statistics for ' + ip + ':');
-        const lost = sent - recv;
-        write('    Packets: Sent = ' + sent + ', Received = ' + recv + ', Lost = ' + lost + ' (' + (sent ? Math.round((lost / sent) * 100) : 0) + '% loss),');
-        if (times.length) {
-          write('Approximate round trip times in milli-seconds:');
-          write('    Minimum = ' + Math.min(...times) + 'ms, Maximum = ' + Math.max(...times) + 'ms, Average = ' + Math.round(times.reduce((x, y) => x + y, 0) / times.length) + 'ms');
-        }
-      }
-      function ipconfig() {
-        blank();
-        write('Aerium IP Configuration');
-        blank();
-        write('Wireless LAN adapter Wireless Network Connection:');
-        blank();
-        write('   Connection-specific DNS Suffix  . : aerium.home');
-        write('   IPv4 Address. . . . . . . . . . . : 192.168.1.107');
-        write('   Subnet Mask . . . . . . . . . . . : 255.255.255.0');
-        write('   Default Gateway . . . . . . . . . : 192.168.1.1');
-        blank();
-        write('Ethernet adapter Local Area Connection:');
-        blank();
-        write('   Media State . . . . . . . . . . . : Media disconnected');
-        blank();
-      }
-      async function tracert(a) {
-        const host = a.find((x) => !x.startsWith('-')) || 'aerium.playground';
-        const ip = fakeIp(host);
-        blank();
-        write('Tracing route to ' + host + ' [' + ip + ']');
-        write('over a maximum of 30 hops:');
-        blank();
-        const hops = ['aerium-router.home [192.168.1.1]', 'the-tubes.isp.net [10.4.0.1]', 'big-pipe.backbone.net [72.14.8.9]', 'bubbles.exchange.net [193.2.6.44]', 'undersea-cable.aq [201.55.9.1]', host + ' [' + ip + ']'];
-        for (let i = 0; i < hops.length; i++) {
-          if (abort) break;
-          await sleep(280 + Math.random() * 420);
-          const t = () => (Math.random() < 0.05 ? '   *' : (1 + Math.floor(Math.random() * 60)) + ' ms');
-          write(String(i + 1).padStart(3) + '    ' + t().padStart(5) + '    ' + t().padStart(5) + '    ' + t().padStart(5) + '  ' + hops[i]);
-        }
-        blank();
-        write('Trace complete.');
-      }
-      function netstat() {
-        write('Active Connections');
-        blank();
-        write('  Proto  Local Address          Foreign Address        State');
-        const conns = [
-          ['TCP', '192.168.1.107:49712', 'bubble-msgr.aerium:443', 'ESTABLISHED'],
-          ['TCP', '192.168.1.107:49718', 'channels.aerium:80', 'ESTABLISHED'],
-          ['TCP', '192.168.1.107:49720', 'aquarium-cdn.aq:443', 'TIME_WAIT'],
-          ['TCP', '192.168.1.107:139', 'AERIUM-PC:0', 'LISTENING'],
-          ['TCP', '192.168.1.107:49001', 'update.aerium:443', 'CLOSE_WAIT'],
-        ];
-        conns.forEach(([p, l, f, s]) => write('  ' + p.padEnd(6) + ' ' + l.padEnd(22) + ' ' + f.padEnd(22) + ' ' + s));
-      }
-      function systeminfo() {
-        const up = Math.floor((Date.now() - (window.performance.timing ? window.performance.timing.navigationStart : Date.now() - 3600000)) / 1000);
-        const rows = [
-          ['Host Name', 'AERIUM-PC'],
-          ['OS Name', 'Aerium Home Premium'],
-          ['OS Version', '7.0.2007 Build 2007'],
-          ['Registered Owner', name],
-          ['System Manufacturer', 'Aerium Playground'],
-          ['System Model', 'Glass Tower 2007'],
-          ['Processor', 'AeroCore Duo CPU 2.40GHz'],
-          ['BIOS Version', 'AeriumBIOS v2.07'],
-          ['Total Physical Memory', '2,048 MB'],
-          ['Available Physical Memory', (900 + Math.floor(Math.random() * 400)) + ' MB'],
-          ['System Uptime', Math.floor(up / 3600) + ' hours, ' + Math.floor((up % 3600) / 60) + ' minutes'],
-          ['System Locale', 'en-us;English (United States)'],
-          ['Time Zone', '(UTC) Coordinated Universal Time'],
-        ];
-        blank();
-        rows.forEach(([k, v]) => write((k + ':').padEnd(30) + ' ' + v));
-        blank();
-      }
-      function fakeIp(host) {
-        let n = 0; for (let i = 0; i < host.length; i++) n = (n * 31 + host.charCodeAt(i)) >>> 0;
-        return (23 + (n & 63)) + '.' + ((n >> 6) & 255) + '.' + ((n >> 14) & 255) + '.' + (1 + ((n >> 22) & 253));
-      }
-
-      // ------------------------------------------------------------ shutdown
-      async function shutdownCmd(a) {
-        const flags = a.map((x) => x.toLowerCase());
-        const tIdx = flags.findIndex((x) => x === '-t' || x === '/t');
-        const secs = tIdx >= 0 ? parseInt(a[tIdx + 1], 10) || 0 : (flags.some((f) => /^[-/]s|^[-/]r/.test(f)) ? 30 : 0);
-        if (flags.includes('-a') || flags.includes('/a')) {
-          if (shutdownTimer) { clearInterval(shutdownTimer); shutdownTimer = null; write('Shutdown has been aborted.'); A.notify({ title: 'Logoff/shutdown canceled', text: 'The scheduled shutdown was aborted.', icon: 'icons/info' }); }
-          else write('No shutdown was in progress.');
-          return;
-        }
-        const restart = flags.includes('-r') || flags.includes('/r');
-        const logoff = flags.includes('-l') || flags.includes('/l');
-        const shut = flags.includes('-s') || flags.includes('/s');
-        if (!restart && !logoff && !shut) {
-          write('Usage: shutdown [-s | -r | -l | -a] [-t seconds]');
-          write('    -s   Shut down       -r   Restart');
-          write('    -l   Log off         -a   Abort a scheduled shutdown');
-          write('    -t   Set a timeout in seconds (default 30)');
-          return;
-        }
-        const action = logoff ? 'logoff' : restart ? 'restart' : 'shutdown';
-        if (logoff && secs === 0) { A.boot.logoff(); return; }
-        A.notify({ title: 'Aerium will ' + (action === 'logoff' ? 'log off' : action) + ' soon', text: 'You are about to be signed out in ' + secs + ' seconds. Run shutdown -a to cancel.', icon: 'icons/warning' });
-        write('Aerium will ' + (action === 'logoff' ? 'log off' : action) + ' in ' + secs + ' seconds. Run "shutdown -a" to cancel.');
-        let left = secs;
-        return new Promise((resolve) => {
-          const tick = () => {
-            if (closed) { clearInterval(shutdownTimer); shutdownTimer = null; resolve(); return; }
-            if (!shutdownTimer) { resolve(); return; } // aborted
-            if (left <= 0) {
-              clearInterval(shutdownTimer); shutdownTimer = null;
-              if (action === 'logoff') A.boot.logoff();
-              else A.boot.shutdown(action === 'restart');
-              resolve(); return;
+        if (!bare) { print(' Volume in drive C is AERIUM'); print(' Volume Serial Number is 2007-AE71'); }
+        let tFiles = 0, tBytes = 0, tDirs = 0, lines = 0, found = false;
+        const one = async (n, s) => {
+          const kids = listDir(n).filter((it) => showHidden || !it.hidden);
+          const items = kids.filter((it) => !re || re.test(it.name));
+          if (items.length || !re) {
+            found = found || items.length > 0;
+            let files = 0, bytes = 0, dirs = 0;
+            if (!bare) { blank(); print(' Directory of ' + pathText(s)); blank(); }
+            const rows = (s.length && !re && !bare ? [{ name: '.', dir: true, time: BOOTED }, { name: '..', dir: true, time: BOOTED }] : []).concat(items);
+            if (wide && !bare) {
+              const cells = rows.map((it) => (it.dir ? '[' + it.name + ']' : it.name));
+              const w = Math.min(28, Math.max(...cells.map((c) => c.length), 8) + 2);
+              const per = Math.max(1, Math.floor(76 / w));
+              for (let i = 0; i < cells.length; i += per) print(cells.slice(i, i + per).map((c) => c.padEnd(w)).join('').trimEnd());
             }
-            if (left <= 10 || left % 10 === 0) write('  ' + left + '...');
-            left--;
-          };
-          // Let submit() finish so Ctrl+C isn't blocked by running-lock: run the countdown in the background.
-          running = false;
-          shutdownTimer = setInterval(tick, 1000);
-          tick();
-          resolve();
-        });
-      }
-      let shutdownTimer = null;
-
-      // ------------------------------------------------------------ easter eggs
-      async function hack() {
-        running = true;
-        const stages = ['Bypassing firewall', 'Cracking passwords', 'Accessing mainframe', 'Downloading the internet', 'Rerouting encryption', 'Locating the fish'];
-        write('INITIATING TOTALLY REAL HACK SEQUENCE...', 'cmd-green');
-        blank();
-        for (const st of stages) {
-          if (abort) { write('^C'); return; }
-          const bar = write(st + ' [                    ] 0%', 'cmd-green');
-          for (let p = 0; p <= 100; p += 4 + Math.floor(Math.random() * 8)) {
-            if (abort) { write('^C'); return; }
-            p = Math.min(100, p);
-            const filled = Math.round(p / 5);
-            bar.textContent = st + ' [' + '\u2588'.repeat(filled) + ' '.repeat(20 - filled) + '] ' + p + '%';
-            // spray some scrolling hex
-            if (Math.random() < 0.5) write(hexLine(), 'cmd-green cmd-dim');
-            await sleep(30 + Math.random() * 40);
+            for (const it of rows) {
+              if (it.dir) dirs++; else { files++; bytes += it.size || 0; }
+              if (bare) { if (it.name !== '.' && it.name !== '..') print(sub ? pathText(s.concat(it.name)) : it.name); }
+              else if (!wide) print(dirLine(it));
+              if (++lines % 60 === 0) await wait(10);
+            }
+            tFiles += files; tBytes += bytes; tDirs += dirs;
+            if (!bare) print(String(files).padStart(16) + ' File(s) ' + num(bytes).padStart(14) + ' bytes');
+            if (!sub && !bare) print(String(dirs).padStart(16) + ' Dir(s) ' + num(freeBytes()).padStart(15) + ' bytes free');
           }
-          bar.textContent = st + ' [' + '\u2588'.repeat(20) + '] 100%';
-        }
-        blank();
-        write('ACCESS GRANTED.', 'cmd-green');
-        await sleep(500);
-        blank();
-        write('...just kidding.', 'cmd-green');
-        write("You didn't hack anything. This is a pretend computer.", 'cmd-green');
-        write('Go outside, or at least feed the fish. They like you.', 'cmd-green');
-        A.sound.play('win');
-      }
-      function hexLine() { let s = ''; for (let i = 0; i < 8; i++) s += Math.floor(Math.random() * 0xffff).toString(16).padStart(4, '0') + ' '; return '  ' + s; }
-
-      function matrix() {
-        overlay = startCanvasOverlay((ctx, W, H, dpr, state) => {
-          const cols = Math.floor(W / 12);
-          if (!state.drops) { state.drops = Array.from({ length: cols }, () => Math.random() * -H); }
-          ctx.fillStyle = 'rgba(0,0,0,0.08)';
-          ctx.fillRect(0, 0, W, H);
-          ctx.font = '13px monospace';
-          for (let i = 0; i < cols; i++) {
-            const chr = String.fromCharCode(0x30a0 + Math.floor(Math.random() * 96));
-            const x = i * 12, y = state.drops[i];
-            ctx.fillStyle = Math.random() < 0.03 ? '#c8ffd0' : '#00ff5a';
-            ctx.fillText(chr, x, y);
-            state.drops[i] = y > H && Math.random() > 0.975 ? 0 : y + 13;
-          }
-        }, 'The Matrix has you... press any key to leave.');
-      }
-
-      function fishTank() {
-        // ASCII aquarium rendered into a <pre>, animated until a key is pressed.
-        const W = Math.max(48, Math.min(120, Math.floor(screen.clientWidth / 8.2)));
-        const H = Math.max(16, Math.min(30, Math.floor(screen.clientHeight / 17)));
-        const pre = h('pre.cmd-fishtank');
-        const wrap = h('div.cmd-overlay', null, pre, h('div.cmd-overlay-hint', null, 'Your aquarium. Press any key to close.'));
-        screen.appendChild(wrap);
-        const fishR = ['><((\u00b0>', '><>', '>\u00b0))><'];
-        const fishL = ['<\u00b0((><', '<><', '<)(\u00b0<'];
-        const fishes = Array.from({ length: 6 }, () => ({ x: Math.random() * W, y: 2 + Math.floor(Math.random() * (H - 4)), dir: Math.random() < 0.5 ? 1 : -1, sp: 0.3 + Math.random() * 0.7, sh: Math.floor(Math.random() * 3) }));
-        const bubbles = Array.from({ length: 10 }, () => ({ x: Math.floor(Math.random() * W), y: Math.random() * H }));
-        let raf = null;
-        function frame() {
-          const grid = Array.from({ length: H }, () => new Array(W).fill(' '));
-          // weeds and floor
-          for (let x = 0; x < W; x++) grid[H - 1][x] = '~';
-          for (let i = 0; i < W; i += 7) { const hh = 1 + Math.floor(Math.random() * 2); for (let k = 0; k < hh + 2; k++) if (H - 2 - k > 0) grid[H - 2 - k][i] = k % 2 ? '(' : ')'; }
-          bubbles.forEach((b) => { b.y -= 0.25; if (b.y < 1) { b.y = H - 2; b.x = Math.floor(Math.random() * W); } const yy = Math.floor(b.y), xx = Math.floor(b.x); if (grid[yy] && grid[yy][xx] === ' ') grid[yy][xx] = 'o'; });
-          fishes.forEach((f) => {
-            f.x += f.dir * f.sp;
-            if (f.x < 0) { f.x = 0; f.dir = 1; } if (f.x > W - 6) { f.x = W - 6; f.dir = -1; }
-            const art = (f.dir > 0 ? fishR : fishL)[f.sh];
-            const yy = f.y, xs = Math.floor(f.x);
-            for (let k = 0; k < art.length; k++) if (grid[yy] && xs + k < W) grid[yy][xs + k] = art[k];
-          });
-          pre.textContent = grid.map((r) => r.join('')).join('\n');
-          raf = requestAnimationFrame(() => setTimeout(frame, 90));
-        }
-        frame();
-        A.sound.play('bubble');
-        overlay = () => { cancelAnimationFrame(raf); wrap.remove(); overlay = null; };
-        armOverlayDismiss();
-      }
-
-      async function formatCmd(a) {
-        if (!a.length || a[0].toLowerCase() !== 'c:') { write('Required parameter missing. Try: format c:'); return; }
-        running = true;
-        write('WARNING, ALL DATA ON NON-REMOVABLE DISK', 'cmd-red');
-        write('DRIVE C: WILL BE LOST!', 'cmd-red');
-        write('(including your fish, your paintings, and that diary)', 'cmd-red');
-        const ok = await A.ui.confirm('You are about to erase everything on drive C:.\n\nAre you absolutely, positively sure?', { parent: win, title: 'Format C:', icon: 'warning' });
-        if (!ok) { write('Format canceled. Phew.'); return; }
-        blank();
-        write('Formatting C:...');
-        const bar = write('[                    ] 0%');
-        for (let p = 0; p <= 100; p += 3 + Math.floor(Math.random() * 5)) {
-          if (abort) { write('^C'); return; }
-          p = Math.min(100, p);
-          const filled = Math.round(p / 5);
-          bar.textContent = '[' + '\u2588'.repeat(filled) + ' '.repeat(20 - filled) + '] ' + p + '%';
-          await sleep(60 + Math.random() * 60);
-        }
-        blank();
-        await sleep(500);
-        write('Just kidding. Your fish are safe.', 'cmd-green');
-        write('Nothing was deleted. This computer loves you too much.', 'cmd-green');
-        A.sound.play('ding');
-      }
-      function sudo(raw) {
-        const rest = raw.replace(/^\s*sudo\s?/i, '');
-        if (/sandwich/i.test(rest)) { write('Okay.'); write('  ( poof )  Here is your sandwich.'); write('  [========]  (it is a very nice sandwich)'); A.sound.play('coin'); return; }
-        write('This is not that kind of computer, but I admire the confidence.');
-        write(name + ' is not in the sudoers file. This incident will be reported to the fish.');
-        A.sound.play('error');
-      }
-      function cowsay(raw) {
-        const msg = raw.replace(/^\s*cowsay\s?/i, '') || 'Moo.';
-        const top = ' ' + '_'.repeat(msg.length + 2);
-        const bot = ' ' + '-'.repeat(msg.length + 2);
-        write(top); write('< ' + msg + ' >'); write(bot);
-        ['        \\   ^__^', '         \\  (oo)\\_______', '            (__)\\       )\\/\\', '                ||----w |', '                ||     ||'].forEach((l) => write(l));
-      }
-      function about() {
-        blank();
-        write(VERSION);
-        write('(c) 2007 Aerium Playground. All fish reserved.');
-        blank();
-        write('This console is a nostalgic toy. Type "help" for commands,');
-        write('or try "matrix", "fish", "hack" or "color a" for a good time.');
-        blank();
-      }
-
-      // ------------------------------------------------------------ overlay helpers (matrix)
-      function startCanvasOverlay(draw, hint) {
-        const canvas = h('canvas.cmd-canvas');
-        const wrap = h('div.cmd-overlay', null, canvas, h('div.cmd-overlay-hint', null, hint));
-        screen.appendChild(wrap);
-        const ctx = canvas.getContext('2d');
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        let raf = null, state = {}, W = 0, Hh = 0;
-        const resize = () => { W = canvas.clientWidth; Hh = canvas.clientHeight; canvas.width = W * dpr; canvas.height = Hh * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, Hh); state.drops = null; };
-        resize();
-        const offResize = win.on('resize', () => resize());
-        function loop() { if (!W) resize(); draw(ctx, W, Hh, dpr, state); raf = requestAnimationFrame(loop); }
-        loop();
-        A.sound.play('zap');
-        const cleanup = () => { cancelAnimationFrame(raf); offResize(); wrap.remove(); overlay = null; };
-        overlay = cleanup;
-        armOverlayDismiss();
-        return cleanup;
-      }
-      function armOverlayDismiss() {
-        const stop = (e) => {
-          if (e && e.type === 'keydown' && (e.key === 'F5' || e.key === 'F12')) return;
-          window.removeEventListener('keydown', stop, true);
-          screen.removeEventListener('pointerdown', stop, true);
-          if (overlay) overlay();
-          if (!closed) showPrompt();
+          if (sub) for (const d of kids.filter((it) => it.dir)) { if (aborted()) throw ABORT; await one(d.node, s.concat(d.name)); }
         };
-        setTimeout(() => { window.addEventListener('keydown', stop, true); screen.addEventListener('pointerdown', stop, true); }, 120);
-      }
-      function waitKey() {
-        return new Promise((resolve) => {
-          const on = () => { window.removeEventListener('keydown', on, true); resolve(); };
-          setTimeout(() => window.addEventListener('keydown', on, true), 50);
-        });
-      }
-
-      // ------------------------------------------------------------ tree
-      async function treeCmd() {
-        write('Folder PATH listing for volume Aerium Glass');
-        write('Volume serial number is 2007-AE71');
-        write(winPath(cwd).replace(/^C:/, 'C:.'));
-        async function walk(path, prefix) {
-          let subs;
-          try { subs = fs.list(path).filter((it) => it.type === 'folder' && it.path !== fs.RECYCLE); } catch (e) { subs = []; }
-          for (let i = 0; i < subs.length; i++) {
-            if (abort) return;
-            const last = i === subs.length - 1;
-            write(prefix + (last ? '\u2514\u2500\u2500\u2500' : '\u251c\u2500\u2500\u2500') + subs[i].name);
-            await sleep(14);
-            await walk(subs[i].path, prefix + (last ? '    ' : '\u2502   '));
-          }
+        await one(node, node.segs);
+        if (sub && !bare) {
+          blank();
+          print('     Total Files Listed:');
+          print(String(tFiles).padStart(16) + ' File(s) ' + num(tBytes).padStart(14) + ' bytes');
+          print(String(tDirs).padStart(16) + ' Dir(s) ' + num(freeBytes()).padStart(15) + ' bytes free');
         }
-        await walk(cwd, '');
-        // A couple of fake system branches for nostalgia when at the home root.
-        if (!abort && cwd === '/') {
-          for (const l of ['\u251c\u2500\u2500\u2500Program Files', '\u2502   \u251c\u2500\u2500\u2500Aerium Media Player', '\u2502   \u2514\u2500\u2500\u2500Bubble Messenger', '\u2514\u2500\u2500\u2500Windows.old', '    \u2514\u2500\u2500\u2500(here be dragons)']) {
-            if (abort) break;
-            write(l); await sleep(14);
+        if (re && !found) print('File Not Found');
+      });
+      def('cd chdir', 'Displays the name of or changes the current directory.', 'Displays the name of or changes the current directory.\n\nCD [/D] [drive:][path]\nCD [..]\n\n  ..   Specifies that you want to change to the parent directory.\n\nType CD drive: to display the current directory in the specified drive.\nType CD without parameters to display the current drive and directory.', (a, rest) => {
+        const r = rest.trim().replace(/^\/d\s+/i, '');
+        if (!r) { print(pathText(cwd)); return; }
+        const segs = parse(r);
+        if (!segs) { print('The system cannot find the drive specified.'); return; }
+        const n = lookup(segs);
+        if (!n) { print('The system cannot find the path specified.'); return; }
+        if (!n.dir) { print('The directory name is invalid.'); return; }
+        cwd = n.segs;
+      });
+      def('tree', 'Graphically displays the folder structure of a drive or path.', 'Graphically displays the folder structure of a drive or path.\n\nTREE [drive:][path] [/F] [/A]\n\n   /F   Display the names of the files in each folder.\n   /A   Use ASCII instead of extended characters.', async (a) => {
+        const withFiles = a.some((x) => x.toLowerCase() === '/f');
+        const G = a.some((x) => x.toLowerCase() === '/a') ? { t: '+---', l: '\\---', v: '|   ', s: '    ' } : { t: '├───', l: '└───', v: '│   ', s: '    ' };
+        const argp = a.find((x) => !x.startsWith('/'));
+        const segs = argp ? parse(argp) : cwd;
+        const n = segs && lookup(segs);
+        if (!n || !n.dir) { print('Invalid path - ' + (argp ? argp.toUpperCase() : '\\')); return; }
+        print('Folder PATH listing for volume AERIUM');
+        print('Volume serial number is 2007-AE71');
+        print(pathText(n.segs).toUpperCase());
+        let count = 0;
+        const walk = async (node, prefix) => {
+          const kids = listDir(node);
+          const dirs = kids.filter((k) => k.dir);
+          if (withFiles) {
+            const files = kids.filter((k) => !k.dir);
+            files.forEach((f) => print(prefix + (dirs.length ? G.v : G.s) + f.name));
+            if (files.length) print(prefix + (dirs.length ? G.v : G.s));
           }
-        }
+          for (let i = 0; i < dirs.length; i++) {
+            if (aborted()) throw ABORT;
+            const last = i === dirs.length - 1;
+            print(prefix + (last ? G.l : G.t) + dirs[i].name);
+            if (++count % 3 === 0) await wait(12); // the famous fast scroll
+            await walk(dirs[i].node, prefix + (last ? G.s : G.v));
+          }
+        };
+        await walk(n, '');
+        if (!count) print('No subfolders exist');
+      });
+      const TEXT_EXT = /\.(txt|log|ini|md|bat|cmd|csv|htm|html|xml|json|js|css|inf|reg|nfo)$/i;
+      function garble(seed) {
+        const rnd = A.util.seeded(hash(seed));
+        const cs = 'ÿØÿàÉ¶§¤¥¦©®±µ¼½¾ÆÐ×ßæðøþ░▒▓│┤╡╢╖╕╣║╗╝╜╛┐└┴┬├─┼╞╟╚╔╩╦╠═╬█▄▌▐▀αΓπΣστΦΘΩδ∞φε∩≡≥≤⌠⌡÷≈°∙·√ⁿ²■';
+        let s = seed.slice(0, 4).toUpperCase();
+        for (let i = 0; i < 180; i++) s += rnd() < 0.12 ? ' ' : cs[Math.floor(rnd() * cs.length)];
+        return s;
       }
+      def('type', 'Displays the contents of a text file.', 'Displays the contents of a text file or files.\n\nTYPE [drive:][path]filename', async (a) => {
+        if (!a.length) { print('The syntax of the command is incorrect.'); return; }
+        for (const arg of a) {
+          const n = lookup(parse(arg));
+          if (!n) { print('The system cannot find the file specified.'); continue; }
+          if (n.dir) { print('Access is denied.'); continue; }
+          let text, bin;
+          if (n.kind === 'vfs') {
+            text = String(vfs.read(n.path) == null ? '' : vfs.read(n.path));
+            bin = /^(asset|data|track|video|app|file):/.test(text) && !TEXT_EXT.test(n.path);
+          } else { text = n.f.text; bin = !!n.f.bin; }
+          if (a.length > 1) { blank(); print(n.segs[n.segs.length - 1]); blank(); }
+          if (bin) { const g = garble(n.segs.join('/')); for (let i = 0; i < g.length; i += 72) print(g.slice(i, i + 72)); A.sound.play('ding'); continue; }
+          const lines = text.split(/\r?\n/);
+          for (let i = 0; i < lines.length; i++) { print(lines[i]); if (i % 80 === 79) await wait(8); }
+        }
+      });
+      function badName(name) { return !name || /[\\/:*?"<>|]/.test(name); }
+      def('mkdir md', 'Creates a directory.', 'Creates a directory.\n\nMKDIR [drive:]path\nMD [drive:]path\n\nMKDIR creates any folders in the path that do not exist yet.', (a) => {
+        if (!a.length) { print('The syntax of the command is incorrect.'); return; }
+        for (const arg of a) {
+          const segs = parse(arg);
+          if (!segs) { print('The system cannot find the drive specified.'); continue; }
+          if (lookup(segs)) { print('A subdirectory or file ' + arg + ' already exists.'); continue; }
+          let i = segs.length;
+          while (i > 0 && !lookup(segs.slice(0, i))) i--;
+          const base = lookup(segs.slice(0, i));
+          if (!base || !base.dir || !writable(base)) { print('Access is denied.'); continue; }
+          if (segs.slice(i).some(badName)) { print('The filename, directory name, or volume label syntax is incorrect.'); continue; }
+          try {
+            let p = base.path;
+            segs.slice(i).forEach((name) => { p = vfs.join(p, name); vfs.mkdir(p); });
+          } catch (err) { print(err.message); }
+        }
+      });
+      def('rd rmdir', 'Removes a directory.', 'Removes (deletes) a directory.\n\nRMDIR [/S] [/Q] [drive:]path\nRD [/S] [/Q] [drive:]path\n\n    /S   Removes the folder and everything in it.\n    /Q   Quiet mode, does not ask if ok to remove a directory tree with /S', async (a) => {
+        const s = a.some((x) => x.toLowerCase() === '/s'), q = a.some((x) => x.toLowerCase() === '/q');
+        const args = a.filter((x) => !x.startsWith('/'));
+        if (!args.length) { print('The syntax of the command is incorrect.'); return; }
+        for (const arg of args) {
+          const n = lookup(parse(arg));
+          if (!n || !n.dir) { print(n ? 'The directory name is invalid.' : 'The system cannot find the file specified.'); continue; }
+          if (!writable(n) || n.path === '/') { print('Access is denied.'); continue; }
+          if (cwd.join('\\').toLowerCase().startsWith(n.segs.join('\\').toLowerCase())) { print('The process cannot access the file because it is being used by another process.'); continue; }
+          if (vfs.list(n.path).length && !s) { print('The directory is not empty.'); continue; }
+          if (s && !q) { const ans = await readLine(arg + ', Are you sure (Y/N)? '); if (!/^y/i.test(ans.trim())) continue; }
+          try { vfs.remove(n.path); A.sound.play('recycle'); } catch (err) { print('Access is denied.'); }
+        }
+      });
+      def('del erase', 'Deletes one or more files.', 'Deletes one or more files. Deleted files go to the Recycle Bin.\n\nDEL [/Q] names\nERASE [/Q] names\n\n  names   Specifies a list of one or more files or directories.\n          Wildcards may be used to delete multiple files. If a\n          directory is specified, all files within it are deleted.\n  /Q      Quiet mode, do not ask if ok to delete on global wildcard', async (a) => {
+        const quiet = a.some((x) => x.toLowerCase() === '/q');
+        const args = a.filter((x) => !x.startsWith('/'));
+        if (!args.length) { print('The syntax of the command is incorrect.'); return; }
+        let removed = 0;
+        for (const arg of args) {
+          const t = target(arg);
+          if (t.badDrive) { print('The system cannot find the drive specified.'); continue; }
+          let folder = null, re = null;
+          if (t.node && t.node.dir) { folder = t.node; re = /.*/; }
+          else if (t.base && t.base.dir) { folder = t.base; re = t.re; }
+          if (folder) {
+            if (!writable(folder)) { print('Access is denied.'); continue; }
+            const files = listDir(folder).filter((it) => !it.dir && !it.hidden && re.test(it.name));
+            const global = (t.node && t.node.dir) || /^\*(\.\*)?$/.test(t.pattern || '');
+            if (global && !quiet) {
+              const ans = await readLine(pathText(folder.segs.concat('*')) + ', Are you sure (Y/N)? ');
+              if (!/^y/i.test(ans.trim())) continue;
+            }
+            if (!files.length) { print('Could Not Find ' + pathText(folder.segs.concat(t.pattern || '*'))); continue; }
+            files.forEach((f) => { try { vfs.remove(f.node.path); removed++; } catch (err) { print('Access is denied.'); } });
+            continue;
+          }
+          if (!t.node) { print('Could Not Find ' + pathText(t.segs)); continue; }
+          if (!writable(t.node)) { print('Access is denied.'); continue; }
+          try { vfs.remove(t.node.path); removed++; } catch (err) { print('Access is denied.'); }
+        }
+        if (removed) A.sound.play('recycle');
+      });
+      def('ren rename', 'Renames a file or files.', 'Renames a file or files.\n\nRENAME [drive:][path]filename1 filename2\nREN [drive:][path]filename1 filename2\n\nNote that you cannot specify a new drive or path for your destination file.', (a) => {
+        if (a.length < 2) { print('The syntax of the command is incorrect.'); return; }
+        const n = lookup(parse(a[0]));
+        if (!n) { print('The system cannot find the file specified.'); return; }
+        if (!writable(n) || n.path === '/') { print('Access is denied.'); return; }
+        if (badName(a[1])) { print('The syntax of the command is incorrect.'); return; }
+        try { vfs.rename(n.path, a[1]); } catch (err) { print('A duplicate file name exists, or the file cannot be found.'); }
+      });
+      // copy and move share their plumbing
+      async function transfer(a, moving) {
+        const args = a.filter((x) => !/^\/[yv-]/i.test(x));
+        if (!args.length) { print('The syntax of the command is incorrect.'); return; }
+        const t = target(args[0]);
+        let sources = [];
+        if (t.node && !t.node.dir) sources = [t.node];
+        else if (t.node && t.node.dir) sources = listDir(t.node).filter((it) => !it.dir && !it.hidden).map((it) => Object.assign({ segs: t.node.segs.concat(it.name) }, it.node));
+        else if (t.base && t.base.dir) sources = listDir(t.base).filter((it) => !it.dir && t.re.test(it.name)).map((it) => Object.assign({ segs: t.base.segs.concat(it.name) }, it.node));
+        if (!sources.length) { print('The system cannot find the file specified.'); print('        0 file(s) ' + (moving ? 'moved.' : 'copied.')); return; }
+        const destSegs = args[1] ? parse(args[1]) : cwd;
+        const dn = destSegs && lookup(destSegs);
+        let destDir, newName = null;
+        if (dn && dn.dir) destDir = dn;
+        else {
+          destDir = destSegs && lookup(destSegs.slice(0, -1));
+          newName = destSegs ? destSegs[destSegs.length - 1] : null;
+          if (dn && !dn.dir) newName = dn.segs[dn.segs.length - 1];
+        }
+        if (!destDir || !destDir.dir) { print('The system cannot find the path specified.'); return; }
+        if (!writable(destDir)) { print('Access is denied.'); return; }
+        let done = 0, all = false;
+        for (const src of sources) {
+          const name = newName && sources.length === 1 ? newName : src.segs[src.segs.length - 1];
+          const destPath = vfs.join(destDir.path, name);
+          if (src.kind === 'vfs' && vfs.normalize(src.path) === vfs.normalize(destPath)) { print('The file cannot be copied onto itself.'); continue; }
+          if (vfs.exists(destPath) && !all) {
+            const ans = (await readLine('Overwrite ' + pathText(destDir.segs.concat(name)) + '? (Yes/No/All): ')).trim().toLowerCase();
+            if (ans.startsWith('a')) all = true;
+            else if (!ans.startsWith('y')) continue;
+          }
+          try {
+            if (src.kind === 'vfs') {
+              if (vfs.exists(destPath)) vfs.remove(destPath, { permanent: true });
+              if (moving) { const moved = vfs.move(src.path, destDir.path); if (vfs.basename(moved) !== name) vfs.rename(moved, name); }
+              else { const copied = vfs.copy(src.path, destDir.path); if (vfs.basename(copied) !== name) vfs.rename(copied, name); }
+            } else {
+              if (moving || src.f.bin) { print('Access is denied.'); continue; }
+              vfs.write(destPath, src.f.text, { mime: 'text/plain' });
+            }
+            if (sources.length > 1) print(pathText(src.segs));
+            done++;
+          } catch (err) { print(err.message); }
+        }
+        print('        ' + done + ' file(s) ' + (moving ? 'moved.' : 'copied.'));
+      }
+      def('copy', 'Copies one or more files to another location.', 'Copies one or more files to another location.\n\nCOPY source [destination]\n\n  source       Specifies the file or files to be copied.\n  destination  Specifies the directory and/or filename for the new file(s).', (a) => transfer(a, false));
+      def('move', 'Moves one or more files from one directory to another directory.', 'Moves files.\n\nMOVE [drive:][path]filename destination', (a) => transfer(a, true));
+      def('start', 'Starts a program or opens a file.', 'Starts a separate window to run a specified program or command.\n\nSTART ["title"] [command/program] [parameters]\n\nTry: start calc, start notepad, start . (opens this folder)', (a) => {
+        const args = a.filter((x) => !/^\/(min|max|wait|b)$/i.test(x));
+        if (!args.length) { A.apps.launch('cmd'); return; }
+        const t = args[0];
+        if (/^(https?:\/\/|www\.)/i.test(t)) { if (A.apps.get('browser')) A.apps.launch('browser', { url: t }); else print('The system cannot find the file ' + t + '.'); return; }
+        const id = t.toLowerCase().replace(/\.(exe|com)$/, '');
+        if (A.apps.get(id)) { launchApp(id, args.slice(1)); return; }
+        const n = lookup(parse(t));
+        if (n && n.kind === 'vfs') { A.apps.openFile(n.path); return; }
+        if (n && n.dir && A.apps.get('explorer')) { A.apps.launch('explorer', { path: 'computer' }); return; }
+        print('The system cannot find the file ' + t + '.');
+      });
 
-      // ------------------------------------------------------------ boot
-      screen.addEventListener('pointerdown', (e) => { if (e.target.tagName !== 'INPUT' && !overlay && input) { const sel = window.getSelection(); if (!sel || sel.isCollapsed) focusInput(); } });
-      win.on('focus', () => { if (!overlay) focusInput(); });
-
-      write('Aerium Command Processor  [Version 7.0.2007]');
-      write('(c) 2007 Aerium Playground. All rights reserved.');
-      blank();
-      if (args && args.title) win.setTitle(args.title);
-      showPrompt();
-
-      return {
-        onClose() {
-          closed = true;
-          abort = true;
-          if (shutdownTimer) { clearInterval(shutdownTimer); shutdownTimer = null; }
-          if (overlay) { try { overlay(); } catch (e) { /* ignore */ } overlay = null; }
-        },
-      };
+      // @@CONTINUE@@
     },
   });
 })();

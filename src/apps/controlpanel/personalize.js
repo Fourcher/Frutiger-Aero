@@ -374,7 +374,7 @@
           grid,
           h('div.pz-fit-box', null, h('div.pz-fit-title', null, 'How should the picture be positioned?'), fitBox, fitNote),
           footer),
-        onShow() { const sel = grid.querySelector('.pz-wp.selected'); if (sel) sel.scrollIntoView({ block: 'nearest' }); },
+        onShow() { const sel = grid.querySelector('.pz-wp.selected'); if (sel) K.reveal(sel, grid); },
       };
     },
   });
@@ -548,12 +548,12 @@
       list.addEventListener('keydown', (e) => {
         const i = rows.indexOf(document.activeElement);
         if (i < 0) return;
-        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = rows[clamp(i + (e.key === 'ArrowDown' ? 1 : -1), 0, rows.length - 1)]; n.focus(); }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); const n = rows[clamp(i + (e.key === 'ArrowDown' ? 1 : -1), 0, rows.length - 1)]; K.focus(n); K.reveal(n, list); }
         else if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); test(rows[i].dataset.name, rows[i]); }
       });
       const surprise = A.ui.button('Surprise me', { size: 'sm', icon: 'icons/gift', onClick: () => {
         const row = rows[Math.floor(Math.random() * rows.length)];
-        row.scrollIntoView({ block: 'nearest' });
+        K.reveal(row, list);
         row.focus({ preventScroll: true });
         test(row.dataset.name, row);
       } });
@@ -708,6 +708,201 @@
               speedVal,
               h('p.cp-fine', null, 'This sets how quickly you need to click twice to pop the bubble. Your real mouse keeps its own setting.')),
             dblToy(ctx))),
+        footer);
+    },
+  });
+
+  // ============================================================ Theme
+  const THEME_FALLBACK_WALL = { light: 'clear-sky', dark: 'aurora', technozen: 'technozen' };
+  function themeWall(th) {
+    const id = T.wallpapers.get(th.wallpaper) ? th.wallpaper : THEME_FALLBACK_WALL[th.id] || 'clear-sky';
+    const el = T.thumb(id);
+    if (!el.style.backgroundImage) return T.thumb(THEME_FALLBACK_WALL[th.id] || 'clear-sky');
+    return el;
+  }
+  K.page('pz:theme', {
+    title: 'Theme Settings', icon: 'icons/rainbow', parent: 'pz:home', side: false,
+    keywords: ['theme', 'dark', 'night', 'light', 'technozen', 'scheme', 'look', 'mode'],
+    build(ctx) {
+      const footer = K.settingsFooter(ctx, {
+        keys: ['theme', 'glass.color', 'glass.custom', 'glass.intensity', 'glass.transparency', 'wallpaper', 'wallpaper.fit'],
+        restore: (snap) => {
+          document.documentElement.dataset.theme = T.THEMES[snap.theme] ? snap.theme : 'light';
+          T.apply();
+          T.setWallpaper(snap.wallpaper, snap['wallpaper.fit']);
+          A.bus.emit('theme:change', snap.theme);
+        },
+      });
+      const cards = h('div.pz-themes', { role: 'radiogroup', 'aria-label': 'Themes' });
+      Object.values(T.THEMES).forEach((th) => {
+        const g = T.GLASS.find((x) => x.id === th.glass) || T.GLASS[0];
+        const prev = h('div.pz-theme-prev', { dataset: { theme: th.id }, style: { '--g': g.hex } },
+          h('div.pz-theme-wall', null, themeWall(th)),
+          h('div.pz-theme-win', null, h('div.pz-theme-wtitle', null, h('i'), h('i'), h('i')), h('div.pz-theme-wbody', null, h('b'), h('em'), h('em'), h('em'), h('span.pz-theme-btn'))),
+          h('div.pz-theme-bar', null, h('span.pz-mini-orb'), h('span.pz-theme-app'), h('span.pz-theme-app')));
+        const card = h('button.pz-theme', { type: 'button', role: 'radio', dataset: { id: th.id }, 'aria-label': th.name },
+          prev,
+          h('div.pz-theme-text', null, h('div.pz-theme-name', null, th.name, h('span.pz-theme-cur', null, 'Current')), h('div.pz-theme-desc', null, th.desc)));
+        card.addEventListener('click', () => { if (T.current !== th.id) { T.set(th.id); A.sound.play('select'); } });
+        cards.appendChild(card);
+      });
+      const sync = () => cards.querySelectorAll('.pz-theme').forEach((c) => { const on = c.dataset.id === T.current; c.classList.toggle('selected', on); c.setAttribute('aria-checked', String(on)); });
+      ctx.bus('theme:change', sync);
+      sync();
+      return h('div.pz-theme-page', null,
+        K.head('Choose a theme', 'A theme changes the whole look at once: the glass, the sky behind it and the colors of every window.'),
+        cards,
+        h('p.cp-fine', null, 'Switching themes also picks a matching glass color and background. You can change either one afterward.'),
+        h('div.cp-link-list', null,
+          K.link('Change the glass color', () => ctx.go('pz:color'), { icon: 'palette' }),
+          K.link('Get more themes online', () => K.joke(ctx.win, { title: 'Themes', icon: 'icons/rainbow', instruction: 'More themes are on their way', message: 'Aerium is saving up for Aerium Ultimate Extras. Any day now.' }), { icon: 'icons/globe' })),
+        footer);
+    },
+  });
+
+  // ============================================================ Display Settings
+  const RES = [[800, 600], [1024, 768], [1152, 864], [1280, 800], [1280, 1024], [1440, 900], [1680, 1050], [1920, 1200]];
+  function identify() {
+    const el = h('div.pz-identify', { 'aria-hidden': 'true' }, h('span.pz-identify-num', null, '1'), h('span.pz-identify-sub', null, 'Generic Glossy Monitor'));
+    document.getElementById('ae-overlays').appendChild(el);
+    A.sound.play('ding');
+    setTimeout(() => el.classList.add('out'), 2300);
+    setTimeout(() => el.remove(), 2900);
+  }
+  K.identify = identify;
+  K.page('pz:display', {
+    title: 'Display Settings', icon: 'icons/laptop', parent: 'pz:home', side: false,
+    keywords: ['display', 'resolution', 'screen', 'monitor', 'text size', 'font size', 'dpi', 'large text', 'identify', 'colors', 'refresh rate'],
+    build(ctx) {
+      const footer = K.settingsFooter(ctx, { keys: ['display.res', 'display.colors', 'a11y.largeText'] });
+      const fid = A.util.uid('pzpost');
+      const filters = s('svg', { width: 0, height: 0, class: 'pz-svgdefs', 'aria-hidden': 'true' },
+        s('filter', { id: fid + '8' }, s('feComponentTransfer', null, ...['R', 'G', 'B'].map((c) => s('feFunc' + c, { type: 'discrete', tableValues: '0 .2 .4 .6 .8 1' })))),
+        s('filter', { id: fid + '16' }, s('feComponentTransfer', null, ...['R', 'G', 'B'].map((c) => s('feFunc' + c, { type: 'discrete', tableValues: '0 .07 .14 .21 .29 .36 .43 .5 .57 .64 .71 .79 .86 .93 1' })))));
+      const mon = K.monitor({ width: 330, className: 'pz-disp-monitor' });
+      const desk = h('div.pz-disp-desk', null,
+        h('div.pz-disp-wall', null, wallThumb(A.store.get('wallpaper'))),
+        h('div.pz-disp-icons', null, ['icons/computer', 'icons/folder-user', 'icons/trash', 'icons/globe'].map((k) => A.img(k))),
+        h('div.pz-disp-win', null, h('div.pz-disp-wtitle'), h('div.pz-disp-wbody', null, h('i'), h('i'), h('i'))),
+        h('div.pz-disp-bar', null, h('span.pz-mini-orb')));
+      mon.host.appendChild(desk);
+      const resIdx = () => clamp(Number(A.store.get('display.res', 1)), 0, RES.length - 1);
+      const resLabel = h('div.pz-res-label');
+      const slider = A.ui.slider({ min: 0, max: RES.length - 1, value: resIdx(), label: 'Resolution', onInput: (v) => { A.store.set('display.res', v); render(); }, onChange: () => A.sound.play('click') });
+      slider.classList.add('pz-res-slider');
+      const colors = A.ui.select({ options: [['32', 'Highest (32 bit)'], ['16', 'Medium (16 bit)'], ['8', '256 Colors (retro)']], value: String(A.store.get('display.colors', '32')), label: 'Colors', onChange: (v) => { A.store.set('display.colors', v); render(); A.sound.play('click'); } });
+      const size = A.ui.radioGroup({ value: A.store.get('a11y.largeText', false) ? 'large' : 'normal', options: [['normal', 'Default scale (96 DPI): fits more on the screen'], ['large', 'Larger scale (120 DPI): makes text easier to read']], onChange: (v) => { A.store.set('a11y.largeText', v === 'large'); A.sound.play('click'); } });
+      const real = h('span');
+      function render() {
+        const [w, hh] = RES[resIdx()];
+        resLabel.textContent = w + ' by ' + hh + ' pixels';
+        const aspect = w / hh;
+        desk.style.width = aspect < 1.599 ? ((aspect / 1.6) * 100).toFixed(1) + '%' : '100%';
+        desk.style.setProperty('--ui', (1024 / w).toFixed(3));
+        const c = String(A.store.get('display.colors', '32'));
+        desk.style.filter = c === '8' ? `url(#${fid}8) saturate(1.3)` : c === '16' ? `url(#${fid}16)` : '';
+        real.textContent = window.innerWidth + ' by ' + window.innerHeight;
+        if (document.activeElement !== slider) slider.setValue(resIdx());
+        colors.value = c;
+      }
+      ctx.bus('store:display.res', render);
+      ctx.bus('store:display.colors', render);
+      ctx.bus('store:wallpaper', () => { const wall = desk.querySelector('.pz-disp-wall'); wall.innerHTML = ''; wall.appendChild(wallThumb(A.store.get('wallpaper'))); });
+      ctx.bus('store:a11y.largeText', () => { const v = A.store.get('a11y.largeText', false) ? 'large' : 'normal'; size.querySelectorAll('input').forEach((i) => { i.checked = i.value === v; }); });
+      ctx.listen(window, 'resize', render);
+      render();
+      return h('div.pz-display', null,
+        filters,
+        K.head('Display Settings', 'Drag the slider to change the resolution, identify your monitor, or make text easier to read.'),
+        h('div.pz-disp-top', null,
+          h('div.pz-disp-mon', null, mon, A.ui.button('Identify Monitors', { size: 'sm', icon: 'icons/monitor', onClick: identify })),
+          h('div.pz-disp-panel', null,
+            h('div.pz-field-title', null, '1. Generic Glossy Monitor on AquaGlass 256 MB'),
+            h('div.pz-res', null, h('span.cp-muted', null, 'Low'), slider, h('span.cp-muted', null, 'High')),
+            resLabel,
+            h('label.pz-colors', null, h('span', null, 'Colors:'), colors),
+            K.note(h('span', null, 'Aerium always fits your browser window, which is ', real, ' right now, so this slider is just for fun. The little screen shows how things would have looked.'), 'info', 'icons/info'),
+            A.ui.button('Advanced Settings...', { size: 'sm', onClick: () => K.joke(ctx.win, { title: 'Advanced Settings', icon: 'icons/monitor', instruction: 'Generic Glossy Monitor', message: 'Adapter: AquaGlass 256 MB\nRefresh rate: 60 Hertz\nColor profile: Extra Shiny\n\nThe fish prefer it this way.' }) }))),
+        K.section('Text size', size, h('p.cp-fine', null, 'Larger text is also available in the Ease of Access Center.')),
+        footer);
+    },
+  });
+
+  // ============================================================ Taskbar and Start Menu
+  function tbPreview() {
+    const p = tbPrefs();
+    const now = new Date();
+    const tray = h('span.pz-tbprev-tray', null,
+      p.action ? h('i.pz-tbprev-dot.flag') : null, p.power ? h('i.pz-tbprev-dot.power') : null,
+      p.network ? h('i.pz-tbprev-dot.net') : null, p.volume ? h('i.pz-tbprev-dot.vol') : null);
+    return h('div.pz-tbprev-wrap', null,
+      h('div.pz-tbprev-wall', null, wallThumb(A.store.get('wallpaper'))),
+      h('div.pz-tbprev', { class: [p.small && 'small', p.autohide && 'autohide'] },
+        h('span.pz-tbprev-orb'),
+        p.quick ? h('span.pz-tbprev-quick') : null,
+        ['icons/personalize', 'icons/globe', 'icons/folder'].map((k, i) => h('span.pz-tbprev-app', { class: i === 0 && 'running' }, A.img(k))),
+        h('span.cp-spacer'),
+        tray,
+        p.clock ? h('span.pz-tbprev-clock', null, A.util.fmtTime(now)) : null,
+        p.showdesk ? h('span.pz-tbprev-desk') : null),
+      p.autohide ? h('span.pz-tbprev-hint', null, 'Hidden until you point at the bottom of the screen') : null);
+  }
+  K.page('pz:taskbar', {
+    title: 'Taskbar and Start Menu Properties', icon: 'taskbar', parent: 'cat:appearance', side: false,
+    keywords: ['taskbar', 'start menu', 'clock', 'auto-hide', 'autohide', 'hide', 'tray', 'notification area', 'quick launch', 'icons', 'thumbnails', 'show desktop'],
+    build(ctx) {
+      const footer = K.settingsFooter(ctx, {
+        keys: ['pz.taskbar', 'desktop.showIcons', 'desktop.iconSize'],
+        restore: () => { applyTaskbarPrefs(); if (A.desktop && A.desktop.render) A.desktop.render(); },
+      });
+      const set = (k, v) => { const p = tbPrefs(); p[k] = v; A.store.set('pz.taskbar', p); A.sound.play('click'); };
+      const opts = [];
+      const opt = (k, label, note) => {
+        const c = A.ui.checkbox({ label, checked: !!tbPrefs()[k], onChange: (v) => set(k, v) });
+        opts.push([k, c]);
+        return h('div.pz-tb-opt', null, c, note ? h('div.cp-fine', null, note) : null);
+      };
+      const prevBox = h('div.pz-tbprev-box');
+      const renderPrev = () => { prevBox.innerHTML = ''; prevBox.appendChild(tbPreview()); };
+      const showIcons = A.ui.checkbox({ label: 'Show desktop icons', checked: A.store.get('desktop.showIcons'), onChange: (v) => { A.store.set('desktop.showIcons', v); if (A.desktop && A.desktop.render) A.desktop.render(); A.sound.play('click'); } });
+      const iconSize = A.ui.radioGroup({ value: A.store.get('desktop.iconSize'), options: [['large', 'Large icons'], ['medium', 'Medium icons'], ['small', 'Classic icons']], onChange: (v) => { A.store.set('desktop.iconSize', v); if (A.desktop && A.desktop.render) A.desktop.render(); A.sound.play('click'); } });
+      const clearBtn = A.ui.button('Clear list', { size: 'sm', onClick: () => { A.store.set('recent.apps', []); A.store.set('recent.files', []); clearBtn.disabled = true; A.sound.play('recycle'); clearNote.textContent = 'Cleared. Your Start menu will show the usual favorites again.'; } });
+      const clearNote = h('div.cp-fine', null, 'The Start menu remembers the programs and files you opened recently.');
+      const tabs = A.ui.tabs({ className: 'cp-tabs pz-tb-tabs', value: ctx.params.tab || 'taskbar', tabs: [
+        { id: 'taskbar', label: 'Taskbar', content: () => h('div', null,
+          prevBox,
+          h('div.pz-tb-group', null, h('div.pz-field-title', null, 'Taskbar appearance'),
+            h('div.pz-tb-opt', null, A.ui.checkbox({ label: 'Lock the taskbar', checked: true, disabled: true }), h('div.cp-fine', null, 'Always locked, so it never wanders off to the side of the screen.')),
+            opt('autohide', 'Auto-hide the taskbar', 'Tucks the taskbar away until you point at the bottom of the screen.'),
+            opt('small', 'Use small icons'),
+            opt('quick', 'Show Quick Launch', 'The little Flip 3D button next to the Start orb.'),
+            opt('thumbs', 'Show window previews (thumbnails)', 'Point at a taskbar button to see a live picture of its window.'),
+            opt('showdesk', 'Show the Show desktop button', 'The glass strip at the far right. Point at it to peek at the desktop.'))) },
+        { id: 'start', label: 'Start Menu', content: () => h('div', null,
+          h('div.pz-tb-group', null, h('div.pz-field-title', null, 'Start menu'),
+            opt('userpic', 'Show my picture on the Start menu', 'Your framed user picture sits at the top of the Start menu.'),
+            h('div.cp-link-list', null, K.link('Change your picture', () => ctx.go('cp:users-picture'), { icon: 'icons/photo' }))),
+          h('div.pz-tb-group', null, h('div.pz-field-title', null, 'Privacy'), clearNote, clearBtn)) },
+        { id: 'tray', label: 'Notification Area', content: () => h('div', null,
+          h('div.pz-tb-group', null, h('div.pz-field-title', null, 'System icons'),
+            h('div.cp-fine', null, 'Choose which system icons appear next to the clock.'),
+            opt('clock', 'Clock'), opt('volume', 'Volume'), opt('network', 'Network'), opt('power', 'Power'), opt('action', 'Security flag'))) },
+        { id: 'desktop', label: 'Desktop', content: () => h('div', null,
+          h('div.pz-tb-group', null, h('div.pz-field-title', null, 'Desktop icons'), showIcons, h('div.pz-tb-sizes', null, iconSize))) },
+      ] });
+      function sync() {
+        const p = tbPrefs();
+        opts.forEach(([k, c]) => { c.checked = !!p[k]; });
+        showIcons.checked = !!A.store.get('desktop.showIcons');
+        iconSize.querySelectorAll('input').forEach((i) => { i.checked = i.value === A.store.get('desktop.iconSize'); });
+        renderPrev();
+      }
+      ['store:pz.taskbar', 'store:desktop.showIcons', 'store:desktop.iconSize', 'store:wallpaper'].forEach((ev) => ctx.bus(ev, sync));
+      ctx.interval(renderPrev, 30000);
+      renderPrev();
+      return h('div.pz-taskbar', null,
+        K.head('Taskbar and Start Menu', 'Every option here really changes your taskbar and Start menu, right away.'),
+        tabs,
         footer);
     },
   });

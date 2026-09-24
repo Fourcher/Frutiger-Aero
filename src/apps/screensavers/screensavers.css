@@ -22,3 +22,37 @@
 /* Glass Shapes: black with the faintest blue depth. */
 .ss-mystify { background: radial-gradient(ellipse 75% 65% at 50% 50%, #04101f 0%, #01050b 60%, #000 100%); }
 .ss-mystify canvas.ss-main { mix-blend-mode: screen; }
+
+/* 3D Text: a deep blue stage with a glossy floor at --ss-floor. */
+.ss-3dtext {
+  --ss-floor: 72%;
+  background:
+    linear-gradient(180deg, transparent calc(var(--ss-floor) - .4%), rgba(150,210,255,.2) var(--ss-floor), rgba(70,130,200,.12) calc(var(--ss-floor) + .8%), rgba(30,70,130,.1) calc(var(--ss-floor) + 6%), rgba(0,0,0,0) 100%),
+    radial-gradient(ellipse 85% 65% at 50% 42%, #0f3d6b 0%, #082a4f 32%, #03101f 66%, #000 100%);
+}
+
+/* Photos: stacked slides; crossfade and Ken Burns run as CSS transitions. */
+.ss-photos { background: #000; container-type: size; }
+.ss-root canvas.ss-photo { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: 0; transform-origin: 50% 50%; will-change: transform, opacity; backface-visibility: hidden; }
+.ss-photo-cap { position: absolute; left: 4.5%; bottom: 6%; z-index: 100000; max-width: 60%; font: 300 clamp(14px, 2.6cqh, 30px)/1.2 var(--font-aero); color: #fff; letter-spacing: .01em; text-shadow: 0 1px 2px rgba(0,0,0,.7), 0 0 18px rgba(0,20,50,.6); opacity: 0; transform: translateY(6px); transition: opacity 1.2s ease, transform 1.2s ease; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-photo-cap.on { opacity: .92; transform: none; }
+.ss-photos-none { background: radial-gradient(ellipse 70% 60% at 50% 45%, #0e3a68 0%, #06203f 45%, #010812 100%); }
+.ss-photo-empty { position: absolute; inset: 0; display: grid; place-items: center; }
+.ss-photo-card { display: flex; flex-direction: column; align-items: center; gap: 1.4cqh; max-width: min(560px, 86cqw); padding: 4cqh 5cqw; border-radius: var(--radius-lg, 18px); text-align: center; color: #eaf6ff; background: linear-gradient(180deg, rgba(255,255,255,.16), rgba(255,255,255,.05) 46%, rgba(255,255,255,.02) 46%, rgba(120,200,255,.08)); border: 1px solid rgba(255,255,255,.28); box-shadow: 0 10px 40px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.4); animation: ss-drift 48s ease-in-out infinite alternate; }
+.ss-photo-icon { width: clamp(24px, 14cqh, 96px); height: auto; filter: drop-shadow(0 4px 10px rgba(0,0,0,.4)); }
+.ss-photo-title { font: 300 clamp(10px, 3.8cqh, 28px)/1.2 var(--font-aero); white-space: nowrap; }
+.ss-photo-text { font: 400 clamp(11px, 2.1cqh, 16px)/1.45 var(--font-aero); color: rgba(225,240,255,.8); }
+@keyframes ss-drift {
+  0% { transform: translate(-16cqw, -12cqh); }
+  30% { transform: translate(14cqw, -7cqh); }
+  65% { transform: translate(-9cqw, 11cqh); }
+  100% { transform: translate(15cqw, 9cqh); }
+}
+
+/* Aquarium fallback: deep blue water with a teal glow from the left. */
+.ss-under { background: radial-gradient(ellipse 55% 70% at 0% 45%, rgba(32,196,214,.45), transparent 70%), linear-gradient(180deg, #0b5fa8 0%, #0a3f8a 35%, #062a66 70%, #03163d 100%); }
+.ss-aquarium { background: #03163d; }
+
+/* Aerium Energy: deep blue, with the light screened on top. */
+.ss-energy { background: radial-gradient(ellipse 60% 45% at 28% 62%, rgba(40,140,255,.3), transparent 70%), radial-gradient(ellipse 50% 40% at 78% 28%, rgba(0,190,210,.16), transparent 70%), linear-gradient(160deg, #031a4a 0%, #04245f 40%, #021541 75%, #010a26 100%); }
+.ss-energy canvas.ss-main { mix-blend-mode: screen; }

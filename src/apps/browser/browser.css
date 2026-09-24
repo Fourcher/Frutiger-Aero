@@ -201,6 +201,7 @@
 @keyframes hz-curtain { to { top: 100%; } }
 @keyframes hz-spin { to { transform: rotate(360deg); } }
 .hz-blank { min-height: 100%; background: #fff; }
+.hz-fs-layer { position: absolute; inset: 0; z-index: 7; display: flex; background: #000; animation: ae-fade-in .2s ease-out; }
 
 /* information bar */
 .hz-info {
@@ -405,9 +406,16 @@
 .wk-burst > span { position: relative; }
 .wk-burst-spin > svg { animation: wk-burst-spin 12s linear infinite; }
 @keyframes wk-burst-spin { to { transform: rotate(360deg); } }
-.wk-stars { display: inline-flex; gap: 1px; vertical-align: -2px; }
-.wk-stars svg { width: 12px; height: 12px; display: block; }
-.wk-stars.wk-big svg { width: 18px; height: 18px; }
+.wk-rate {
+  position: relative; display: inline-block; width: 65px; height: 13px; vertical-align: -2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M10 1.5l2.5 5.4 5.9.7-4.4 4 1.2 5.9L10 14.6l-5.2 2.9L6 11.6 1.6 7.6l5.9-.7z' fill='%23e3e3e3' stroke='%23a8a8a8'/%3E%3C/svg%3E") 0 0 / 13px 13px repeat-x;
+}
+.wk-rate > i {
+  position: absolute; left: 0; top: 0; bottom: 0; overflow: hidden;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23fff3a8'/%3E%3Cstop offset='.5' stop-color='%23ffd62e'/%3E%3Cstop offset='.51' stop-color='%23ffb300'/%3E%3Cstop offset='1' stop-color='%23f08a12'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M10 1.5l2.5 5.4 5.9.7-4.4 4 1.2 5.9L10 14.6l-5.2 2.9L6 11.6 1.6 7.6l5.9-.7z' fill='url(%23g)' stroke='%23b86a00'/%3E%3C/svg%3E") 0 0 / 13px 13px repeat-x;
+}
+.wk-rate.wk-big { width: 100px; height: 20px; background-size: 20px 20px; }
+.wk-rate.wk-big > i { background-size: 20px 20px; }
 .wk-gbtn {
   --c1: #9be86a; --c2: #3fb42c; --c3: #238a1c;
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; overflow: hidden; cursor: pointer; text-decoration: none !important;

@@ -1,6 +1,6 @@
 /* Explorer: browse the Aerium virtual file system in a glass window.
    Back and Forward orbs, breadcrumbs with sibling menus, live search, the
-   Vista command bar, a navigation pane with Favorite Links and the folder
+   glossy command bar, a navigation pane with Favorite Links and the folder
    tree, seven views with real thumbnails, the blue selection marquee, drag
    and drop, inline rename, a details pane, and the Computer and Recycle Bin
    views. Everything it shows lives in Aerium.fs. */
@@ -206,19 +206,34 @@
     if (errors.length) errorBox(parent, errors[0], 'Delete');
     return binned.length + gone;
   }
+  // Ratings and rotation (keyed by path) travel with a picture or folder when it moves.
+  function migrateMeta(from, to) {
+    ['photos.ratings', 'photos.rotation'].forEach((key) => {
+      const src = A.store.get(key, {}) || {};
+      let changed = false;
+      const out = {};
+      Object.keys(src).forEach((k) => {
+        const nk = k === from ? to : k.startsWith(from + '/') ? to + k.slice(from.length) : k;
+        if (nk !== k) changed = true;
+        out[nk] = src[k];
+      });
+      if (changed) A.store.set(key, out);
+    });
+  }
   function movePaths(paths, dest, parent) {
     dest = fs.normalize(dest);
     const moves = [], errors = [];
     paths.forEach((p) => {
       if (!fs.exists(p) || fs.dirname(p) === dest) return;
-      try { moves.push([p, fs.move(p, dest)]); } catch (e) { errors.push(e.message); }
+      try { const np = fs.move(p, dest); moves.push([p, np]); migrateMeta(p, np); } catch (e) { errors.push(e.message); }
     });
     if (errors.length) errorBox(parent, errors[0], 'Move');
     if (moves.length) {
       pushUndo('Undo Move', () => moves.slice().reverse().forEach(([from, to]) => {
         if (!fs.exists(to)) return;
-        const back = fs.move(to, fs.dirname(from));
-        if (fs.basename(back) !== fs.basename(from) && !fs.exists(from)) fs.rename(back, fs.basename(from));
+        let back = fs.move(to, fs.dirname(from));
+        migrateMeta(to, back);
+        if (fs.basename(back) !== fs.basename(from) && !fs.exists(from)) back = fs.rename(back, fs.basename(from));
       }));
     }
     return moves.map((m) => m[1]);
@@ -1863,7 +1878,7 @@
         props.push(dpProp('Processor', 'Aerium Glass Duo @ 2.40 GHz'), dpProp('Memory', '2.00 GB'), dpProp('Experience', '5.9'));
       } else {
         icon = L.icon;
-        name = plural(shown.length, 'item');
+        name = L.hiddenUntilShown && !showSys ? plural(items.length, 'hidden item') : plural(shown.length, 'item');
         sub = '';
         if (L.kind === 'recycle') {
           let size = 0;
@@ -2524,7 +2539,8 @@
       const r = (el || content).getBoundingClientRect();
       A.ui.menu(list.length ? itemMenu(list) : backgroundMenu(), r.left + Math.min(40, r.width / 2), r.top + Math.min(r.height, 24));
     }
-    content.addEventListener('keydown', (e) => {
+    content.addEventListener('keydown', contentKey);
+    function contentKey(e) {
       if (A.util.isTyping(e)) return;
       const k = e.key;
       const ctrl = e.ctrlKey || e.metaKey;
@@ -2544,9 +2560,11 @@
       else if ((k === 'F10' && e.shiftKey) || k === 'ContextMenu') { e.preventDefault(); keyboardMenu(); }
       else if (k === 'Escape' && sel.size) { e.preventDefault(); selectOnly(null); }
       else if (k.length === 1 && !ctrl && !e.altKey && k !== ' ') { e.preventDefault(); typeAhead(k); }
-    });
+    }
     win.el.addEventListener('keydown', (e) => {
       if (e.defaultPrevented || closed) return;
+      // Keys that land on the frame itself (after a title bar click) still reach the item view.
+      if (e.target === win.el) { contentKey(e); if (e.defaultPrevented) { content.focus({ preventScroll: true }); return; } }
       const k = e.key;
       const ctrl = e.ctrlKey || e.metaKey;
       const low = k.length === 1 ? k.toLowerCase() : k;

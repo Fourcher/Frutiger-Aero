@@ -83,7 +83,7 @@
     const night = hour < 6.5 || hour > 19.5;
     return {
       city: name, region: REGIONS[h0 % REGIONS.length], days, night,
-      now: { temp, cond: t0.cond, label: t0.label, icon: night && t0.night ? t0.night : t0.icon, icon2: night ? null : t0.icon2 || null, feels: temp + Math.round(r() * 4 - 2), humidity: 30 + Math.round(r() * 55), wind: Math.round(3 + r() * 16), windDir: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.floor(r() * 8)], uv: Math.round(r() * 9), pressure: (29.6 + r() * 0.8).toFixed(2), visibility: 6 + Math.round(r() * 4), bubbles: ['Low', 'Moderate', 'High', 'Very high', 'Extreme'][Math.floor(r() * 5)] },
+      now: { temp, cond: t0.cond, label: night && t0.cond === 'sunny' ? 'Clear' : night && t0.cond === 'partly' ? 'Partly clear' : t0.label, icon: night && t0.night ? t0.night : t0.icon, icon2: night ? null : t0.icon2 || null, feels: temp + Math.round(r() * 4 - 2), humidity: 30 + Math.round(r() * 55), wind: Math.round(3 + r() * 16), windDir: ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.floor(r() * 8)], uv: Math.round(r() * 9), pressure: (29.6 + r() * 0.8).toFixed(2), visibility: 6 + Math.round(r() * 4), bubbles: ['Low', 'Moderate', 'High', 'Very high', 'Extreme'][Math.floor(r() * 5)] },
       sunrise: '6:' + String(10 + Math.floor(r() * 40)).padStart(2, '0') + ' AM', sunset: '7:' + String(5 + Math.floor(r() * 50)).padStart(2, '0') + ' PM',
     };
   }

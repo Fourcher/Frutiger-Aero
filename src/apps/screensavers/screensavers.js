@@ -314,7 +314,7 @@
         // a faint lens: light gathered in the middle, a darker band inside the rim
         const lens = 0.035 * Math.pow(nz, 6);
         r = 1 - Math.exp(-1.3 * r) + lens; g = 1 - Math.exp(-1.3 * g) + lens; b = 1 - Math.exp(-1.3 * b) + lens;
-        const band = 0.1 * smooth(0.72, 0.93, dist) * (1 - smooth(0.95, 1, dist));
+        const band = 0.065 * smooth(0.72, 0.93, dist) * (1 - smooth(0.95, 1, dist));
         let a = Math.max(r, g, b, F * 0.78, band);
         a = clamp(a, 0, 1);
         const o = (py * size + px) * 4;
@@ -351,7 +351,7 @@
     return c;
   }
   // Film opacity by radius: faint across the face, strong toward the rim.
-  const FILM_RING = [[0, 0.022], [0.55, 0.034], [0.76, 0.085], [0.87, 0.2], [0.935, 0.42], [0.972, 0.7], [0.992, 0.55], [1, 0]];
+  const FILM_RING = [[0, 0.014], [0.55, 0.024], [0.76, 0.07], [0.87, 0.2], [0.935, 0.42], [0.972, 0.7], [0.992, 0.55], [1, 0]];
   function filmSprite(field, R) {
     const size = Math.ceil(R * 2 + 4), c = canvas(size, size), x = c.getContext('2d'), m = size / 2;
     x.imageSmoothingEnabled = true;
@@ -567,7 +567,7 @@
         ctx.globalAlpha = fade * 0.95 * Math.min(1, g);
         bubbleXf(ctx, X, Y, s, q, b.wobAng, b.spinA + t * b.rateA);
         ctx.drawImage(sp.a, fa, fa);
-        ctx.globalAlpha = fade * Math.min(1, g) * (0.35 + 0.3 * Math.sin(t * 0.23 + b.breathe));
+        ctx.globalAlpha = fade * Math.min(1, g) * (0.32 + 0.26 * Math.sin(t * 0.23 + b.breathe));
         bubbleXf(ctx, X, Y, s, q, b.wobAng, b.spinB - t * b.rateB);
         ctx.drawImage(sp.b, fa, fa);
         // the thin rim, cycling through the film spectrum
@@ -743,6 +743,8 @@
 
     function draw(S, t) {
       const ctx = S.ctx, k = S.sx;
+      // The glow shows the previous frame: its pixels are ready, so copying never stalls.
+      glow.run(S.canvas);
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#000';
@@ -820,7 +822,6 @@
           ctx.globalAlpha = 1;
         }
       }
-      glow.run(S.canvas);
     }
 
     return runScene(container, opts, {
@@ -888,9 +889,9 @@
 
     function makeCurtains() {
       const base = [
-        { y0: 0.5, h: 0.4, alpha: 0.42, ink: 0, spacing: 2.3 },
-        { y0: 0.4, h: 0.34, alpha: 0.26, ink: 1, spacing: 2.8 },
-        { y0: 0.58, h: 0.3, alpha: 0.24, ink: 2, spacing: 3 },
+        { y0: 0.5, h: 0.4, alpha: 0.52, ink: 0, spacing: 2.3 },
+        { y0: 0.4, h: 0.34, alpha: 0.32, ink: 1, spacing: 2.8 },
+        { y0: 0.58, h: 0.3, alpha: 0.3, ink: 2, spacing: 3 },
       ];
       return base.map((c, i) => Object.assign(c, {
         seed: rand(0, 100),
@@ -1103,7 +1104,7 @@
         const hz = haze[c.ink], hw = aw * 0.24;
         for (let j = 0; j <= 10; j++) {
           const s = j / 10, xN = s * 1.1 - 0.05 + c.fa * Math.sin(TAU * (c.fk * s + c.fw * t) + c.fp);
-          const dx = (xN - 0.5) / 0.36, env = Math.exp(-dx * dx);
+          const dx = (xN - 0.5) / 0.36, env = Math.exp(-dx * dx) * smooth(-0.1, 0.12, xN) * smooth(1.1, 0.88, xN);
           const base = c.y0 + c.a1 * Math.sin(TAU * (c.k1 * s + c.w1 * t) + c.p1);
           ctx.globalAlpha = clamp(env * (0.25 + 0.75 * N2(s * c.nk + t * c.scroll + c.seed)) * c.alpha * 0.34, 0, 1);
           ctx.drawImage(hz, xN * aw - hw / 2, (base - c.h * 0.72) * ah, hw, c.h * ah * 0.95);
@@ -1117,7 +1118,7 @@
           const dxds = 1.1 + c.fa * TAU * c.fk * (Math.cos(ph1) + 1.15 * Math.cos(ph2));
           const fold = clamp(Math.abs(dxds) * 2.2, 0, 1);
           const dx = (xN - 0.5) / 0.36;
-          const env = Math.exp(-dx * dx);
+          const env = Math.exp(-dx * dx) * smooth(-0.03, 0.14, xN) * smooth(1.03, 0.86, xN);
           let I = env * (0.2 + 0.8 * Math.pow(N2(s * c.nk + t * c.scroll + c.seed), 1.7));
           I *= 0.62 + 0.38 * N3(s * 55 + t * 0.3 + c.seed * 3);
           I *= 1 + 0.1 * Math.sin(t * 1.4 + i * 0.41);
@@ -1126,7 +1127,7 @@
             I += p.amp * env * Math.sin(Math.PI * u) * Math.exp(-ds * ds);
           }
           I *= c.alpha * fold;
-          if (I < 0.012) continue;
+          if (I < 0.004) continue;
           const base = c.y0 + c.a1 * Math.sin(TAU * (c.k1 * s + c.w1 * t) + c.p1) + c.a2 * Math.sin(TAU * (c.k2 * s - c.w2 * t) + c.p2);
           const hh = c.h * (0.5 + 0.5 * N1(s * c.hk + t * 0.04 + c.seed));
           ctx.globalAlpha = I > 1 ? 1 : I;
@@ -1236,7 +1237,6 @@
   // a colored body with a white glint, a faint pane of glass across the
   // newest shape, and a soft glow over everything.
   function createMystify(container, opts) {
-    const preview = !!opts.preview;
     const ECHOES = 11, LAG = 0.085;
     let shapes = [], hist = [], glow = null;
 
@@ -1267,6 +1267,7 @@
 
     function draw(S, t) {
       const ctx = S.ctx, k = S.sx, u = Math.max(0.55, S.s / 700);
+      glow.run(S.canvas); // last frame's pixels, already rendered
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
       ctx.fillStyle = '#000';
@@ -1302,7 +1303,6 @@
         }
       }
       ctx.globalAlpha = 1;
-      glow.run(S.canvas);
     }
 
     return runScene(container, opts, {
@@ -1337,11 +1337,754 @@
     });
   }
 
+  // ============================================================ 5. 3D Text
+  // Your words in extruded chrome or blue glass, turning in 3D with one of four
+  // motions (spin, see-saw, wobble, tumble) that take turns, above a glossy
+  // floor holding a soft reflection. The letters are a stack of cached slices
+  // drawn with perspective; the face is relit every frame as it turns.
+  const TEXT_MATERIALS = {
+    chrome: {
+      face: [[0, '#fbfdff'], [0.3, '#d3e4f4'], [0.47, '#8ba4bf'], [0.5, '#34475e'], [0.57, '#56728f'], [0.8, '#adc8df'], [1, '#f0f8ff']],
+      sides: [['#5d6f84', '#18222e'], ['#8ea1b6', '#2f3e50'], ['#d2dde9', '#56697f']],
+      line: 'rgba(8,24,44,0.55)', floor: [150, 205, 255],
+    },
+    glass: {
+      face: [[0, '#effcff'], [0.46, '#a6e6ff'], [0.5, '#39b3f2'], [0.78, '#0b74c9'], [1, '#48d6ff']],
+      sides: [['#0b4580', '#041a33'], ['#1a70b3', '#07345f'], ['#55c0f2', '#0c5796']],
+      line: 'rgba(0,36,80,0.6)', floor: [80, 190, 255],
+    },
+  };
+  const qmul = (a, b) => [
+    a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+    a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+    a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+    a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+  ];
+  function qEuler(pitch, yaw, roll) {
+    const qx = [Math.sin(pitch / 2), 0, 0, Math.cos(pitch / 2)];
+    const qy = [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)];
+    const qz = [0, 0, Math.sin(roll / 2), Math.cos(roll / 2)];
+    return qmul(qmul(qy, qx), qz);
+  }
+  function qSlerp(a, b, t) {
+    let d = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
+    if (d < 0) { b = b.map((v) => -v); d = -d; }
+    if (d > 0.9995) {
+      const r = a.map((v, i) => v + (b[i] - v) * t), l = Math.hypot(r[0], r[1], r[2], r[3]);
+      return r.map((v) => v / l);
+    }
+    const th = Math.acos(d), s0 = Math.sin((1 - t) * th) / Math.sin(th), s1 = Math.sin(t * th) / Math.sin(th);
+    return a.map((v, i) => v * s0 + b[i] * s1);
+  }
+  // Row-major 3x3 rotation matrix.
+  function qMat(q) {
+    const x = q[0], y = q[1], z = q[2], w = q[3];
+    return [
+      1 - 2 * (y * y + z * z), 2 * (x * y - z * w), 2 * (x * z + y * w),
+      2 * (x * y + z * w), 1 - 2 * (x * x + z * z), 2 * (y * z - x * w),
+      2 * (x * z - y * w), 2 * (y * z + x * w), 1 - 2 * (x * x + y * y),
+    ];
+  }
+  const TEXT_MOTIONS = {
+    spin: (t) => qEuler(0.12 * Math.sin(t * 0.4), t * 0.9, 0.04 * Math.sin(t * 0.3)),
+    seesaw: (t) => qEuler(0.1 * Math.sin(t * 0.7), 0.3 * Math.sin(t * 0.55), 0.3 * Math.sin(t * 1.05)),
+    wobble: (t) => qEuler(0.36 * Math.sin(t * 1.2), 0.46 * Math.sin(t * 0.8), 0.05 * Math.sin(t * 0.6)),
+    tumble: (t) => qEuler(t * 0.75, 0.4 * Math.sin(t * 0.33) + t * 0.18, 0.1 * Math.sin(t * 0.5)),
+  };
+  const TEXT_FONT = (px) => `600 ${px}px Selawik, "Segoe UI", "Helvetica Neue", Arial, sans-serif`;
+
+  function create3DText(container, opts) {
+    const preview = !!opts.preview;
+    const T = {};
+    const mat = TEXT_MATERIALS[Math.random() < 0.6 ? 'chrome' : 'glass'];
+    const order = A.util.shuffle(Object.keys(TEXT_MOTIONS));
+    const HOLD = preview ? 12 : 18, BLEND = 2.5;
+    const LIGHT = norm3([-0.3, -0.5, 0.8]);
+    const measure = canvas(8, 8).getContext('2d');
+    let text = clean(opts.text), needBuild = false, unsub = null;
+    let mi = 0, cur = { name: order[0], t0: 0 }, prev = null;
+    let refl = null, reflX = null, floorGrad = null;
+
+    function clean(v) {
+      const s = String(v == null ? '' : v).replace(/\s+/g, ' ').trim();
+      return (s || 'Aerium').slice(0, 40);
+    }
+    // Long phrases wrap onto two lines at the space nearest the middle.
+    function split(s) {
+      if (s.length <= 16 || s.indexOf(' ') < 0) return [s];
+      let best = -1;
+      for (let i = 0; i < s.length; i++) if (s[i] === ' ' && (best < 0 || Math.abs(i - s.length / 2) < Math.abs(best - s.length / 2))) best = i;
+      return [s.slice(0, best), s.slice(best + 1)];
+    }
+
+    function build(S) {
+      needBuild = false;
+      const ls = split(text), lh = 1.08;
+      measure.font = TEXT_FONT(100);
+      const mw = Math.max(1, ...ls.map((l) => measure.measureText(l).width)) / 100;
+      const fs = Math.max(6, Math.min(S.h * (ls.length > 1 ? 0.15 : 0.26), (S.w * (ls.length > 1 ? 0.6 : 0.72)) / mw));
+      T.fs = fs;
+      T.tw = mw * fs;
+      T.th = ls.length * lh * fs;
+      T.depth = fs * 0.26;
+      T.F = Math.max(S.w, S.h) * 1.35;       // camera distance, in CSS px
+      T.cy0 = S.h * (ls.length > 1 ? 0.42 : 0.44);
+      // clear the floor even when a wide phrase rolls (see-saw) or pitches (wobble)
+      const reach = (T.th / 2) * 1.02 + (T.tw / 2) * 0.3 + T.depth * 0.3;
+      T.yF = Math.min(S.h * 0.95, T.cy0 + reach * 1.08 + S.h * 0.025);
+      S.root.style.setProperty('--ss-floor', ((T.yF / S.h) * 100).toFixed(2) + '%');
+      const pad = fs * 0.14;
+      T.sc = Math.min(S.dpr, 2400 / (T.tw + pad * 2), 800 / (T.th + pad * 2));
+      const sw = Math.ceil((T.tw + pad * 2) * T.sc), sh = Math.ceil((T.th + pad * 2) * T.sc);
+      T.sw = sw; T.sh = sh; T.cx = sw / 2; T.cy = sh / 2;
+      const px = fs * T.sc, top = T.cy - (T.th / 2) * T.sc, bottom = T.cy + (T.th / 2) * T.sc;
+      const write = (c, style, stroke) => {
+        const x = c.getContext('2d');
+        x.font = TEXT_FONT(px);
+        x.textAlign = 'center';
+        x.textBaseline = 'middle';
+        x.lineJoin = 'round';
+        style(x);
+        ls.forEach((l, i) => {
+          const y = T.cy + (i - (ls.length - 1) / 2) * lh * px;
+          if (stroke) x.strokeText(l, T.cx, y); else x.fillText(l, T.cx, y);
+        });
+        return x;
+      };
+      T.mask = canvas(sw, sh);
+      write(T.mask, (x) => { x.fillStyle = '#fff'; });
+      // the walls: three shades, lit from above, lighter toward the face
+      T.sides = mat.sides.map(([a, b]) => {
+        const c = canvas(sw, sh);
+        write(c, (x) => { const g = x.createLinearGradient(0, top, 0, bottom); g.addColorStop(0, a); g.addColorStop(1, b); x.fillStyle = g; });
+        return c;
+      });
+      // bevel: a lit upper edge, a shaded lower edge and a fine outline, inside the letters
+      T.bevel = canvas(sw, sh);
+      const bx = write(T.bevel, (x) => {
+        const g = x.createLinearGradient(0, top, 0, bottom);
+        g.addColorStop(0, 'rgba(255,255,255,0.95)');
+        g.addColorStop(0.5, 'rgba(255,255,255,0)');
+        g.addColorStop(1, 'rgba(0,20,40,0.35)');
+        x.strokeStyle = g;
+        x.lineWidth = px * 0.07;
+      }, true);
+      bx.lineWidth = Math.max(1, px * 0.014);
+      bx.strokeStyle = mat.line;
+      ls.forEach((l, i) => bx.strokeText(l, T.cx, T.cy + (i - (ls.length - 1) / 2) * lh * px));
+      bx.globalCompositeOperation = 'destination-in';
+      bx.drawImage(T.mask, 0, 0);
+      // Two faces and a reflection drawn a frame ahead: every canvas is drawn
+      // one frame before it is used, so the GPU never makes the page wait.
+      T.faces = [canvas(sw, sh), canvas(sw, sh)];
+      T.fi = 0;
+      // reflection at half resolution
+      T.rk = S.sx * 0.5;
+      refl = canvas(S.w * T.rk, Math.max(1, (S.h - T.yF) * T.rk));
+      reflX = refl.getContext('2d');
+      floorGrad = null;
+    }
+
+    // Relight the face: the reflected horizon slides as it tilts, a sheen sweeps as it turns.
+    function updateFace(face, M, front, t) {
+      const x = face.getContext('2d'), sw = T.sw, sh = T.sh, th = T.th * T.sc;
+      const nx = front ? M[2] : -M[2], ny = front ? M[5] : -M[5], nz = front ? M[8] : -M[8];
+      const shift = -ny * th * 0.55;
+      x.globalCompositeOperation = 'copy';
+      const g = x.createLinearGradient(0, T.cy - th / 2 + shift, 0, T.cy + th / 2 + shift);
+      mat.face.forEach(([o, c]) => g.addColorStop(o, c));
+      x.fillStyle = g;
+      x.fillRect(0, 0, sw, sh);
+      x.globalCompositeOperation = 'destination-in';
+      x.drawImage(T.mask, 0, 0);
+      x.globalCompositeOperation = 'source-over';
+      x.drawImage(T.bevel, 0, 0);
+      x.globalCompositeOperation = 'source-atop';
+      const band = sw * 0.22, cxs = T.cx + (-nx * 1.4 + 0.3 * Math.sin(t * 0.35)) * sw * 0.5;
+      const sg = x.createLinearGradient(cxs - band, 0, cxs + band, band * 0.5);
+      sg.addColorStop(0, 'rgba(255,255,255,0)');
+      sg.addColorStop(0.5, 'rgba(255,255,255,0.55)');
+      sg.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = sg;
+      x.fillRect(0, 0, sw, sh);
+      // turned away from the light, the face falls into shade
+      const nl = nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2];
+      const dark = clamp(0.55 - nl * 0.65, 0, 0.6);
+      if (dark > 0.01) {
+        x.fillStyle = `rgba(2,12,26,${dark.toFixed(3)})`;
+        x.fillRect(0, 0, sw, sh);
+      }
+      x.globalCompositeOperation = 'source-over';
+    }
+
+    function slice(x, M, z, cx, cy, k0, mirror) {
+      const ps = T.F / (T.F - M[8] * z), k = (k0 * ps) / T.sc;
+      let b = k * M[3], d = k * M[4];
+      const a = k * M[0], c = k * M[1];
+      const e = k0 * (cx + ps * M[2] * z) - a * T.cx - c * T.cy;
+      let f = k0 * (cy + ps * M[5] * z) - b * T.cx - d * T.cy;
+      // mirrored about the floor; in the reflection canvas the floor is y = 0
+      if (mirror) { b = -b; d = -d; f = k0 * T.yF - f; }
+      x.setTransform(a, b, c, d, e, f);
+    }
+    function drawObject(x, M, front, cx, cy, n, k0, mirror, face) {
+      const half = T.depth / 2;
+      for (let i = 0; i <= n; i++) {
+        const f = i / n, z = front ? lerp(-half, half, f) : lerp(half, -half, f);
+        slice(x, M, z, cx, cy, k0, mirror);
+        x.drawImage(i === n ? face : T.sides[f > 0.78 ? 2 : f > 0.38 ? 1 : 0], 0, 0);
+      }
+    }
+
+    function frame(S, dt, t) {
+      if (needBuild) build(S);
+      if (t - cur.t0 > HOLD) { prev = cur; mi = (mi + 1) % order.length; cur = { name: order[mi], t0: t }; }
+      let q = TEXT_MOTIONS[cur.name](t - cur.t0);
+      if (prev) {
+        const u = (t - cur.t0) / BLEND;
+        if (u >= 1) prev = null;
+        else q = qSlerp(TEXT_MOTIONS[prev.name](t - prev.t0), q, u * u * (3 - 2 * u));
+      }
+      const M = qMat(q), front = M[8] >= 0;
+      const cx = S.w / 2 + S.w * 0.05 * Math.sin(t * 0.11), cy = T.cy0 + S.h * 0.018 * Math.sin(t * 0.23);
+      const ctx = S.ctx, k = S.sx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
+      const face = T.faces[T.fi];
+      if (!T.primed) { updateFace(face, M, front, t); T.primed = true; }
+      // enough slices that the walls look solid, and no more
+      const half = T.depth / 2, pf = T.F / (T.F - Math.abs(M[8]) * half), pb = T.F / (T.F + Math.abs(M[8]) * half);
+      const shift = Math.hypot(M[2], M[5]) * T.depth * pf + (pf - pb) * Math.hypot(T.tw, T.th) * 0.5;
+      const n = clamp(Math.ceil((shift * k) / 1.25), 2, preview ? 24 : 56);
+      // a pool of light on the floor
+      if (!floorGrad) {
+        floorGrad = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+        floorGrad.addColorStop(0, rgba(mat.floor, 0.2));
+        floorGrad.addColorStop(0.55, rgba(mat.floor, 0.06));
+        floorGrad.addColorStop(1, rgba(mat.floor, 0));
+      }
+      const lift = 1 - (cy - T.cy0) / (S.h * 0.05);
+      ctx.setTransform(k * T.tw * 0.55, 0, 0, k * T.fs * 0.3, k * cx, k * T.yF);
+      ctx.globalAlpha = clamp(0.75 + lift * 0.25, 0, 1);
+      ctx.fillStyle = floorGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, 1, 0, TAU);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+      // last frame's reflection, then the letters themselves
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(refl, 0, T.yF * k, S.w * k, (S.h - T.yF) * k);
+      drawObject(ctx, M, front, cx, cy, n, k, false, face);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      // the reflection for next frame, fading into the floor
+      const rx = reflX;
+      rx.setTransform(1, 0, 0, 1, 0, 0);
+      rx.globalCompositeOperation = 'source-over';
+      rx.clearRect(0, 0, refl.width, refl.height);
+      drawObject(rx, M, front, cx, cy, Math.max(2, Math.ceil(n / 2)), T.rk, true, face);
+      rx.setTransform(1, 0, 0, 1, 0, 0);
+      rx.globalCompositeOperation = 'destination-in';
+      const fade = rx.createLinearGradient(0, 0, 0, Math.min(refl.height, T.th * 0.9 * T.rk));
+      fade.addColorStop(0, 'rgba(0,0,0,0.42)');
+      fade.addColorStop(0.5, 'rgba(0,0,0,0.12)');
+      fade.addColorStop(1, 'rgba(0,0,0,0)');
+      rx.fillStyle = fade;
+      rx.fillRect(0, 0, refl.width, refl.height);
+      rx.globalCompositeOperation = 'source-over';
+      // and the face for next frame
+      T.fi ^= 1;
+      updateFace(T.faces[T.fi], M, front, t);
+    }
+
+    return runScene(container, opts, {
+      cls: 'ss-3dtext',
+      maxDpr: 1.5,
+      budget: 3.2e6,
+      setup() {
+        if (document.fonts && document.fonts.check && !document.fonts.check(TEXT_FONT(40))) {
+          document.fonts.load(TEXT_FONT(40)).then(() => { needBuild = true; }, () => {});
+        }
+        // Personalization edits the text live: follow along in the preview.
+        unsub = A.store.on('screensaver.text', (v) => { text = clean(v); needBuild = true; });
+      },
+      resize(S) { build(S); },
+      frame,
+      dispose() { if (unsub) unsub(); },
+    });
+  }
+
+  // ============================================================ 6. Photos
+  // A slideshow of every picture under /Pictures. Each one is painted once to
+  // a canvas, then crossfades in while the compositor runs a slow Ken Burns
+  // pan and zoom (CSS transitions), so it costs next to nothing as it plays.
+  function collectPictures(dir, depth, out) {
+    let items = [];
+    try { items = A.fs.list(dir) || []; } catch (e) { return out; }
+    for (const it of items) {
+      if (out.length >= 400) break;
+      if (it.type === 'folder') { if (depth < 8) collectPictures(it.path, depth + 1, out); continue; }
+      let raw = null;
+      try { raw = A.fs.read(it.path); } catch (e) { raw = null; }
+      if (typeof raw === 'string' && raw.startsWith('asset:') && !hasAsset(raw.slice(6))) continue;
+      let url = null;
+      try { url = A.fs.thumbFor(it.path); } catch (e) { url = null; }
+      if (url) out.push({ path: it.path, name: A.fs.stem(it.path), url });
+    }
+    return out;
+  }
+
+  function createPhotos(container, opts) {
+    const preview = !!opts.preview;
+    const root = mount(container, 'ss-photos');
+    const SHOW = preview ? 5.5 : 7, FADE = preview ? 1.4 : 2;
+    const timers = new Set();
+    let alive = true, idx = 0, flip = 0, fails = 0, z = 1, shown = null;
+    const later = (fn, ms) => {
+      const id = setTimeout(() => { timers.delete(id); if (alive) fn(); }, ms);
+      timers.add(id);
+    };
+    const pics = A.util.shuffle(collectPictures('/Pictures', 0, []));
+    const slides = [0, 1].map(() => root.appendChild(h('canvas.ss-photo')));
+    const cap = h('div.ss-photo-cap');
+    if (!preview) root.appendChild(cap);
+
+    function size() {
+      return [Math.max(1, root.clientWidth || opts.width || 320), Math.max(1, root.clientHeight || opts.height || 200)];
+    }
+    function paint(c, img) {
+      const [W, H] = size();
+      fitCanvas(c, W, H, Math.min(window.devicePixelRatio || 1, preview ? 2 : 1.5));
+      const x = c.getContext('2d');
+      x.setTransform(c.width / W, 0, 0, c.height / H, 0, 0);
+      x.imageSmoothingEnabled = true;
+      x.imageSmoothingQuality = 'high';
+      const iw = img.naturalWidth || img.width || 1600, ih = img.naturalHeight || img.height || 1000;
+      x.fillStyle = '#000';
+      x.fillRect(0, 0, W, H);
+      if (preview || iw >= W * 0.55 || ih >= H * 0.55) {
+        const sc = Math.max(W / iw, H / ih);
+        x.drawImage(img, (W - iw * sc) / 2, (H - ih * sc) / 2, iw * sc, ih * sc);
+        return;
+      }
+      // A small picture: a blurred wash of itself behind a framed print.
+      const tiny = canvas(24, 16);
+      tiny.getContext('2d').drawImage(img, 0, 0, 24, 16);
+      x.drawImage(tiny, -W * 0.05, -H * 0.05, W * 1.1, H * 1.1);
+      x.fillStyle = 'rgba(0,10,25,0.4)';
+      x.fillRect(0, 0, W, H);
+      const sc = Math.min(2, (W * 0.62) / iw, (H * 0.62) / ih);
+      const w = iw * sc, hh = ih * sc, px = (W - w) / 2, py = (H - hh) / 2, b = Math.max(6, Math.min(W, H) * 0.012);
+      x.shadowColor = 'rgba(0,0,0,0.5)';
+      x.shadowBlur = 30;
+      x.shadowOffsetY = 8;
+      x.fillStyle = '#fbfdff';
+      x.fillRect(px - b, py - b, w + b * 2, hh + b * 2);
+      x.shadowColor = 'transparent';
+      x.drawImage(img, px, py, w, hh);
+    }
+    // Start somewhere, drift to somewhere else; never showing an edge.
+    function kenBurns(c) {
+      let s0 = rand(1.03, 1.1), s1 = rand(1.16, 1.26);
+      if (Math.random() < 0.5) { const tmp = s0; s0 = s1; s1 = tmp; }
+      const a = rand(0, TAU), m0 = ((s0 - 1) / 2) * 90, m1 = ((s1 - 1) / 2) * 90;
+      c.style.transition = 'none';
+      c.style.opacity = '0';
+      c.style.transform = `translate(${(Math.cos(a) * m0).toFixed(2)}%, ${(Math.sin(a) * m0).toFixed(2)}%) scale(${s0.toFixed(3)})`;
+      void c.offsetWidth;
+      c.style.transition = `opacity ${FADE}s ease-in-out, transform ${SHOW + FADE * 2}s linear`;
+      c.style.opacity = '1';
+      c.style.transform = `translate(${(-Math.cos(a) * m1).toFixed(2)}%, ${(-Math.sin(a) * m1).toFixed(2)}%) scale(${s1.toFixed(3)})`;
+    }
+    function next() {
+      const pic = pics[idx % pics.length];
+      idx++;
+      A.util.loadImage(pic.url).then((img) => {
+        if (!alive) return;
+        fails = 0;
+        const c = slides[flip], old = slides[flip ^ 1];
+        flip ^= 1;
+        paint(c, img);
+        shown = { c, img };
+        c.style.zIndex = String(++z);
+        kenBurns(c);
+        if (!preview) {
+          cap.classList.remove('on');
+          later(() => { cap.textContent = pic.name; cap.classList.add('on'); }, FADE * 1000);
+          later(() => cap.classList.remove('on'), (FADE + 4.5) * 1000);
+        }
+        later(() => { old.style.transition = 'none'; old.style.opacity = '0'; }, FADE * 1000 + 120);
+        later(next, SHOW * 1000);
+      }, () => {
+        if (!alive) return;
+        if (++fails >= pics.length) { empty(); return; }
+        later(next, 30);
+      });
+    }
+    function empty() {
+      root.classList.add('ss-photos-none');
+      root.appendChild(h('div.ss-photo-empty', null,
+        h('div.ss-photo-card', null,
+          h('img.ss-photo-icon', { src: A.icon('photo'), alt: '' }),
+          h('div.ss-photo-title', null, preview ? 'No pictures yet' : 'Your pictures will play here'),
+          preview ? null : h('div.ss-photo-text', null, 'Put some pictures in your Pictures folder and they will show up here as a slideshow.'))));
+    }
+
+    // Keep the current picture sharp and in proportion if the screen changes size.
+    let ro = null, pending = 0;
+    if (window.ResizeObserver) {
+      ro = new ResizeObserver(() => {
+        clearTimeout(pending);
+        pending = setTimeout(() => { if (alive && shown) paint(shown.c, shown.img); }, 150);
+      });
+      ro.observe(root);
+    }
+
+    if (pics.length) next(); else empty();
+    return {
+      destroy() {
+        alive = false;
+        timers.forEach(clearTimeout);
+        timers.clear();
+        clearTimeout(pending);
+        if (ro) ro.disconnect();
+        root.remove();
+      },
+    };
+  }
+
+  // ============================================================ 7. Aquarium
+  // The living fish tank, full screen. If the tank isn't available, a calm
+  // underwater scene of light rays, drifting motes and rising bubbles.
+  function createAquarium(container, opts) {
+    if (A.aquarium && typeof A.aquarium.create === 'function') {
+      const root = mount(container, 'ss-aquarium');
+      try {
+        const ctrl = A.aquarium.create(root, { mode: 'tank', preview: !!opts.preview, interactive: false });
+        if (ctrl) {
+          return {
+            destroy() {
+              try { if (ctrl.destroy) ctrl.destroy(); } catch (e) { /* ignore */ }
+              root.remove();
+            },
+          };
+        }
+      } catch (e) { /* use the underwater scene below */ }
+      root.remove();
+    }
+    return createUnderwater(container, opts);
+  }
+
+  function bubbleSprite(size) {
+    const c = canvas(size, size), x = c.getContext('2d'), m = size / 2, r = m - 1;
+    const g = x.createRadialGradient(m, m, r * 0.5, m, m, r);
+    g.addColorStop(0, 'rgba(180,235,255,0.04)');
+    g.addColorStop(0.78, 'rgba(200,240,255,0.22)');
+    g.addColorStop(1, 'rgba(235,250,255,0.8)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.arc(m, m, r, 0, TAU);
+    x.fill();
+    x.fillStyle = 'rgba(255,255,255,0.9)';
+    x.beginPath();
+    x.ellipse(m - r * 0.36, m - r * 0.4, r * 0.28, r * 0.15, -0.65, 0, TAU);
+    x.fill();
+    x.fillStyle = 'rgba(255,255,255,0.35)';
+    x.beginPath();
+    x.ellipse(m + r * 0.35, m + r * 0.42, r * 0.16, r * 0.08, -0.65, 0, TAU);
+    x.fill();
+    return c;
+  }
+  function raySprite() {
+    const w = 64, hh = 256, c = canvas(w, hh), x = c.getContext('2d');
+    const g = x.createLinearGradient(0, 0, 0, hh);
+    g.addColorStop(0, 'rgba(255,255,255,0.55)');
+    g.addColorStop(0.55, 'rgba(255,255,255,0.14)');
+    g.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = g;
+    x.beginPath();
+    x.moveTo(w * 0.36, 0);
+    x.lineTo(w * 0.64, 0);
+    x.lineTo(w, hh);
+    x.lineTo(0, hh);
+    x.closePath();
+    x.fill();
+    x.globalCompositeOperation = 'destination-in';
+    const hg = x.createLinearGradient(0, 0, w, 0);
+    hg.addColorStop(0, 'rgba(0,0,0,0)');
+    hg.addColorStop(0.5, 'rgba(0,0,0,1)');
+    hg.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = hg;
+    x.fillRect(0, 0, w, hh);
+    return c;
+  }
+
+  function createUnderwater(container, opts) {
+    const preview = !!opts.preview;
+    let rays = [], bubbles = [], motes = [], weeds = [], streams = [], bub = null, ray = null, mote = null;
+    function blow(S, x, y, r) {
+      bubbles.push({ x, y, r, vy: -(S.s * 0.07 + r * 7), ph: rand(0, TAU), wob: rand(0.8, 2) * r, f: rand(1.6, 3.2) });
+    }
+    return runScene(container, opts, {
+      cls: 'ss-under',
+      maxDpr: 1.5,
+      budget: 3e6,
+      setup() {
+        bub = bubbleSprite(64);
+        ray = raySprite();
+        mote = glowSprite(16, 0.25);
+      },
+      resize(S) {
+        const u = Math.max(0.5, S.s / 700), nr = preview ? 4 : 7;
+        rays = Array.from({ length: nr }, (_, i) => ({ x: (i + 0.5) / nr + rand(-0.05, 0.05), w: rand(0.07, 0.13), ph: rand(0, TAU), sp: rand(0.1, 0.22), a: rand(0.22, 0.42) }));
+        streams = [{ x: rand(0.15, 0.3), acc: 0 }, { x: rand(0.7, 0.85), acc: 0 }];
+        motes = Array.from({ length: preview ? 18 : 70 }, () => ({ x: rand(0, S.w), y: rand(0, S.h), r: rand(1.5, 4) * u, vx: rand(-4, 4) * u, vy: rand(-7, 2) * u, ph: rand(0, TAU) }));
+        weeds = Array.from({ length: preview ? 7 : 16 }, () => ({ x: rand(0, S.w), h: S.h * rand(0.1, 0.28), w: rand(5, 11) * u, ph: rand(0, TAU), sp: rand(0.45, 1) }));
+        bubbles = [];
+        for (let i = 0; i < (preview ? 8 : 26); i++) blow(S, rand(0, S.w), rand(0, S.h), rand(2, 9) * u);
+      },
+      frame(S, dt, t) {
+        const ctx = S.ctx, k = S.sx, W = S.w, H = S.h, u = Math.max(0.5, S.s / 700);
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.clearRect(0, 0, S.canvas.width, S.canvas.height);
+        // sunlight slanting down from the surface, swaying
+        ctx.globalCompositeOperation = 'lighter';
+        for (const r of rays) {
+          const lean = Math.sin(t * r.sp + r.ph) * 0.12, w = r.w * W, hh = H * 0.95;
+          ctx.globalAlpha = r.a * (0.75 + 0.25 * Math.sin(t * 0.6 + r.ph * 2));
+          ctx.setTransform((k * w) / 64, 0, (k * lean * hh) / 256, (k * hh) / 256, k * (r.x * W - w / 2), 0);
+          ctx.drawImage(ray, 0, 0);
+        }
+        // light rippling on the underside of the surface
+        ctx.setTransform(k, 0, 0, k, 0, 0);
+        ctx.strokeStyle = 'rgba(200,245,255,1)';
+        ctx.lineWidth = 1.2 * u;
+        for (let j = 0; j < 4; j++) {
+          ctx.globalAlpha = 0.16 - j * 0.03;
+          ctx.beginPath();
+          for (let i = 0; i <= 48; i++) {
+            const x = (i / 48) * W;
+            const y = H * (0.025 + j * 0.02) + Math.sin(x * 0.018 / u + t * (0.9 + j * 0.3) + j) * H * 0.006 + Math.sin(x * 0.047 / u - t * 1.6) * H * 0.004;
+            if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+          }
+          ctx.stroke();
+        }
+        // drifting motes
+        for (const m of motes) {
+          m.x += (m.vx + Math.sin(t * 0.5 + m.ph) * 3 * u) * dt;
+          m.y += m.vy * dt;
+          if (m.y < -5) m.y = H + 5; if (m.y > H + 5) m.y = -5;
+          if (m.x < -5) m.x = W + 5; if (m.x > W + 5) m.x = -5;
+          ctx.globalAlpha = 0.25 + 0.2 * Math.sin(t * 1.3 + m.ph);
+          ctx.drawImage(mote, m.x - m.r, m.y - m.r, m.r * 2, m.r * 2);
+        }
+        // swaying blades of weed in silhouette
+        ctx.globalCompositeOperation = 'source-over';
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(3,36,56,0.88)';
+        for (const wd of weeds) {
+          const sw = Math.sin(t * wd.sp + wd.ph), tipX = wd.x + sw * wd.h * 0.4, tipY = H - wd.h;
+          const midX = wd.x + sw * wd.h * 0.2, midY = H - wd.h * 0.55;
+          ctx.beginPath();
+          ctx.moveTo(wd.x - wd.w, H + 2);
+          ctx.quadraticCurveTo(midX - wd.w * 1.1, midY, tipX, tipY);
+          ctx.quadraticCurveTo(midX + wd.w * 0.9, midY, wd.x + wd.w, H + 2);
+          ctx.closePath();
+          ctx.fill();
+        }
+        // bubbles: two air stones and the odd stray
+        for (const st of streams) {
+          st.acc += dt;
+          while (st.acc > 0.17) { st.acc -= 0.17; blow(S, st.x * W + rand(-3, 3) * u, H + 6, rand(1.5, 4.5) * u); }
+        }
+        if (Math.random() < dt * (preview ? 1 : 2.5)) blow(S, rand(0, W), H + 12, rand(3, 10) * u);
+        ctx.globalAlpha = 0.9;
+        for (const b of bubbles) {
+          b.y += b.vy * dt;
+          const x = b.x + Math.sin(t * b.f + b.ph) * b.wob;
+          ctx.drawImage(bub, x - b.r, b.y - b.r, b.r * 2, b.r * 2);
+        }
+        bubbles = bubbles.filter((b) => b.y > -b.r * 3);
+        ctx.globalAlpha = 1;
+      },
+    });
+  }
+
+  // ============================================================ 8. Aerium Energy
+  // Streams of glowing aqua and green light flowing across deep blue. Particles
+  // ride a few gently undulating currents (some spiral around them) and leave
+  // luminous trails; every so often a burst of sparks blooms and is swept back
+  // into the flow. Trails live on the canvas and fade a little every frame.
+  function createEnergy(container, opts) {
+    const preview = !!opts.preview;
+    const COLORS = [[64, 224, 255], [96, 255, 140], [40, 240, 190], [150, 255, 120]];
+    const LEVELS = [[0.34, 1.1, 0], [0.6, 1.5, 0.12], [0.95, 2.1, 0.6]]; // alpha, width, whiteness
+    let bands = [], parts = [], sparks = [], flashes = [], glow = null, dot = null, nextBurst = rand(3, 5), styles = [];
+    const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+
+    function makeBands() {
+      const n = preview ? 3 : 4;
+      bands = [];
+      for (let i = 0; i < n; i++) {
+        bands.push({
+          c: 0.3 + (i / (n - 1)) * 0.42 + rand(-0.04, 0.04),
+          slope: rand(-0.38, -0.12),
+          a1: rand(0.07, 0.12), k1: rand(0.55, 1.05), w1: rand(0.035, 0.07) * (Math.random() < 0.5 ? -1 : 1), p1: rand(0, TAU),
+          a2: rand(0.02, 0.045), k2: rand(1.5, 2.5), w2: rand(0.05, 0.1), p2: rand(0, TAU),
+          width: rand(0.02, 0.045),
+          speed: rand(0.13, 0.2),
+          col: COLORS[i % COLORS.length],
+        });
+      }
+      styles = bands.map((b) => LEVELS.map(([a, , wh]) => rgba([lerp(b.col[0], 255, wh), lerp(b.col[1], 255, wh), lerp(b.col[2], 255, wh)], a)));
+    }
+    // Height of a current (0..1) at x (0..1) and time t.
+    function bandY(b, xN, t) {
+      return b.c + b.slope * (xN - 0.5) + b.a1 * Math.sin(TAU * (b.k1 * xN + b.w1 * t) + b.p1) + b.a2 * Math.sin(TAU * (b.k2 * xN - b.w2 * t) + b.p2);
+    }
+    function spawn(S, p, anywhere) {
+      const bi = Math.floor(Math.random() * bands.length), b = bands[bi];
+      p.b = bi;
+      p.x = (anywhere ? rand(-0.05, 1.05) : rand(-0.12, -0.01)) * S.w;
+      p.helix = Math.random() < 0.45;
+      p.off = gauss() * b.width * (p.helix ? 0.35 : 1);
+      p.hr = rand(0.4, 1.1) * b.width;
+      p.hw = rand(1.6, 3.4) * (Math.random() < 0.5 ? -1 : 1);
+      p.hp = rand(0, TAU);
+      p.v = S.w * b.speed * rand(0.75, 1.3);
+      p.lvl = Math.random() < 0.09 ? 2 : Math.random() < 0.55 ? 1 : 0;
+      p.seed = rand(0, 100);
+      p.y = NaN;
+    }
+    function populate(S) {
+      const n = preview ? 130 : Math.round(clamp((S.w * S.h) / 750, 500, 2200) * S.quality);
+      while (parts.length < n) { const p = {}; spawn(S, p, true); parts.push(p); }
+      parts.length = n;
+    }
+
+    function frame(S, dt, t) {
+      const ctx = S.ctx, k = S.sx, W = S.w, H = S.h, u = Math.max(0.6, S.s / 800);
+      glow.run(S.canvas); // last frame, already rendered
+      // Fade the trails: a little toward black, then subtract one level so
+      // nothing lingers as a faint ghost.
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = `rgba(0,0,0,${(1 - Math.exp(-dt * 6.5)).toFixed(4)})`;
+      ctx.fillRect(0, 0, S.canvas.width, S.canvas.height);
+      ctx.globalCompositeOperation = 'difference';
+      ctx.fillStyle = 'rgb(1,1,1)';
+      ctx.fillRect(0, 0, S.canvas.width, S.canvas.height);
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      ctx.lineCap = 'round';
+      // the currents
+      const paths = bands.map(() => LEVELS.map(() => new Path2D()));
+      for (let i = 0; i < parts.length; i++) {
+        const p = parts[i], b = bands[p.b];
+        const px = p.x, py = p.y;
+        p.x += p.v * dt;
+        const xN = p.x / W;
+        let off = p.off + 0.012 * Math.sin(xN * 8 + t * 1.1 + p.seed);
+        if (p.helix) off += p.hr * Math.sin(p.hp + t * p.hw);
+        p.y = (bandY(b, xN, t) + off) * H;
+        if (py === py) { const path = paths[p.b][p.lvl]; path.moveTo(px, py); path.lineTo(p.x, p.y); }
+        if (p.x > W * 1.05) spawn(S, p, false);
+      }
+      for (let bi = 0; bi < bands.length; bi++) {
+        for (let l = 0; l < LEVELS.length; l++) {
+          ctx.strokeStyle = styles[bi][l];
+          ctx.lineWidth = LEVELS[l][1] * u;
+          ctx.stroke(paths[bi][l]);
+        }
+      }
+      // bright heads on some of the hottest particles
+      const r = 5 * u;
+      ctx.globalAlpha = 0.55;
+      for (let i = 0; i < parts.length; i += 3) {
+        const p = parts[i];
+        if (p.lvl === 2 && p.y === p.y) ctx.drawImage(dot, p.x - r, p.y - r, r * 2, r * 2);
+      }
+      ctx.globalAlpha = 1;
+      // now and then, a burst of sparks
+      if (t > nextBurst) {
+        nextBurst = t + rand(preview ? 5 : 6, preview ? 9 : 11);
+        const b = bands[Math.floor(Math.random() * bands.length)], xN = rand(0.25, 0.75);
+        const cx = xN * W, cy = bandY(b, xN, t) * H, n = preview ? 26 : 110;
+        for (let i = 0; i < n; i++) {
+          const a = rand(0, TAU), sp = S.s * rand(0.12, 0.5);
+          sparks.push({ x: cx, y: cy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, age: 0, life: rand(1.6, 2.6), b });
+        }
+        flashes.push({ x: cx, y: cy, age: 0, col: b.col });
+      }
+      if (sparks.length) {
+        const young = new Path2D(), old = new Path2D();
+        for (const s of sparks) {
+          const px = s.x, py = s.y, drag = Math.exp(-dt * 2.2);
+          s.age += dt;
+          s.vx *= drag; s.vy *= drag;
+          if (s.age > 0.45) { // swept back into the current
+            const f = 1 - Math.exp(-dt * 1.4);
+            s.vx += (W * s.b.speed - s.vx) * f;
+            s.vy += ((bandY(s.b, s.x / W, t) * H - s.y) * 1.6 - s.vy) * f;
+          }
+          s.x += s.vx * dt; s.y += s.vy * dt;
+          const path = s.age < s.life * 0.45 ? young : old;
+          path.moveTo(px, py);
+          path.lineTo(s.x, s.y);
+        }
+        ctx.lineWidth = 1.8 * u;
+        ctx.strokeStyle = 'rgba(225,255,250,0.9)';
+        ctx.stroke(young);
+        ctx.lineWidth = 1.3 * u;
+        ctx.strokeStyle = 'rgba(120,240,230,0.5)';
+        ctx.stroke(old);
+        sparks = sparks.filter((s) => s.age < s.life);
+      }
+      for (const f of flashes) {
+        f.age += dt;
+        const p = f.age / 0.9, rr = S.s * (0.04 + 0.2 * p);
+        ctx.globalAlpha = 0.8 * (1 - p) * (1 - p);
+        ctx.drawImage(dot, f.x - rr, f.y - rr, rr * 2, rr * 2);
+        ctx.globalAlpha = 0.45 * (1 - p);
+        ctx.strokeStyle = rgba(f.col, 1);
+        ctx.lineWidth = 1.5 * u;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, S.s * 0.3 * p, 0, TAU);
+        ctx.stroke();
+      }
+      flashes = flashes.filter((f) => f.age < 0.9);
+      ctx.globalAlpha = 1;
+    }
+
+    return runScene(container, opts, {
+      cls: 'ss-energy',
+      alpha: false,
+      maxDpr: 1.5,
+      budget: 3.2e6,
+      setup(S) {
+        glow = makeGlow(S.root, 0.8, 0.014);
+        dot = glowSprite(32, 0.2);
+        makeBands();
+      },
+      resize(S) { glow.resize(S); populate(S); },
+      degrade(S) { populate(S); if (S.quality < 0.7) glow.off(); },
+      frame,
+      dispose() { parts = []; sparks = []; },
+    });
+  }
+
   // ============================================================ register
   const REG = [
+    { id: '3dtext', name: '3D Text', create: create3DText },
+    { id: 'energy', name: 'Aerium Energy', create: createEnergy },
+    { id: 'aquarium', name: 'Aquarium', create: createAquarium },
     { id: 'aurora', name: 'Aurora', create: createAurora },
     { id: 'bubbles', name: 'Bubbles', overDesktop: true, create: createBubbles },
     { id: 'mystify', name: 'Glass Shapes', create: createMystify },
+    { id: 'photos', name: 'Photos', create: createPhotos },
     { id: 'ribbons', name: 'Ribbons', create: createRibbons },
   ];
   REG.forEach((def) => {
