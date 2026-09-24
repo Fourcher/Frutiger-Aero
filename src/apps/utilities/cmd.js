@@ -771,7 +771,7 @@
             }
             tFiles += files; tBytes += bytes; tDirs += dirs;
             if (!bare) print(String(files).padStart(16) + ' File(s) ' + num(bytes).padStart(14) + ' bytes');
-            if (!sub && !bare) print(String(dirs).padStart(16) + ' Dir(s) ' + num(freeBytes()).padStart(15) + ' bytes free');
+            if (!sub && !bare) print(String(dirs).padStart(16) + ' Dir(s)  ' + num(freeBytes()).padStart(15) + ' bytes free');
           }
           if (sub) for (const d of kids.filter((it) => it.dir)) { if (aborted()) throw ABORT; await one(d.node, s.concat(d.name)); }
         };
@@ -780,7 +780,7 @@
           blank();
           print('     Total Files Listed:');
           print(String(tFiles).padStart(16) + ' File(s) ' + num(tBytes).padStart(14) + ' bytes');
-          print(String(tDirs).padStart(16) + ' Dir(s) ' + num(freeBytes()).padStart(15) + ' bytes free');
+          print(String(tDirs).padStart(16) + ' Dir(s)  ' + num(freeBytes()).padStart(15) + ' bytes free');
         }
         if (re && !found) print('File Not Found');
       });

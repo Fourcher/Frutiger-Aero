@@ -515,10 +515,12 @@
     });
     events.sort((a, b) => a.t - b.t || (a.auto ? -1 : 0) - (b.auto ? -1 : 0));
     const end = b2s(total);
+    const dur = Math.round((end + (def.tail == null ? 3 : def.tail)) * 100) / 100;
+    if (def.length && Math.abs(def.length - dur) > 0.011) warnings.push(def.id + ': declared length ' + def.length + ' but plays ' + dur);
     def._c = {
       events,
       end,
-      duration: Math.round((end + (def.tail == null ? 3 : def.tail)) * 100) / 100,
+      duration: dur,
       loopStart: song.loopA != null ? b2s(song.loopA) : null,
       loopEnd: song.loopB != null ? b2s(song.loopB) : null,
       delay: 60 / def.bpm * (def.delayBeats || 0.75),
@@ -1286,7 +1288,9 @@
       id: def.id, title: def.title, artist: def.artist, album: def.album, genre: def.genre, year: def.year,
       bpm: def.bpm, color: def.color, no: def.no || 1, loop: !!def.loopable,
     };
-    Object.defineProperty(meta, 'duration', { enumerable: true, get: () => compile(def).duration });
+    // Declared lengths let other apps list durations without compiling; once a
+    // track is compiled the exact value is used (and checked against the declared one).
+    Object.defineProperty(meta, 'duration', { enumerable: true, get: () => (def._c ? def._c.duration : def.length || compile(def).duration) });
     Object.defineProperty(meta, '_def', { value: def });
     (def.hidden ? HIDDEN : TRACKS).push(meta);
     return meta;
@@ -1300,7 +1304,7 @@
 
   // ---------------------------------------------------------------- Bubble Garden
   track({
-    id: 'bubble-garden', no: 1, title: 'Bubble Garden', artist: 'Crystal Lagoon', album: 'Clear Skies', genre: 'Bossa Lounge', year: 2007,
+    id: 'bubble-garden', no: 1, length: 136.25, title: 'Bubble Garden', artist: 'Crystal Lagoon', album: 'Clear Skies', genre: 'Bossa Lounge', year: 2007,
     bpm: 120, color: '#2fb6e6', swing: 0.12, tail: 3.4, gain: 1.05,
     mix: {
       ep: { inst: 'ep', gain: 0.24, pan: -0.2, rev: 0.16, chorus: 0.4, autopan: 0.18 },
@@ -1314,6 +1318,7 @@
       conga: { inst: 'conga', gain: 0.32, pan: -0.45, rev: 0.12 },
       bub: { inst: 'bubble', gain: 0.34, rev: 0.4, dly: 0.25 },
       bell: { inst: 'bell', gain: 0.24, pan: 0.1, rev: 0.5, dly: 0.2, o: { ratio: 3.5, index: 1.3, decay: 2.2 } },
+      steel: { inst: 'steel', gain: 0.46, pan: -0.22, rev: 0.3, dly: 0.16 },
     },
     write(s) {
       const A1 = 'Fmaj9 | Bbmaj9 | Am9 | D9 | Gm9 | C13sus4 C13 | Am7 D7b9 | Gm9 C13sus4';
@@ -1366,6 +1371,7 @@
         x.comp('ep', 'x---------------', { lo: 'E3', hi: 'D5', vel: 0.45 });
         x.arp('vib', { pattern: '0 2 1 3 2 4 3 1', rate: 0.5, lo: 'A4', hi: 'C6', n: 5, vel: 0.4 });
         x.sprinkle('bub', { per: [1, 2], lo: 'C6', hi: 'C7', vel: [0.35, 0.7] });
+        x.motif('steel', { from: 2, to: 8, every: 2, lo: 'C5', hi: 'D6', vel: 0.55, d: 0.9, rhythms: [[0, 0.5, 1, 1.5, 2.5], [0.5, 1, 2, 2.5, 3], [0, 0.75, 1.5, 2.5]] });
         x.hit('bell', 0, { n: 'A5', v: 0.4, d: 4 });
         x.hit('bell', 16, { n: 'D6', v: 0.35, d: 4 });
       });
@@ -1399,7 +1405,7 @@
 
   // ---------------------------------------------------------------- Escalator Sunrise
   track({
-    id: 'sky-mall', no: 1, title: 'Escalator Sunrise', artist: 'Sky Mall Orchestra', album: 'Upper Level', genre: 'Easy Listening', year: 2006,
+    id: 'sky-mall', no: 1, length: 143.56, title: 'Escalator Sunrise', artist: 'Sky Mall Orchestra', album: 'Upper Level', genre: 'Easy Listening', year: 2006,
     bpm: 100, color: '#ff9f6b', swing: 0.14, tail: 3.2, gain: 1.15,
     mix: {
       ep: { inst: 'ep', gain: 0.3, pan: -0.12, rev: 0.2, chorus: 0.5, autopan: 0.15, o: { bright: 1.35 } },
@@ -1521,7 +1527,7 @@
 
   // ---------------------------------------------------------------- Aurora Drift
   track({
-    id: 'aurora-drift', no: 1, title: 'Aurora Drift', artist: 'Aqua Pura', album: 'Northern Water', genre: 'Ambient', year: 2008,
+    id: 'aurora-drift', no: 1, length: 164.57, title: 'Aurora Drift', artist: 'Aqua Pura', album: 'Northern Water', genre: 'Ambient', year: 2008,
     bpm: 70, color: '#3ee6a0', swing: 0, tail: 6, gain: 1.3, delayBeats: 0.75,
     mix: {
       pad: { inst: 'pad', gain: 0.34, rev: 0.6, lp: 3200, o: { wave: 'warm', attack: 3, release: 4, cutoff: 500, cutoffEnd: 1700, lfo: 0.07, lfoDepth: 0.35 } },
@@ -1608,7 +1614,7 @@
 
   // ---------------------------------------------------------------- Hydration Station
   track({
-    id: 'hydration-station', no: 1, title: 'Hydration Station', artist: 'DJ Hydrate', album: 'Fresh Mix', genre: 'Electronic', year: 2007,
+    id: 'hydration-station', no: 1, length: 157.44, title: 'Hydration Station', artist: 'DJ Hydrate', album: 'Fresh Mix', genre: 'Electronic', year: 2007,
     bpm: 124, color: '#8fe05a', swing: 0.05, tail: 2.6, gain: 1.27, delayBeats: 0.75,
     mix: {
       kick: { inst: 'kick', gain: 0.62, o: { f0: 150, f1: 47, decay: 0.3, click: 1 } },
@@ -1738,7 +1744,7 @@
 
   // ---------------------------------------------------------------- Glass City
   track({
-    id: 'glass-city', no: 1, title: 'Glass City', artist: 'The Glassmen', album: 'Glass City', genre: 'City Pop', year: 2008,
+    id: 'glass-city', no: 1, length: 148.05, title: 'Glass City', artist: 'The Glassmen', album: 'Glass City', genre: 'City Pop', year: 2008,
     bpm: 110, color: '#5fb8ff', swing: 0.16, tail: 3, gain: 1.2,
     mix: {
       ep: { inst: 'ep', gain: 0.26, pan: -0.25, rev: 0.16, chorus: 0.5, autopan: 0.12, o: { bright: 1.2 } },
@@ -1847,7 +1853,7 @@
 
   // ---------------------------------------------------------------- Dolphin Dreams
   track({
-    id: 'dolphin-dreams', no: 2, title: 'Dolphin Dreams', artist: 'Crystal Lagoon', album: 'Clear Skies', genre: 'Chill', year: 2007,
+    id: 'dolphin-dreams', no: 2, length: 158.17, title: 'Dolphin Dreams', artist: 'Crystal Lagoon', album: 'Clear Skies', genre: 'Chill', year: 2007,
     bpm: 85, color: '#1fb4d8', swing: 0.22, tail: 4.5, gain: 1.14,
     mix: {
       ep: { inst: 'ep', gain: 0.34, pan: -0.15, rev: 0.25, chorus: 0.5, autopan: 0.3, lp: 1100, q: 1.4 },
@@ -1957,7 +1963,7 @@
 
   // ---------------------------------------------------------------- Channels (loop)
   track({
-    id: 'channels', no: 1, title: 'Channels', artist: 'Aerium Sound Team', album: 'Channels', genre: 'Ambient', year: 2006,
+    id: 'channels', no: 1, length: 125.06, title: 'Channels', artist: 'Aerium Sound Team', album: 'Channels', genre: 'Ambient', year: 2006,
     bpm: 72, color: '#9fd8f5', swing: 0.1, tail: 4.5, gain: 1.33, loopable: true,
     mix: {
       pad: { inst: 'pad', gain: 0.3, rev: 0.55, o: { wave: 'glass', attack: 2.2, release: 3, cutoff: 1000, cutoffEnd: 2600, lfo: 0.08, lfoDepth: 0.25 } },
@@ -2002,7 +2008,7 @@
 
   // ---------------------------------------------------------------- Shop (loop)
   track({
-    id: 'shop', no: 1, title: 'Shop', artist: 'Aerium Sound Team', album: 'Shop', genre: 'Bossa Nova', year: 2006,
+    id: 'shop', no: 1, length: 123.6, title: 'Shop', artist: 'Aerium Sound Team', album: 'Shop', genre: 'Bossa Nova', year: 2006,
     bpm: 138, color: '#7cc8ff', swing: 0.06, tail: 3, gain: 1, loopable: true,
     mix: {
       ep: { inst: 'ep', gain: 0.34, pan: -0.22, rev: 0.14, chorus: 0.35, o: { bright: 1.1 } },
@@ -2068,13 +2074,13 @@
 
   // ---------------------------------------------------------------- video soundtracks (hidden)
   track({
-    id: 'video:aquarium', hidden: true, title: 'Fish', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
+    id: 'video:aquarium', hidden: true, length: 72.47, title: 'Fish', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
     bpm: 76, color: '#1fb4d8', swing: 0.1, tail: 3, gain: 1.6,
     mix: {
       water: { inst: 'ocean', gain: 0.34, rev: 0.3, o: { lo: 220, hi: 700 } },
       bub: { inst: 'bubble', gain: 0.4, rev: 0.35, dly: 0.2 },
       mar: { inst: 'marimba', gain: 0.4, pan: -0.2, rev: 0.35, dly: 0.2 },
-      kal: { inst: 'kalimba', gain: 0.5, pan: 0.2, rev: 0.4, dly: 0.2 },
+      kal: { inst: 'steel', gain: 0.5, pan: 0.2, rev: 0.4, dly: 0.2 },
       pad: { inst: 'pad', gain: 0.24, rev: 0.55, o: { wave: 'soft', attack: 2, release: 2.5, cutoff: 700, cutoffEnd: 1800 } },
       sub: { inst: 'sub', gain: 0.4 },
     },
@@ -2110,7 +2116,7 @@
     },
   });
   track({
-    id: 'video:clouds', hidden: true, title: 'Clouds', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
+    id: 'video:clouds', hidden: true, length: 62.17, title: 'Clouds', artist: 'Sample Videos', album: 'Sample Videos', genre: 'Video', year: 2007,
     bpm: 90, color: '#7cc8ff', swing: 0, tail: 3.5, gain: 1.6,
     mix: {
       pad: { inst: 'pad', gain: 0.3, rev: 0.55, o: { wave: 'warm', attack: 2, release: 3, cutoff: 700, cutoffEnd: 2200 } },

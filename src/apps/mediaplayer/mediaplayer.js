@@ -440,6 +440,7 @@
         P.setTab(id);
       });
       b.addEventListener('contextmenu', (e) => { e.preventDefault(); tabMenu(P, id, b); });
+      b.addEventListener('pointerenter', () => A.sound.play('hover'));
       tabs[id] = b;
       bar.appendChild(b);
     });
@@ -500,6 +501,7 @@
     const orb = h('button.mp-orb', { type: 'button', 'aria-label': 'Play (Space)', 'data-tip': 'Play (Space)' }, h('span.mp-orb-ring'), orbGlyph);
     orb.addEventListener('click', () => { A.sound.play('click'); P.togglePlay(); });
     const wings = h('div.mp-wings', null, prev, orb, next);
+    [prev, orb, next].forEach((b) => b.addEventListener('pointerenter', () => A.sound.play('hover')));
     const mute = tbtn('mp-mute', 'Mute (M)', G.vol(3), () => P.toggleMute());
     const vol = makeSlider({ cls: 'mp-vol', label: 'Volume', value: M.volume, step: 0.05, onInput: (v) => { M.volume = v; if (M.muted && v > 0) M.muted = false; P.syncVolume(); } });
     const controls = h('div.mp-controls', null, h('div.mp-ctl-left', null, shuffle, repeat, h('span.mp-sep'), stop), wings, h('div.mp-ctl-right', null, mute, vol));
