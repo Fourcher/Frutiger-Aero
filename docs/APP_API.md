@@ -138,20 +138,23 @@ File contents are strings. Pictures are data URLs (`data:image/png;base64,...`) 
 ### Other services
 - `Aerium.apps.launch(id, args)`, `apps.openFile(path)`, `apps.get(id)`, `apps.list({ category })`, `apps.aliases` (Run-dialog names like `calc`, `mspaint`, `cmd`).
 - `Aerium.store.get(key, fallback)` / `set(key, value)` / `on(key, fn)`: persisted settings. Namespace your keys (`paint.lastColor`).
-- `Aerium.bus.on(event, fn)` / `emit(event, ...args)`: app-to-app events. Known events: `media:nowplaying` `{ title, artist }`, `media:stopped`, `theme:change`, `glass:change`, `wallpaper:mounted`, `fs:change`, `win:open`, `win:close`, `screensaver:start`, `screensaver:stop`, `shell:start`.
+- `Aerium.bus.on(event, fn)` / `emit(event, ...args)`: app-to-app events. Known events: `media:nowplaying` `{ title, artist }`, `media:stopped`, `theme:change`, `glass:change`, `wallpaper:mounted`, `fs:change`, `win:open`, `win:close`, `screensaver:start`, `screensaver:stop` `{ id, preview }`, `shell:start`, `shell:stop`, `fs:move` `{ from, to }`, `fs:recycle` `{ path, to }`, `channels:open`, `channels:close`.
 - `Aerium.notify({ title, text, icon, onClick, timeout, sound })`: tray balloon. `Aerium.notify.toast({ title, text, avatar, app, appIcon, onClick })`: messenger-style toast from the corner.
 - `Aerium.theme`: `set('light'|'dark'|'technozen')`, `current`, `THEMES`, `GLASS` (16 swatches `{ id, name, hex, h, s, l, intensity }`), `glassColor()`, `setGlass({ color, custom: { h, s, l }, intensity: 0-100, transparency })`, `wallpapers` (Map of `{ id, name, group, kind: 'image'|'animated', asset, theme }`), `setWallpaper(id | 'file:/Pictures/x.png', fit)`, `currentWallpaper()`, `thumb(id)` (preview element), `CURSORS`, `applyCursor()`. Settings live in the store: `glass.color`, `glass.intensity`, `glass.transparency`, `wallpaper`, `wallpaper.fit` (fill fit stretch tile center), `cursor.scheme`, `cursor.trails`, `sound.enabled`, `sound.volume`, `screensaver.id`, `screensaver.wait` (minutes), `screensaver.text`, `user.name`, `user.avatar`, `effects.level`.
 - `Aerium.screensaver`: `register({ id, name, overDesktop, create(container, { preview, text, width, height }) -> { destroy() } })`, `list()`, `start(id)`, `stop()`, `preview(id, container) -> stopFn`.
-- `Aerium.taskbar.addTrayIcon({ id, icon, tip, onClick(el), onContext(el) })` returns `{ setIcon, setTip, remove }`.
-- `Aerium.wm.windows`, `wm.byApp(id)`, `wm.active`.
+- `Aerium.taskbar.addTrayIcon({ id, icon, tip, onClick(el), onContext(el) })` returns `{ setIcon, setTip, remove }`. `taskbar.openTray(id)` opens a tray flyout (`volume`, `network`, `battery`, `action`).
+- `Aerium.wm.windows`, `wm.byApp(id)`, `wm.active`, `wm.z` (the current top z-index, for always-on-top tricks).
 - `Aerium.effects.flip3d()`, `Aerium.startmenu.show()`, `Aerium.boot.shutdown()`, `boot.logoff()`, `boot.lock()`, `boot.sleep()`.
 - `Aerium.music` (see below), `Aerium.aquarium` (see below), `Aerium.gadgets` (see below).
 
 ### `Aerium.music` (implemented in `src/core/music.js`)
 A single global music player that synthesizes original tracks live.
 - `tracks`: `[{ id, title, artist, album, genre, year, duration, bpm, color }]`. Required ids: `bubble-garden`, `sky-mall`, `aurora-drift`, `hydration-station`, `glass-city`, `dolphin-dreams` (sample music), plus the loops `channels` (calm Technozen menu music) and `shop` (bossa shop music).
-- `getTrack(id)`, `play(id, { loop, fadeIn })` (Promise), `playFile(url, meta)` for a user-chosen audio file, `pause()`, `resume()`, `stop({ fadeOut })`, `seek(seconds)`, `state` (`stopped | playing | paused`), `current` (track), `position`, `duration`, `volume` (0 to 1, the player's own level), `analyser` (an `AnalyserNode` for visualizations), `on(event, fn)` with events `play pause stop end time`.
-- Emits `media:nowplaying` and `media:stopped` on `Aerium.bus`.
+- `getTrack(id)`, `play(id, { loop, fadeIn })` (Promise), `playFile(url, meta)` for a user-chosen audio file, `pause()`, `resume()`, `stop({ fadeOut })`, `seek(seconds)`, `state` (`stopped | playing | paused`), `current` (track), `position`, `duration`, `volume` (0 to 1, the player's own level), `analyser` (an `AnalyserNode` for visualizations), `on(event, fn)` with events `play pause stop end time meta error volume`.
+- `fadeIn` and `fadeOut` are in seconds; `true` means one second.
+- Extras: `muted`, `eq` and `setEQ(bands)`, `bpm`, `beat`, `render()` (offline render). The two sample videos have soundtracks reachable with `getTrack('video:aquarium')` and `getTrack('video:clouds')`; they are not listed in `tracks`.
+- Emits `media:nowplaying` and `media:stopped` on `Aerium.bus`. Sample videos also emit `media:nowplaying` with an id starting `video:`.
+- `Aerium.visualizers` (in `src/apps/mediaplayer/visualizers.js`): `mount(el, id)`, `list`, `groups`, `register`, if a screensaver or gadget wants the player's visualizations.
 
 ### `Aerium.aquarium` (implemented in `src/wallpapers/aquarium.js`)
 `create(container, { mode: 'tank' | 'betta', preview, interactive })` draws a live fish tank into `container` and returns `{ destroy(), pause(), resume() }`. Use it for previews (Channels, screensaver) instead of drawing your own fish.

@@ -26,6 +26,28 @@
   function musicStop() {
     try { if (A.music && A.music.stop) A.music.stop({ fadeOut: true }); } catch (e) { /* no music yet */ }
   }
+  // A song playing in the Media Player when Channels opens picks up again
+  // where it left off once Channels closes.
+  let resumeAfter = null;
+  function rememberMusic() {
+    resumeAfter = null;
+    try {
+      const m = A.music, cur = m && m.current;
+      if (m && m.state === 'playing' && cur && !cur.file && !/^(channels|shop)$/.test(cur.id) && m.getTrack(cur.id)) {
+        resumeAfter = { id: cur.id, pos: m.position || 0, loop: !!m.loop };
+      }
+    } catch (e) { /* no music yet */ }
+  }
+  function restoreMusic() {
+    const r = resumeAfter;
+    resumeAfter = null;
+    if (!r) return;
+    try {
+      Promise.resolve(A.music.play(r.id, { fadeIn: true, loop: r.loop }))
+        .then((ok) => { if (ok !== false && r.pos > 1) A.music.seek(r.pos); })
+        .catch(() => {});
+    } catch (e) { /* ignore */ }
+  }
   function node(markup) {
     const t = document.createElement('template');
     t.innerHTML = markup.trim();
@@ -533,6 +555,7 @@
     try { if (A.startmenu && A.startmenu.close) A.startmenu.close(); } catch (e) { /* ignore */ }
     try { A.theme.pause(); } catch (e) { /* ignore */ }
     A.bus.emit('channels:open');
+    rememberMusic();
     music('channels');
 
     const onKey = (e) => keydown(e);
@@ -1112,6 +1135,7 @@
     const s = S;
     s.closing = true;
     musicStop();
+    if (resumeAfter) setTimeout(restoreMusic, 900);
     if (!launching) sfx('whooshOut');
     s.root.classList.add(launching ? 'ch-launch' : 'ch-out');
     if (launching) {

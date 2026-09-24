@@ -125,9 +125,7 @@
     ta.addEventListener('input', () => { n.text = ta.value; save(); });
     ta.addEventListener('focus', () => el.classList.add('sn-focus'));
     ta.addEventListener('blur', () => el.classList.remove('sn-focus'));
-    // Keep the desktop's shortcuts (F5, Delete, arrows) out of the note while typing.
     ta.addEventListener('keydown', (e) => {
-      e.stopPropagation();
       const k = e.key.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && k === 'n') { e.preventDefault(); addNote(n); }
       else if ((e.ctrlKey || e.metaKey) && k === 'd') { e.preventDefault(); deleteNote(n); }

@@ -294,7 +294,7 @@
 
       // Always On Top keeps Task Manager above other windows when they get focus.
       function raise() { if (onTop && win.state !== 'minimized' && !win.closed) win.el.style.zIndex = ++A.wm.z; }
-      const offFocus = A.bus.on('win:focus', (w) => { if (w !== win) raise(); });
+      const offFocus = A.bus.on('win:focus', (w) => { if (w !== win && !(w.o && w.o.modal)) raise(); });
 
       // ------------------------------------------------------------ tabs
       function selectTab(id) {

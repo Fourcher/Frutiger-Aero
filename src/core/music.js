@@ -744,7 +744,7 @@
     const saw = osc(ctx, o.wave || 'sawtooth', f, t, end);
     if (pop || o.slap) { saw.frequency.setValueAtTime(f * 1.025, t); saw.frequency.exponentialRampToValueAtTime(f, t + 0.03); }
     saw.connect(flt);
-    const sub = osc(ctx, 'sine', f, t, end), sg = gainNode(ctx, ghost ? 0.2 : o.sub == null ? 0.8 : o.sub);
+    const sub = osc(ctx, 'sine', f, t, end), sg = gainNode(ctx, ghost ? 0.2 : o.sub == null ? 0.72 : o.sub);
     sub.connect(sg);
     const g = ctx.createGain();
     const peak = v * (pop ? 0.42 : 0.45);
@@ -1310,7 +1310,7 @@
       ep: { inst: 'ep', gain: 0.24, pan: -0.2, rev: 0.16, chorus: 0.4, autopan: 0.18 },
       vib: { inst: 'vibes', gain: 0.46, pan: 0.24, rev: 0.26, dly: 0.1, trem: [5.3, 0.32] },
       flute: { inst: 'flute', gain: 0.66, pan: 0.04, rev: 0.28, dly: 0.12 },
-      bass: { inst: 'bass', gain: 0.62, o: { bright: 5, sub: 0.9 } },
+      bass: { inst: 'bass', gain: 0.62, o: { bright: 5, sub: 0.78 } },
       pad: { inst: 'pad', gain: 0.22, rev: 0.45, o: { wave: 'soft', attack: 1.6, release: 2.4, cutoff: 600, cutoffEnd: 1900 } },
       kick: { inst: 'kick', gain: 0.5, o: { f0: 105, f1: 48, decay: 0.26, click: 0.3 } },
       rim: { inst: 'rim', gain: 0.4, pan: 0.18, rev: 0.12 },
@@ -2014,7 +2014,7 @@
       ep: { inst: 'ep', gain: 0.34, pan: -0.22, rev: 0.14, chorus: 0.35, o: { bright: 1.1 } },
       vib: { inst: 'vibes', gain: 0.5, pan: 0.24, rev: 0.2, trem: [5.6, 0.3], o: { damp: true } },
       flute: { inst: 'flute', gain: 0.62, pan: 0.04, rev: 0.24, dly: 0.08, o: { breath: 0.9 } },
-      bass: { inst: 'bass', gain: 0.62, o: { bright: 5, sub: 0.9, decay: 0.3 } },
+      bass: { inst: 'bass', gain: 0.62, o: { bright: 5, sub: 0.78, decay: 0.3 } },
       kick: { inst: 'kick', gain: 0.46, o: { f0: 100, f1: 48, decay: 0.24, click: 0.25 } },
       rim: { inst: 'rim', gain: 0.42, pan: 0.16, rev: 0.1 },
       shk: { inst: 'shaker', gain: 0.26, pan: -0.34 },
@@ -2304,7 +2304,8 @@
       music.loop = !!o.loop;
       music.state = 'playing';
       pausedAt = 0;
-      const fadeIn = o.fadeIn || 0;
+      // fadeIn / fadeOut accept seconds, or true for a gentle default.
+      const fadeIn = o.fadeIn === true ? 1.5 : Math.max(0, Number(o.fadeIn) || 0);
       fadeTo(fadeIn ? 0 : 1, 0.01);
       S = createSession(e, tr._def, from, { loop: music.loop });
       if (fadeIn) {
@@ -2418,7 +2419,7 @@
       o = o || {};
       if (music.state === 'stopped' && !S && !F) return;
       gen++;
-      const fade = o.fadeOut || 0.12;
+      const fade = o.fadeOut === true ? 1.2 : Math.max(0.02, Number(o.fadeOut) || 0.12);
       const tr = music.current;
       if (S && E) {
         fadeTo(0, fade);
