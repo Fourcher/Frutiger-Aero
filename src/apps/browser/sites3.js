@@ -362,7 +362,7 @@
     const top = MG_GAMES.slice().sort((a, b) => b.rating - a.rating).slice(0, 8);
     return `<div class="web-mg-side"><div class="web-mg-box"><div class="web-mg-boxh">Top rated</div><ol class="web-mg-top">${top.map((gm) => `<li><a href="/game/${gm.id}">${esc(gm.title)}</a> ${K.stars(gm.rating)}</li>`).join('')}</ol></div>
       <div class="web-mg-box web-mg-plugin"><div class="web-mg-boxh">Required plugin</div><p>${K.img('icons/play', 'web-mg-plugic')}<span>Some games need <b>BubblePlayer 10</b>. You have BubblePlayer 9.</span></p><a href="#" class="web-mg-getplayer">Get BubblePlayer &raquo;</a></div>
-      <div class="web-mg-box"><div class="web-mg-boxh">Your high scores</div><ul class="web-mg-scores">${MG_GAMES.filter((gm) => gm.play).map((gm) => `<li><a href="/game/${gm.id}">${esc(gm.title)}</a><b>${K.num(ctx.store.get('minigames.best.' + gm.id, 0))}</b></li>`).join('')}</ul></div></div>`;
+      <div class="web-mg-box"><div class="web-mg-boxh">Your high scores</div><ul class="web-mg-scores">${MG_GAMES.filter((gm) => gm.play).map((gm) => `<li><a href="/game/${gm.id}">${esc(gm.title)}</a><b data-best="${gm.id}">${K.num(ctx.store.get('minigames.best.' + gm.id, 0))}</b></li>`).join('')}</ul></div></div>`;
   }
   function mgWireSide(ctx, root) {
     const gp = root.querySelector('.web-mg-getplayer');
@@ -442,7 +442,7 @@
           const bestEl = root.querySelector('.web-mg-best');
           const api = {
             best: () => ctx.store.get('minigames.best.' + gm.id, 0),
-            setBest: (v) => { ctx.store.set('minigames.best.' + gm.id, v); if (bestEl) bestEl.textContent = K.num(v); },
+            setBest: (v) => { ctx.store.set('minigames.best.' + gm.id, v); if (bestEl) bestEl.textContent = K.num(v); root.querySelectorAll('[data-best="' + gm.id + '"]').forEach((b) => { b.textContent = K.num(v); }); },
             sound: (name) => ctx.sound(name),
           };
           const game = gm.play(stage, ctx, api);
@@ -552,5 +552,550 @@
 `,
   });
 
-  // @@PART2
+  // ================================================================ www.geoplace.com
+  const GEO_UC = `<svg class="web-geo-ucsvg" viewBox="0 0 200 150" aria-label="Under construction"><defs><linearGradient id="geoY" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff27a"/><stop offset="1" stop-color="#f5b400"/></linearGradient><pattern id="geoS" width="20" height="20" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="10" height="20" fill="#111"/><rect x="10" width="10" height="20" fill="#ffd21a"/></pattern></defs>
+    <rect x="96" y="70" width="8" height="60" fill="#666"/><g transform="translate(100 56) rotate(45)"><rect x="-38" y="-38" width="76" height="76" rx="7" fill="url(#geoY)" stroke="#222" stroke-width="3"/></g>
+    <g fill="#111"><circle cx="92" cy="36" r="5"/><path d="M92 41 L96 58 L102 72 L98 74 L91 60 L86 74 L82 72 L88 57 Z"/><g class="web-geo-shovel"><path d="M94 46 L112 58" stroke="#111" stroke-width="3" stroke-linecap="round"/><path d="M110 54 L120 62 L114 68 Z"/></g><path d="M104 74 Q112 64 120 74 Z"/></g>
+    <rect x="10" y="118" width="180" height="22" rx="3" fill="url(#geoS)" stroke="#222" stroke-width="2"/><rect x="42" y="121" width="116" height="16" fill="#111"/><text x="100" y="133" font-family="Arial Black, Arial" font-weight="900" font-size="11" fill="#ffd21a" text-anchor="middle">UNDER CONSTRUCTION</text></svg>`;
+  const GEO_PAGES = {
+    sk8rjake: { title: "Jake's Skate Zone", theme: 'jake', base: 4261 },
+    aquagirl88: { title: "~ Aquagirl's Fish Shrine ~", theme: 'aqua', base: 1882 },
+    pixelpete: { title: "Pete's Pixel Palace (coming soon!!)", theme: 'pete', base: 311 },
+    stargazer_liz: { title: "Liz's Space Station", theme: 'liz', base: 2504 },
+  };
+  const GEO_RING = ['sk8rjake', 'aquagirl88', 'pixelpete', 'stargazer_liz'];
+  const GEO_TUNES = {
+    sk8rjake: { bpm: 152, type: 'square', notes: [['A4', 0.5], ['C5', 0.5], ['E5', 0.5], ['A5', 0.5], ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['E5', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 1], ['G5', 0.5], ['E5', 0.5], ['D5', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 0.5], ['A5', 0.5], ['B5', 0.5], ['A5', 0.5], ['G5', 0.5], ['E5', 0.5], ['D5', 0.5], ['C5', 0.5], ['D5', 0.5], ['E5', 0.5], ['A4', 2]], file: 'skate_or_float.mid' },
+    aquagirl88: { bpm: 96, type: 'triangle', notes: [['C5', 0.5], ['E5', 0.5], ['G5', 0.5], ['C6', 0.5], ['B5', 0.5], ['G5', 0.5], ['E5', 1], ['A4', 0.5], ['C5', 0.5], ['E5', 0.5], ['A5', 0.5], ['G5', 0.5], ['E5', 0.5], ['D5', 1], ['F4', 0.5], ['A4', 0.5], ['C5', 0.5], ['F5', 0.5], ['E5', 0.5], ['C5', 0.5], ['G4', 1], ['C5', 2]], file: 'ocean_dreams.mid' },
+    stargazer_liz: { bpm: 80, type: 'sine', notes: [['E5', 1], ['B4', 1], ['G5', 1], ['F#5', 1], ['E5', 0.5], ['D5', 0.5], ['B4', 2], ['C5', 1], ['G5', 1], ['E5', 2], [null, 1]], file: 'space_lullaby.mid' },
+  };
+  const geoCounter = (n) => `<span class="web-geo-counter">${String(n).padStart(6, '0').split('').map((d) => `<i>${d}</i>`).join('')}</span>`;
+  const geoBroken = (name) => `<span class="web-geo-broken"><i></i>${esc(name)}</span>`;
+  function geoRing(user) {
+    const i = GEO_RING.indexOf(user);
+    const prev = GEO_RING[(i - 1 + GEO_RING.length) % GEO_RING.length], next = GEO_RING[(i + 1) % GEO_RING.length];
+    return `<table class="web-geo-ring"><tr><td colspan="3" class="web-geo-ringh">This site is a member of the <b>Skate &amp; Chill Webring</b></td></tr><tr><td><a href="/~${prev}/">&lt;&lt; Prev</a></td><td><a href="#" class="web-geo-random" data-user="${user}">Random</a> | <a href="/webring">List sites</a></td><td><a href="/~${next}/">Next &gt;&gt;</a></td></tr></table>`;
+  }
+  const geoBadges = () => `<div class="web-geo-badges"><span class="b1">Best viewed in <b>Horizon</b> at 1024x768</span><span class="b2">Made with <b>Notepad</b></span><span class="b3"><b>GeoPlace</b> homepage</span><span class="b4">Get <b>BubblePlayer</b></span></div>`;
+  function geoMidi(ctx, root, user) {
+    const tune = GEO_TUNES[user];
+    const el = root.querySelector('.web-geo-midi');
+    if (!tune || !el) return;
+    let playing = false, next = 0, idx = 0;
+    const beat = 60 / tune.bpm;
+    const btn = el.querySelector('.web-geo-mplay'), stop = el.querySelector('.web-geo-mstop'), label = el.querySelector('.web-geo-mstate');
+    const set = (on) => { playing = on; label.textContent = on ? 'Playing' : 'Stopped'; el.classList.toggle('on', on); };
+    btn.addEventListener('click', () => {
+      if (!A.sound.ctx || !ctx.audio()) { ctx.dialog({ title: 'Sound', icon: 'icons/speaker', message: 'Turn on "Play sounds in webpages" in Internet Options to hear background music.' }); return; }
+      idx = 0; next = 0; set(true);
+    });
+    stop.addEventListener('click', () => set(false));
+    ctx.every(60, () => {
+      if (!playing || !A.sound.ctx) return;
+      const dest = ctx.audio();
+      if (!dest) return;
+      dest.gain.value = 0.55;
+      const now = A.sound.ctx.currentTime;
+      if (next < now) next = now + 0.05;
+      while (next < now + 0.3) {
+        const [n, len] = tune.notes[idx % tune.notes.length];
+        if (n) A.sound.blip(n, n, next, { dur: len * beat * 0.85, vel: tune.type === 'square' ? 0.035 : 0.06, type: tune.type, dest, rev: 0.08, glide: 0.001 });
+        if (idx % 4 === 0 && tune.type === 'square') A.sound.blip('A2', 'A2', next, { dur: beat * 0.5, vel: 0.04, type: 'triangle', dest, rev: 0, glide: 0.001 });
+        next += len * beat;
+        idx++;
+      }
+    });
+    ctx.onUnload(() => { playing = false; });
+  }
+  function geoWire(ctx, root) {
+    root.querySelectorAll('.web-geo-random').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const others = GEO_RING.filter((u) => u !== a.dataset.user);
+      ctx.go('/~' + others[Math.floor(Math.random() * others.length)] + '/');
+    }));
+    root.querySelectorAll('.web-geo-mail').forEach((a) => a.addEventListener('click', (e) => {
+      e.preventDefault();
+      ctx.dialog({ title: 'Horizon', icon: 'error', message: 'Could not perform this operation because the default mail client is not properly installed.', detail: 'Tip: sign the guestbook instead!' });
+    }));
+  }
+  function geoFrame(user, inner) { return `<div class="web-geo web-geo-${GEO_PAGES[user].theme}">${inner}</div>`; }
+  function geoHits(ctx, user) {
+    const n = ctx.store.get('geo.hits.' + user, 0) + 1;
+    ctx.store.set('geo.hits.' + user, n);
+    return GEO_PAGES[user].base + n;
+  }
+  function geoJake(ctx) {
+    const hits = geoHits(ctx, 'sk8rjake');
+    ctx.title("Jake's Skate Zone");
+    const inner = `<div class="web-geo-marq wk-marquee" style="--wk-speed:14s"><span>*** WELCOME TO JAKE'S SKATE ZONE *** thanks for visiting!!! *** sign my guestbook!!! *** skate or float *** you are visitor #${K.num(hits)} ***</span></div>
+      <center class="web-geo-center"><h1 class="web-geo-rainbow">~*~ Jake's Skate Zone ~*~</h1>
+      <div class="web-geo-uc">${GEO_UC}<p class="wk-blink">This page is ALWAYS under construction!!!</p></div></center>
+      <table class="web-geo-layout"><tr><td class="web-geo-menu"><b>MENU</b><br><a href="/~sk8rjake/">Home</a><br><a href="/~sk8rjake/pics.html">My Pics</a><br><a href="/~sk8rjake/links.html">Kewl Links</a><br><a href="/~sk8rjake/guestbook.html">Guestbook</a><br><a href="/~sk8rjake/guestbook.html#sign">Sign it!!</a><br><a href="#" class="web-geo-mail">${K.img('icons/mail', 'web-geo-spinmail')}E-mail me</a></td>
+        <td class="web-geo-main"><p>Hi!!! My name is <b>Jake</b> and this is my homepage. I like skateboarding, video games and my dog Rocket. I made this whole page myself in Notepad!!! It took forever.</p>
+          <div class="web-geo-hr"></div>
+          <h2>Latest updates <span class="web-geo-new wk-blink">NEW!</span></h2><ul><li><b>3/14/07</b> - added a hit counter. u are officially being counted</li><li><b>3/10/07</b> - my friend <a href="http://www.myspot.com/tyler">Tyler</a> made a <a href="http://www.tubeview.com/watch?v=skate">kickflip video</a>!!! (watch the end lol)</li><li><b>3/2/07</b> - joined the Skate &amp; Chill webring!!</li><li><b>2/28/07</b> - learned how to make text blink</li></ul>
+          <h2>My top 5 skate tricks</h2><ol><li>Ollie (easy)</li><li>Kickflip (kinda)</li><li>Heelflip (almost)</li><li>Pop shove-it</li><li>Falling off with style</li></ol>
+          <h2>My dog Rocket</h2><p>${geoBroken('rocket_dog.jpg')}<br><small>(picture coming soon, my scanner is broken)</small></p>
+          <div class="web-geo-hr"></div>
+          <div class="web-geo-midi"><b>Now playing:</b> ${GEO_TUNES.sk8rjake.file} <button type="button" class="web-geo-mplay">Play</button><button type="button" class="web-geo-mstop">Stop</button> <span class="web-geo-mstate">Stopped</span></div></td></tr></table>
+      <center class="web-geo-center"><p>You are visitor number ${geoCounter(hits)}</p>${geoBadges()}${geoRing('sk8rjake')}<p class="web-geo-small">This site was last updated on 3/14/2007. (c) 2007 Jake. Do not steal my graphics!!!</p></center>`;
+    const root = ctx.html(geoFrame('sk8rjake', inner));
+    geoWire(ctx, root);
+    geoMidi(ctx, root, 'sk8rjake');
+  }
+  function geoJakePics(ctx) {
+    ctx.title("Jake's Pics");
+    const pics = [['me_at_skatepark.jpg', null], ['sunset_from_the_ramp.jpg', 'imagery/sunrise'], ['beach_trip.jpg', 'imagery/ocean'], ['my_room_at_night.jpg', 'imagery/bokeh-night'], ['rocket_dog.jpg', null], ['fishtank_at_moms.jpg', 'imagery/water']];
+    const inner = `<center class="web-geo-center"><h1 class="web-geo-rainbow">My Pics!!!</h1><p>click to make them bigger (it doesnt work yet)</p><table class="web-geo-pics"><tr>${pics.map(([n, k], i) => `${i && i % 3 === 0 ? '</tr><tr>' : ''}<td>${k ? K.img(k, 'web-geo-pic', n) : geoBroken(n)}<br><small>${esc(n)}</small></td>`).join('')}</tr></table><p><a href="/~sk8rjake/">&lt;&lt; Back to home</a></p>${geoRing('sk8rjake')}</center>`;
+    geoWire(ctx, ctx.html(geoFrame('sk8rjake', inner)));
+  }
+  function geoJakeLinks(ctx) {
+    ctx.title("Jake's Kewl Links");
+    const links = [['http://www.minigames.com/', 'MiniGames.com', 'the best game site EVER. bubble copter is so hard'], ['http://www.tubeview.com/watch?v=skate', 'Tylers kickflip video', 'watch til the end lol'], ['http://www.myspot.com/tyler', 'Tyler on MySpot', 'my best friend. he plays drums'], ['http://www.bubblesearch.com/', 'Bubble Search', 'use it to find stuff'], ['http://www.free-screensavers-4u.com/', 'FREE screensavers', 'they work i think'], ['http://www.fishpals.com/', 'FishPals', 'my sister made me put this here'], ['http://forums.aerofans.net/', 'AeroFans forum', 'i post here sometimes'], ['http://www.geoplace.com/~aquagirl88/', "Aquagirl's Fish Shrine", 'webring buddy']];
+    const inner = `<center class="web-geo-center"><h1 class="web-geo-rainbow">Kewl Links</h1></center><ul class="web-geo-links">${links.map(([u, t, d]) => `<li><a href="${u}">${esc(t)}</a> - ${esc(d)}</li>`).join('')}</ul><center class="web-geo-center"><p><a href="/~sk8rjake/">&lt;&lt; Back to home</a></p>${geoRing('sk8rjake')}</center>`;
+    geoWire(ctx, ctx.html(geoFrame('sk8rjake', inner)));
+  }
+  const GEO_GB_DEFAULT = {
+    sk8rjake: [['Mike', 'cool site!!! the blinking text is awesome', 'A friend', 40], ['tyler', 'sk8 or float!!! nice page dude', 'Webring', 25], ['Kayla', 'hi jake its kayla (tylers friend). ur site is cute. u should add glitter', 'A friend', 12], ['webmaster_dan', 'Great site. Please visit my site too!!! Link exchange?', 'Bubble Search', 5]],
+    aquagirl88: [['FishFan77', 'I love your fish shrine!!! Goldie is so cute', 'Webring', 20], ['jake', 'cool fish. rocket (my dog) says hi', 'Webring', 9]],
+    stargazer_liz: [['cosmic_carl', 'Saturn is my favorite too!!!', 'Bubble Search', 30]],
+    pixelpete: [],
+  };
+  function geoGuestbook(ctx, user) {
+    const P = GEO_PAGES[user];
+    ctx.title(P.title + ' - Guestbook');
+    const inner = `<center class="web-geo-center"><h1 class="web-geo-rainbow">My Guestbook!!!</h1><p>Please sign my guestbook!! It makes me happy :)</p></center>
+      <form class="web-geo-gbform" id="sign"><table><tr><td>Name:</td><td><input name="name" type="text" maxlength="30"></td></tr><tr><td>Homepage:</td><td><input name="url" type="text" maxlength="60" placeholder="http://"></td></tr><tr><td>How did you find my site?</td><td><select name="how"><option>A friend</option><option>Webring</option><option>Bubble Search</option><option>I got lost</option></select></td></tr><tr><td>Comments:</td><td><textarea name="msg" maxlength="400" rows="4"></textarea></td></tr><tr><td></td><td><button type="submit">Sign Guestbook</button> <button type="reset">Clear</button></td></tr></table><p class="web-geo-gbmsg"></p></form>
+      <div class="web-geo-hr"></div><div class="web-geo-entries"></div>
+      <center class="web-geo-center"><p><a href="/~${user}/">&lt;&lt; Back to home</a></p>${geoRing(user)}</center>`;
+    const root = ctx.html(geoFrame(user, inner));
+    geoWire(ctx, root);
+    const list = root.querySelector('.web-geo-entries');
+    const paint = () => {
+      const mine = ctx.store.get('geo.gb.' + user, []);
+      const all = mine.map((e) => ({ ...e, when: new Date(e.t) })).concat((GEO_GB_DEFAULT[user] || []).map(([name, msg, how, d]) => ({ name, msg, how, when: new Date(Date.now() - d * D) })));
+      list.innerHTML = all.length ? all.map((e, i) => `<table class="web-geo-entry"><tr><td class="web-geo-eh">Entry #${all.length - i} - <b>${esc(e.name)}</b>${e.url ? ` (<a href="${esc(/^https?:\/\//.test(e.url) ? e.url : 'http://' + e.url)}">homepage</a>)` : ''} - ${esc(A.util.fmtDateTime(e.when))}</td></tr><tr><td class="web-geo-eb">${esc(e.msg)}<br><small>Found this site: ${esc(e.how || 'A friend')}</small></td></tr></table>`).join('') : '<p>No entries yet. Be the first!!!</p>';
+    };
+    paint();
+    const form = root.querySelector('.web-geo-gbform');
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = form.name.value.trim(), msg = form.msg.value.trim();
+      const out = root.querySelector('.web-geo-gbmsg');
+      if (!name || !msg) { out.textContent = 'Please fill in your name AND a comment!!!'; ctx.sound('error'); return; }
+      const mine = ctx.store.get('geo.gb.' + user, []);
+      mine.unshift({ name: name.slice(0, 30), url: form.url.value.trim().slice(0, 60), how: form.how.value, msg: msg.slice(0, 400), t: Date.now() });
+      ctx.store.set('geo.gb.' + user, mine.slice(0, 40));
+      form.reset();
+      out.innerHTML = '<span class="wk-blink">THANK YOU FOR SIGNING MY GUESTBOOK!!!</span>';
+      ctx.sound('ding');
+      paint();
+    });
+  }
+  function geoAqua(ctx) {
+    const hits = geoHits(ctx, 'aquagirl88');
+    ctx.title("~ Aquagirl's Fish Shrine ~");
+    const facts = ['Goldfish can remember things for months!', 'A group of fish is called a school.', 'Some fish can change color when they are happy.', 'Bettas build bubble nests!', 'Fish have been around for about 500 million years.'];
+    const fact = facts[K.dayNumber() % facts.length];
+    const inner = `<center class="web-geo-center"><h1 class="web-geo-aquatitle">~ Welcome to my Fish Shrine ~</h1><p><i>a place for fish lovers everywhere</i></p></center>
+      <table class="web-geo-layout"><tr><td class="web-geo-main"><h2>My Fish</h2><table class="web-geo-fish"><tr><td>${K.img('avatars/avatar-fish', 'web-geo-fpic')}</td><td><b>Goldie</b><br>Goldfish, 2 years old<br>Likes: food, swimming in circles, food</td></tr><tr><td>${K.img('icons/fish', 'web-geo-fpic')}</td><td><b>Sir Swims-a-Lot</b><br>Betta fish<br>Builds bubble nests when he is happy</td></tr><tr><td>${K.img('icons/bubble', 'web-geo-fpic')}</td><td><b>Bubbles</b><br>Snail (technically not a fish)<br>Very slow. Very loyal.</td></tr></table>
+        <h2>Fish Fact of the Day</h2><p class="web-geo-fact">${esc(fact)}</p>
+        <h2>Fish of the Month</h2><p>The <b>Bubble Eye goldfish</b>! It has two big bubbles under its eyes. Read more on <a href="http://www.aeropedia.org/wiki/Goldfish">Aeropedia</a>.</p>
+        <h2>Adopt a virtual fish!!</h2><p>I adopted one at <a href="http://www.fishpals.com/">FishPals</a> and you should too!!</p>
+        <div class="web-geo-midi"><b>Now playing:</b> ${GEO_TUNES.aquagirl88.file} <button type="button" class="web-geo-mplay">Play</button><button type="button" class="web-geo-mstop">Stop</button> <span class="web-geo-mstate">Stopped</span></div>
+        <p><a href="/~aquagirl88/guestbook.html">Sign my guestbook!!</a> | <a href="#" class="web-geo-mail">E-mail me</a></p></td></tr></table>
+      <center class="web-geo-center"><p>Fish lovers who visited: ${geoCounter(hits)}</p>${geoBadges()}${geoRing('aquagirl88')}</center>`;
+    const root = ctx.html(geoFrame('aquagirl88', inner));
+    geoWire(ctx, root);
+    geoMidi(ctx, root, 'aquagirl88');
+  }
+  function geoPete(ctx) {
+    const hits = geoHits(ctx, 'pixelpete');
+    ctx.title("Pete's Pixel Palace (coming soon!!)");
+    const inner = `<center class="web-geo-center"><div class="web-geo-bigsign">${GEO_UC}</div><h1 class="web-geo-petetitle wk-blink">COMING SOON!!!</h1><p class="web-geo-big">Pete's Pixel Palace will be the best page on the internet.</p><p>It will have: games, pictures, a chat room, a message board, MIDI music, a Java applet, a guestbook and SO much more.</p><p>Check back soon!!! (Last updated: 1999)</p><p>Visitors so far: ${geoCounter(hits)}</p>${geoRing('pixelpete')}</center>`;
+    geoWire(ctx, ctx.html(geoFrame('pixelpete', inner)));
+  }
+  function geoLiz(ctx) {
+    const hits = geoHits(ctx, 'stargazer_liz');
+    ctx.title("Liz's Space Station");
+    const planets = [['Mercury', '#b8a898', 'Smallest planet. Very hot, then very cold.'], ['Venus', '#e8c878', 'Brightest planet in the night sky.'], ['Earth', '#3a8ee6', 'Home! Has fish.'], ['Mars', '#d85a3a', 'The red planet. Has the tallest volcano.'], ['Jupiter', '#d8a878', 'Biggest planet. Giant storm spot.'], ['Saturn', '#e8d098', 'MY FAVORITE. The rings are made of ice!']];
+    const inner = `<center class="web-geo-center"><h1 class="web-geo-lizt">~ Liz's Space Station ~</h1><p>Welcome, space travelers!!!</p></center>
+      <table class="web-geo-layout"><tr><td class="web-geo-main"><h2>My Favorite Planets</h2><table class="web-geo-planets">${planets.map(([n, c, d]) => `<tr><td><span class="web-geo-planet${n === 'Saturn' ? ' ringed' : ''}" style="--pc:${c}"></span></td><td><b>${n}</b><br>${esc(d)}</td></tr>`).join('')}</table>
+        <h2>Are aliens real?</h2><p>Probably!!! The universe is really big. If you are an alien reading this, please sign my guestbook.</p>
+        <div class="web-geo-midi"><b>Now playing:</b> ${GEO_TUNES.stargazer_liz.file} <button type="button" class="web-geo-mplay">Play</button><button type="button" class="web-geo-mstop">Stop</button> <span class="web-geo-mstate">Stopped</span></div>
+        <p><a href="/~stargazer_liz/guestbook.html">Guestbook</a> | <a href="http://www.aeropedia.org/wiki/Aurora">Learn about auroras</a> | <a href="http://www.skycast.com/">Check the sky forecast</a></p></td></tr></table>
+      <center class="web-geo-center"><p>Space travelers: ${geoCounter(hits)}</p>${geoBadges()}${geoRing('stargazer_liz')}</center>`;
+    const root = ctx.html(geoFrame('stargazer_liz', inner));
+    geoWire(ctx, root);
+    geoMidi(ctx, root, 'stargazer_liz');
+  }
+  function geoHome(ctx) {
+    ctx.title('GeoPlace - Build your FREE homepage!');
+    const hoods = [['Skatepark', 'sk8rjake', 'skateboarding, BMX and extreme sports'], ['Aquarium Row', 'aquagirl88', 'fish, pets and everything that swims'], ['Pixel Plaza', 'pixelpete', 'computers, games and web design'], ['Nebula Heights', 'stargazer_liz', 'space, science fiction and stars']];
+    const inner = `<div class="web-geo-portal"><div class="web-geo-phead"><div class="web-geo-pwrap"><span class="web-geo-plogo">${K.img('icons/home', 'web-geo-plogoic')}Geo<b>Place</b></span><span class="web-geo-ptag">Build your FREE homepage today! 15 MB of FREE space!</span></div></div>
+      <div class="web-geo-pwrap web-geo-pbody"><div class="web-geo-pmain"><h1>Neighborhoods</h1><table class="web-geo-hoods">${hoods.map(([n, u, d]) => `<tr><td class="web-geo-hood"><b>${n}</b><br><small>${d}</small></td><td>Featured homepage: <a href="/~${u}/">${esc(GEO_PAGES[u].title)}</a></td></tr>`).join('')}</table>
+        <h2>Why GeoPlace?</h2><ul><li>15 MB of free web space (that is a LOT of pictures)</li><li>Easy page builder (coming soon)</li><li>Free hit counters and guestbooks!</li><li>Join a webring and make friends</li></ul></div>
+        <div class="web-geo-pside"><div class="web-geo-pbox"><b>Get your free homepage!</b><p>Your address will look like:<br><tt>www.geoplace.com/~yourname/</tt></p><button type="button" class="web-geo-pbtn">Sign up now!</button></div><div class="web-geo-pbox"><b>Popular this week</b><ol><li><a href="/~sk8rjake/">Jake's Skate Zone</a></li><li><a href="/~aquagirl88/">Aquagirl's Fish Shrine</a></li><li><a href="/~stargazer_liz/">Liz's Space Station</a></li></ol></div></div></div>
+      <div class="web-geo-pfoot">GeoPlace &copy; 2007. Over 38 million homepages, most of them under construction.</div></div>`;
+    const root = ctx.html(inner);
+    root.querySelector('.web-geo-pbtn').addEventListener('click', () => ctx.dialog({ title: 'GeoPlace', icon: 'icons/home', instruction: 'The page builder is under construction', message: 'Please check back after it is done under-constructing. In the meantime, enjoy the neighborhoods!' }));
+  }
+  function geoWebring(ctx) {
+    ctx.title('Skate & Chill Webring - Member sites');
+    const inner = `<div class="web-geo web-geo-jake"><center class="web-geo-center"><h1 class="web-geo-rainbow">Skate &amp; Chill Webring</h1><p>Member sites:</p><ol class="web-geo-links">${GEO_RING.map((u) => `<li><a href="/~${u}/">${esc(GEO_PAGES[u].title)}</a></li>`).join('')}</ol><p>Want to join? Ask Jake. (He is the ring master. It is on his resume.)</p></center></div>`;
+    ctx.html(inner);
+  }
+  W.register({
+    id: 'geoplace', host: 'www.geoplace.com', aliases: ['geoplace.com'],
+    title: 'GeoPlace', shortTitle: "Jake's Skate Zone", icon: 'icons/home', homePath: '/~sk8rjake/', weight: 0.9,
+    pictures: ['images/under_construction.gif', 'images/counter_digits.gif', 'images/stars_bg.gif', 'images/new_blink.gif', 'images/email_spin.gif'],
+    favicon: '<svg viewBox="0 0 16 16"><path d="M1.5 8 L8 2 L14.5 8 L13 8 L13 14 L3 14 L3 8 Z" fill="#b07ad8" stroke="#5a2a8a" stroke-linejoin="round"/><rect x="6.5" y="9.5" width="3" height="4.5" fill="#ffd21a"/></svg>',
+    pages: () => [
+      { path: '/', title: 'GeoPlace - Build your FREE homepage!', text: 'GeoPlace free homepages 15 MB free web space neighborhoods skatepark aquarium row pixel plaza nebula heights hit counters guestbooks webrings' },
+      { path: '/~sk8rjake/', title: "Jake's Skate Zone", text: "Jake's homepage: skateboarding, video games, my dog Rocket, under construction, hit counter, guestbook, webring, top 5 skate tricks, kickflip, made in Notepad" },
+      { path: '/~sk8rjake/guestbook.html', title: "Jake's Skate Zone - Guestbook", text: 'sign my guestbook comments cool site' },
+      { path: '/~sk8rjake/links.html', title: "Jake's Kewl Links", text: 'kewl links games videos free screensavers bubble search' },
+      { path: '/~aquagirl88/', title: "~ Aquagirl's Fish Shrine ~", text: 'fish shrine goldfish betta snail fish fact of the day bubble eye goldfish fish lovers' },
+      { path: '/~pixelpete/', title: "Pete's Pixel Palace (coming soon!!)", text: 'under construction coming soon pixel palace best page on the internet' },
+      { path: '/~stargazer_liz/', title: "Liz's Space Station", text: 'space station planets saturn rings mars jupiter aliens stars astronomy' },
+    ],
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length) return geoHome(ctx);
+      if (p[0] === 'webring') return geoWebring(ctx);
+      const m = /^~([\w-]+)$/.exec(p[0] || '');
+      if (!m || !GEO_PAGES[m[1]]) return ctx.notFound();
+      const user = m[1];
+      if (ctx.path.slice(-1) !== '/' && p.length === 1) { ctx.go('/~' + user + '/', { replace: true, noSound: true }); ctx.html('<div></div>'); return; }
+      const page = p[1] || 'index.html';
+      if (page === 'guestbook.html') return geoGuestbook(ctx, user);
+      if (user === 'sk8rjake' && page === 'pics.html') return geoJakePics(ctx);
+      if (user === 'sk8rjake' && page === 'links.html') return geoJakeLinks(ctx);
+      if (page !== 'index.html') return ctx.notFound();
+      return { sk8rjake: geoJake, aquagirl88: geoAqua, pixelpete: geoPete, stargazer_liz: geoLiz }[user](ctx);
+    },
+    css: `
+.web-geo { min-height: 100%; padding: 10px 14px 30px; font: calc(14px * var(--hz-text, 1))/1.35 "Times New Roman", Times, serif; }
+.web-geo-center { display: block; text-align: center; }
+.web-geo h2 { margin: 16px 0 6px; }
+.web-geo-small { font-size: .8em; }
+.web-geo-jake { color: #d8ff5a; background-color: #000; background-image: radial-gradient(1px 1px at 12px 20px, #fff, transparent), radial-gradient(1px 1px at 70px 90px, #fff, transparent), radial-gradient(1.5px 1.5px at 120px 40px, #ffa, transparent), radial-gradient(1px 1px at 40px 130px, #aff, transparent), radial-gradient(1px 1px at 150px 150px, #fff, transparent); background-size: 170px 170px; font-family: "Comic Sans MS", "Chalkboard SE", "Trebuchet MS", sans-serif; }
+.web-geo-jake a { color: #3cf6ff; text-decoration: underline; }
+.web-geo-jake h2 { color: #ff5ae0; }
+.web-geo-marq { margin: -10px -14px 10px; padding: 3px 0; color: #ffe34a; background: #1a1a6a; font: bold 1em "Courier New", monospace; }
+.web-geo-rainbow { margin: 6px 0; font: 900 2.3em/1.1 "Arial Black", Impact, sans-serif; background: linear-gradient(90deg, #ff3a3a, #ffb13a, #fff23a, #3aff5a, #3ad8ff, #9a5aff, #ff3a3a); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: web-geo-rain 3s linear infinite; }
+@keyframes web-geo-rain { to { background-position: -200% 0; } }
+.web-geo-uc p { color: #ffd21a; font-weight: 700; margin: 2px 0 10px; }
+.web-geo-ucsvg { width: 170px; height: 128px; }
+.web-geo-shovel { transform-origin: 94px 46px; animation: web-geo-dig .9s ease-in-out infinite alternate; }
+@keyframes web-geo-dig { to { transform: rotate(28deg); } }
+.web-geo-layout { width: 100%; max-width: 760px; margin: 0 auto; border-collapse: separate; border-spacing: 10px; }
+.web-geo-layout td { vertical-align: top; }
+.web-geo-menu { width: 140px; padding: 10px; border: 3px ridge #6a6aff; background: #10104a; line-height: 1.8; }
+.web-geo-main { padding: 10px 14px; border: 3px ridge #6a6aff; background: rgba(10,10,50,.85); }
+.web-geo-spinmail { width: 20px; height: 20px; vertical-align: -5px; margin-right: 4px; animation: web-geo-spin 2s linear infinite; }
+@keyframes web-geo-spin { to { transform: rotateY(360deg); } }
+.web-geo-hr { height: 6px; margin: 14px 0; background: linear-gradient(90deg, #ff3a3a, #ffb13a, #fff23a, #3aff5a, #3ad8ff, #9a5aff); border-radius: 3px; }
+.web-geo-new { color: #ff3a3a; font: 900 .7em Arial, sans-serif; background: #ffe34a; padding: 0 4px; vertical-align: middle; }
+.web-geo-broken { display: inline-flex; align-items: center; gap: 4px; padding: 3px 6px 3px 3px; border: 1px solid #999; background: #fff; color: #000; font: 11px Arial, sans-serif; }
+.web-geo-broken i { width: 14px; height: 14px; border: 1px solid #aaa; background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14'%3E%3Cpath d='M3 3 L11 11 M11 3 L3 11' stroke='%23e0352a' stroke-width='2'/%3E%3C/svg%3E") center no-repeat; }
+.web-geo-counter { display: inline-flex; gap: 1px; padding: 2px; background: #222; border: 2px inset #888; vertical-align: middle; }
+.web-geo-counter i { display: inline-block; width: 14px; height: 20px; font: bold 15px/20px "Courier New", monospace; font-style: normal; text-align: center; color: #fff; background: linear-gradient(#444 0, #111 48%, #000 52%, #333 100%); }
+.web-geo-badges { display: flex; justify-content: center; gap: 6px; flex-wrap: wrap; margin: 12px 0; }
+.web-geo-badges span { display: inline-flex; align-items: center; justify-content: center; width: 88px; height: 31px; padding: 0 3px; font: 9px/1.1 Verdana, sans-serif; text-align: center; border: 1px solid #000; color: #000; }
+.web-geo-badges .b1 { background: linear-gradient(#fff, #9cf); } .web-geo-badges .b2 { background: linear-gradient(#fff, #ccc); } .web-geo-badges .b3 { background: linear-gradient(#fcf, #a6f); } .web-geo-badges .b4 { background: linear-gradient(#ffc, #fc3); }
+.web-geo-ring { margin: 10px auto; border: 2px outset #ccc; background: #c0c0c0; color: #000; font: 12px Arial, sans-serif; border-collapse: collapse; }
+.web-geo-ring td { padding: 4px 10px; border: 1px solid #888; text-align: center; }
+.web-geo-ring a { color: #00008b !important; }
+.web-geo-ringh { background: #000080; color: #fff; }
+.web-geo-midi { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; margin: 8px 0; background: #c0c0c0; color: #000; border: 2px outset #eee; font: 12px Arial, sans-serif; }
+.web-geo-midi button { font: 12px Arial, sans-serif; padding: 1px 8px; border: 2px outset #eee; background: #d4d0c8; cursor: pointer; }
+.web-geo-midi button:active { border-style: inset; }
+.web-geo-midi.on .web-geo-mstate { color: #070; font-weight: 700; }
+.web-geo-pics { margin: 10px auto; border-spacing: 14px; }
+.web-geo-pics td { text-align: center; vertical-align: top; }
+.web-geo-pic { width: 180px; height: 120px; object-fit: cover; border: 3px ridge #6a6aff; }
+.web-geo-links { text-align: left; max-width: 620px; margin: 10px auto; line-height: 1.9; }
+.web-geo-gbform { max-width: 620px; margin: 0 auto; padding: 10px; border: 3px ridge #6a6aff; background: rgba(10,10,50,.85); }
+.web-geo-gbform td { padding: 3px 6px; vertical-align: top; }
+.web-geo-gbform input, .web-geo-gbform textarea, .web-geo-gbform select { width: 320px; font: 13px Arial, sans-serif; }
+.web-geo-gbform button { font: 13px Arial, sans-serif; padding: 2px 10px; }
+.web-geo-gbmsg { color: #ffe34a; font-weight: 700; text-align: center; }
+.web-geo-entries { max-width: 640px; margin: 0 auto; }
+.web-geo-entry { width: 100%; margin-bottom: 8px; border: 2px solid #6a6aff; border-collapse: collapse; }
+.web-geo-eh { padding: 3px 6px; background: #2a2a8a; color: #fff; font-size: .85em; }
+.web-geo-eb { padding: 6px; background: rgba(0,0,40,.8); word-break: break-word; }
+.web-geo-aqua { color: #0a2a5a; background: #aee8f7 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Ccircle cx='20' cy='20' r='9' fill='none' stroke='%23fff' stroke-opacity='.8'/%3E%3Ccircle cx='17' cy='17' r='2' fill='%23fff'/%3E%3Ccircle cx='60' cy='56' r='6' fill='none' stroke='%23fff' stroke-opacity='.7'/%3E%3Ccircle cx='50' cy='20' r='3' fill='none' stroke='%23fff' stroke-opacity='.6'/%3E%3C/svg%3E"); font-family: Georgia, "Times New Roman", serif; }
+.web-geo-aqua a { color: #7a1ab0; }
+.web-geo-aqua h2 { color: #0a6fa8; font-style: italic; }
+.web-geo-aqua .web-geo-main { background: rgba(255,255,255,.75); border: 4px double #1fb4d8; }
+.web-geo-aqua .web-geo-gbform { background: rgba(255,255,255,.8); border-color: #1fb4d8; }
+.web-geo-aqua .web-geo-gbmsg { color: #7a1ab0; }
+.web-geo-aqua .web-geo-eh { background: #1fb4d8; } .web-geo-aqua .web-geo-eb { background: rgba(255,255,255,.85); } .web-geo-aqua .web-geo-entry { border-color: #1fb4d8; }
+.web-geo-aquatitle { font: italic 700 2.3em Georgia, serif; color: #0a6fa8; text-shadow: 2px 2px 0 #fff, 4px 4px 0 #7fe6ff; margin: 8px 0 0; }
+.web-geo-fish td { padding: 4px 10px 4px 0; vertical-align: middle; }
+.web-geo-fpic { width: 56px; height: 56px; }
+.web-geo-fact { padding: 8px; border: 2px dashed #1fb4d8; background: #eaffff; }
+.web-geo-pete { color: #000; background: repeating-linear-gradient(45deg, #ffd21a 0 30px, #222 30px 60px); }
+.web-geo-pete .web-geo-center { max-width: 640px; margin: 20px auto; padding: 20px; background: #fff; border: 6px solid #000; }
+.web-geo-bigsign .web-geo-ucsvg { width: 300px; height: 225px; }
+.web-geo-petetitle { font: 900 3em Impact, "Arial Black", sans-serif; color: #e0352a; margin: 6px 0; }
+.web-geo-big { font-size: 1.3em; font-weight: 700; }
+.web-geo-liz { color: #e8dcff; background: radial-gradient(ellipse at 30% 20%, #3a2a7a, transparent 60%), radial-gradient(1px 1px at 20px 30px, #fff, transparent), radial-gradient(1px 1px at 90px 70px, #fff, transparent), radial-gradient(1.5px 1.5px at 60px 120px, #cdf, transparent), #0a0620; background-size: auto, 130px 130px, 130px 130px, 130px 130px, auto; font-family: Verdana, sans-serif; }
+.web-geo-liz a { color: #ffd6ff; }
+.web-geo-liz h2 { color: #b89aff; }
+.web-geo-liz .web-geo-main { background: rgba(20,10,50,.8); border: 3px ridge #8a6aff; }
+.web-geo-liz .web-geo-gbform { background: rgba(20,10,50,.85); border-color: #8a6aff; }
+.web-geo-lizt { font: 900 2.2em "Arial Black", sans-serif; color: #fff; text-shadow: 0 0 10px #b89aff, 0 0 20px #7a5aff; margin: 8px 0 0; }
+.web-geo-planets td { padding: 6px 12px 6px 0; vertical-align: middle; }
+.web-geo-planet { position: relative; display: inline-block; width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, var(--pc) 45%, #000 110%); box-shadow: 0 0 12px rgba(180,150,255,.4); }
+.web-geo-planet.ringed::after { content: ""; position: absolute; left: -12px; right: -12px; top: 15px; height: 10px; border-radius: 50%; border: 3px solid rgba(240,220,170,.85); transform: rotate(-18deg); }
+.web-geo-portal { min-height: 100%; background: #f4efff; color: #222; font: calc(13px * var(--hz-text, 1))/1.45 Verdana, Arial, sans-serif; }
+.web-geo-portal a { color: #5a2a9a; }
+.web-geo-phead { background: linear-gradient(#8a4ad8, #4a1a8a); border-bottom: 4px solid #ffd21a; }
+.web-geo-pwrap { width: 860px; margin: 0 auto; }
+.web-geo-phead .web-geo-pwrap { display: flex; align-items: center; gap: 20px; height: 76px; }
+.web-geo-plogo { display: flex; align-items: center; gap: 8px; font: 900 2.4em "Arial Black", sans-serif; color: #fff; text-shadow: 0 2px 0 #2a0a5a; }
+.web-geo-plogo b { color: #ffd21a; }
+.web-geo-plogoic { width: 48px; height: 48px; }
+.web-geo-ptag { color: #f0e6ff; font-weight: 700; }
+.web-geo-pbody { display: grid; grid-template-columns: 1fr 240px; gap: 20px; padding: 16px 0; }
+.web-geo-pmain h1 { color: #4a1a8a; margin: 0 0 10px; }
+.web-geo-hoods { width: 100%; border-collapse: collapse; }
+.web-geo-hoods td { padding: 8px; border-bottom: 1px solid #d8c8f0; }
+.web-geo-hood b { color: #4a1a8a; font-size: 1.1em; }
+.web-geo-pbox { padding: 10px; margin-bottom: 12px; border: 2px solid #b89ae8; border-radius: 8px; background: #fff; }
+.web-geo-pbtn { font: 700 1.05em Verdana, sans-serif; padding: 6px 14px; border-radius: 16px; border: 1px solid #a07a00; cursor: pointer; background: linear-gradient(#fff3a8, #ffd21a); }
+.web-geo-pfoot { text-align: center; color: #7a6a9a; padding: 10px 0 20px; font-size: .9em; }
+`,
+  });
+
+  // ================================================================ www.free-screensavers-4u.com
+  const FS_SAVERS = [
+    ['bubbles3d', 'Super Bubbles 3D', '2.1 MB', 4.6, 1203443, 'Realistic 3D bubbles float across your screen! Now with REAL physics!!!'],
+    ['starwarp', 'Starfield Warp Deluxe', '1.4 MB', 4.3, 988201, 'Fly through space at WARP SPEED. Makes your computer 20% faster*'],
+    ['aquarium', 'Aquarium Paradise', '3.8 MB', 4.8, 2204551, 'A beautiful tropical aquarium right on your desktop. No feeding required!'],
+    ['fireworks', 'Glass Fireworks 2007', '2.9 MB', 4.1, 603322, 'Celebrate EVERY DAY with amazing glass fireworks!!!'],
+    ['tubes', '3D Tube Maze', '0.9 MB', 4.4, 1450990, 'Watch colorful tubes build a maze. Oddly relaxing.'],
+    ['aurora', 'Aurora Dreams', '2.2 MB', 4.7, 877114, 'The northern lights, live on your screen. So calm. So free.'],
+  ];
+  function fsFrame(inner) {
+    return `<div class="web-fs"><div class="web-fs-banner" data-ad="winner"><span class="web-fs-bannertxt">CONGRATULATIONS!!! You are the <b>1,000,000th</b> visitor!!! CLICK HERE to claim your prize!!!</span></div>
+      <div class="web-fs-head"><h1><span class="web-fs-rain">FREE-SCREENSAVERS-4U.COM</span></h1><p><span class="wk-blink">100% FREE!!!</span> No spyware!!!* Updated DAILY!!! ${K.burst('NEW!', { size: 46, font: 11, c1: '#fff', c2: '#ff3a3a', rim: '#a00', spin: true })}</p></div>
+      <div class="web-fs-nav"><a href="/">HOME</a> | <a href="/">3D</a> | <a href="/">NATURE</a> | <a href="/">SPACE</a> | <a href="/">AQUARIUM</a> | <a href="/" class="web-fs-hot">TOP 10</a> | <a href="#" data-ad="submit">SUBMIT</a></div>${inner}
+      <div class="web-fs-foot">Copyright 2006 free-screensavers-4u.com. All screensavers 100% free*.<br>*Free as in free. No spyware. Some toolbars. Webmaster: webmaster at free-screensavers-4u.com</div></div>`;
+  }
+  function fsWire(ctx, root) {
+    root.querySelectorAll('[data-ad]').forEach((el) => el.addEventListener('click', (e) => {
+      if (e.target.closest('.web-fs-fish')) return;
+      e.preventDefault();
+      const k = el.dataset.ad;
+      if (k === 'winner') ctx.dialog({ title: 'Message from webpage', icon: 'icons/gift', instruction: 'You are our 1,000,000th visitor!', message: 'Your prize is the warm feeling of clicking a flashing banner.\n\nAlso, every visitor is the 1,000,000th visitor. We checked.' });
+      else if (k === 'slow') fsScan(ctx);
+      else if (k === 'fishmiss') { ctx.dialog({ title: 'Message from webpage', icon: 'icons/fish', instruction: 'MISSED!!!', message: 'You missed the fish! Try again! The fish is fast. The fish is ready.' }); }
+      else if (k === 'submit') ctx.dialog({ title: 'Message from webpage', icon: 'info', message: 'Submissions are closed while our webmaster finishes his homework.' });
+      else if (k === 'news') ctx.dialog({ title: 'Message from webpage', icon: 'icons/mail', instruction: 'You are now subscribed!!!', message: 'You will receive our newsletter every 15 minutes. Just kidding: there is no newsletter, and nothing was sent anywhere.' });
+      else if (k === 'ring') ctx.go('http://www.ringtonez4u.com/');
+    }));
+    root.querySelectorAll('.web-fs-fish').forEach((f) => f.addEventListener('click', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      ctx.sound('pop');
+      ctx.dialog({ title: 'Message from webpage', icon: 'icons/fish', instruction: 'BOOP! You booped the fish!', message: 'Congratulations! Your prize: one (1) free fishbowl, delivered in 6 to 8 weeks.\n\nThe fish would like you to know that it was a very gentle boop, and it is fine.' });
+    }));
+  }
+  function fsScan(ctx) {
+    const go = () => {
+      const bar = A.ui.progress({ value: 0 });
+      const txt = A.util.h('div.ae-td-message', null, 'Scanning C:\\Aerium... just kidding. Scanning your bubbles...');
+      A.ui.dialog({
+        parent: ctx.win, title: 'SpeedUp My PC 2007 (Free Edition)', icon: 'icons/taskmgr', width: 420,
+        content: A.util.h('div', { style: { padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: '10px' } }, A.util.h('div.ae-td-instruction', null, 'Scanning your computer...'), bar, txt),
+        buttons: [{ label: 'Close', cancel: true }],
+        onOpen(w) {
+          let p = 0;
+          const files = ['bubbles.dll', 'fish_food.sys', 'glass_colors.ini', 'screensaver_mood.dat', 'homework (due friday).txt', 'reflections.cache'];
+          const tick = () => {
+            if (w.closed) return;
+            p += 7 + Math.random() * 9;
+            bar.set(p);
+            txt.textContent = 'Scanning ' + files[Math.floor(Math.random() * files.length)] + '...';
+            if (p < 100) setTimeout(tick, 260);
+            else { txt.textContent = 'Scan complete! 0 problems found. Your computer is running at a perfectly normal speed. It was just waiting for you.'; A.sound.play('notify'); }
+          };
+          setTimeout(tick, 300);
+        },
+      });
+    };
+    if (A.ui.uac) A.ui.uac({ program: 'SpeedUp My PC 2007', publisher: 'Unknown', verified: false, icon: 'icons/taskmgr' }).then((ok) => { if (ok) go(); else ctx.dialog({ title: 'Message from webpage', icon: 'icons/shield', message: 'Good call. You should never trust a flashing banner. (It was harmless anyway.)' }); });
+    else go();
+  }
+  function fsPreview(id) {
+    if (id === 'bubbles3d') return `<span class="web-fs-pv pv-bub">${'<i></i>'.repeat(7)}</span>`;
+    if (id === 'starwarp') return '<span class="web-fs-pv pv-warp"><i></i><i></i><i></i></span>';
+    if (id === 'aquarium') return `<span class="web-fs-pv pv-aqua">${K.img('icons/fish', 'pv-fish1')}${K.img('icons/fish', 'pv-fish2')}</span>`;
+    if (id === 'fireworks') return `<span class="web-fs-pv pv-fire">${'<i></i>'.repeat(4)}</span>`;
+    if (id === 'tubes') return '<span class="web-fs-pv pv-tube"><i></i><i></i><i></i><i></i></span>';
+    return '<span class="web-fs-pv pv-aur"><i></i><i></i></span>';
+  }
+  function fsHome(ctx) {
+    ctx.title('FREE SCREENSAVERS 4 U!!! 100% FREE DOWNLOADS!!!');
+    const inner = `<div class="web-fs-cols"><div class="web-fs-left"><div class="web-fs-box"><b>CATEGORIES</b><br><a href="/">3D Screensavers</a> <span class="web-fs-new wk-blink">NEW!</span><br><a href="/">Nature</a><br><a href="/">Space</a> <span class="web-fs-new wk-blink">NEW!</span><br><a href="/">Aquarium</a><br><a href="/">Fireworks</a><br><a href="/">Funny</a></div>
+        <div class="web-fs-box"><b>NEWSLETTER!!!</b><br>Get new screensavers every day!!!<br><button type="button" data-ad="news">SUBSCRIBE</button></div>
+        <div class="web-fs-box web-fs-ring" data-ad="ring"><b>HOT RINGTONES!!!</b><br>${K.img('icons/phone', 'web-fs-ringic')}<br>Get them at Ringtonez4U!</div></div>
+      <div class="web-fs-main"><h2 class="web-fs-h2">TODAY'S TOP SCREENSAVERS!!!</h2>${FS_SAVERS.map(([id, name, size, rating, dls, desc]) => `<div class="web-fs-item">${fsPreview(id)}<div class="web-fs-info"><a class="web-fs-name" href="/download/${id}">${esc(name)}</a><p>${esc(desc)}</p><div class="web-fs-meta">Rating: ${K.stars(rating)} | Downloads: <b>${K.num(dls)}</b> | Size: ${size}</div></div><a class="web-fs-dl" href="/download/${id}"><span>FREE</span>DOWNLOAD</a></div>`).join('')}</div>
+      <div class="web-fs-right"><div class="web-fs-slow" data-ad="slow"><b>WARNING!!!</b><br>Your computer may be running <span class="wk-blink">SLOW!!!</span><br>${K.img('icons/warning', 'web-fs-warnic')}<br><u>CLICK HERE TO SCAN NOW</u><br><small>100% FREE SCAN</small></div>
+        <div class="web-fs-boop" data-ad="fishmiss"><b>BOOP THE FISH!!!</b><br><small>and WIN a FREE fishbowl!!!</small><div class="web-fs-tank"><span class="web-fs-fish" role="button" aria-label="Boop the fish">${K.img('icons/fish')}</span></div></div></div></div>`;
+    const root = ctx.html(fsFrame(inner));
+    fsWire(ctx, root);
+    ctx.after(1500, () => ctx.popup('http://www.free-screensavers-4u.com/popup/winner', { width: 400, height: 340 }));
+  }
+  function fsDownload(ctx, id) {
+    const s = FS_SAVERS.find((x) => x[0] === id);
+    if (!s) return ctx.notFound();
+    const [, name, size] = s;
+    ctx.title('Downloading ' + name + '...');
+    const inner = `<div class="web-fs-dlpage"><h2 class="web-fs-h2">THANK YOU FOR CHOOSING ${esc(name.toUpperCase())}!!!</h2>${fsPreview(id)}
+      <p class="web-fs-count">Your download will begin in <b class="web-fs-secs">5</b> seconds...</p>
+      <label class="web-fs-toolbar"><input type="checkbox" checked> Also install the FREE Bubble Toolbar (recommended!!!)</label>
+      <p>If your download does not start, <a href="#" class="web-fs-now">click here</a>.</p><p class="web-fs-small">File: ${esc(name)}.txt (${size})</p><p><a href="/">&lt;&lt; Back to more FREE screensavers</a></p></div>`;
+    const root = ctx.html(fsFrame(inner));
+    fsWire(ctx, root);
+    const cb = root.querySelector('.web-fs-toolbar input');
+    cb.addEventListener('change', () => {
+      if (cb.checked) return;
+      ctx.dialog({ title: 'Message from webpage', icon: 'question', instruction: 'Are you sure?', message: 'The Bubble Toolbar is very nice. It has a search box AND a weather button.', buttons: [{ label: 'Keep the toolbar', value: 'keep' }, { label: 'No thanks', default: true, value: 'no' }] }).then((r) => { if (r === 'keep') cb.checked = true; });
+    });
+    let started = false;
+    const start = () => {
+      if (started) return;
+      started = true;
+      root.querySelector('.web-fs-count').innerHTML = 'Your download has started!!! Enjoy!!!';
+      const text = `${name.toUpperCase()} SCREENSAVER\r\n${'='.repeat(name.length + 12)}\r\n\r\nThank you for downloading from free-screensavers-4u.com!!!\r\n\r\nINSTALLATION INSTRUCTIONS:\r\n1. Close your eyes.\r\n2. Imagine ${name} on your screen.\r\n3. That's it! You now have ${name}.\r\n${cb.checked ? '\r\nBONUS: The Bubble Toolbar has also been imagined into your browser.\r\n' : ''}\r\nWant a REAL screensaver? Right-click the desktop, choose Personalize,\r\nthen Screen Saver. Aerium comes with some very nice ones, and none of\r\nthem came with a toolbar.\r\n\r\n(This is a pretend download from a pretend website. Your computer is\r\nperfectly fine. The fish says hi.)\r\n`;
+      ctx.download({ name: name + ' Screensaver.txt', content: text, type: 'Text Document', icon: 'icons/monitor', size: Math.round(parseFloat(size) * 1048576) });
+    };
+    let n = 5;
+    const secs = root.querySelector('.web-fs-secs');
+    const iv = ctx.every(1000, () => { n--; if (secs) secs.textContent = String(Math.max(0, n)); if (n <= 0) { clearInterval(iv); start(); } });
+    root.querySelector('.web-fs-now').addEventListener('click', (e) => { e.preventDefault(); clearInterval(iv); start(); });
+  }
+  function fsPopup(ctx, kind) {
+    if (kind === 'winner') {
+      ctx.title('YOU ARE A WINNER!!!');
+      const root = ctx.html(`<div class="web-fs web-fs-popup"><div class="web-fs-win">${K.burst('WINNER!', { size: 110, font: 18, c1: '#fff45c', c2: '#ff3a3a', rim: '#a00', spin: true })}<h1 class="web-fs-rain">YOU HAVE WON!!!</h1><p>You have been selected to receive a <b>FREE FISHBOWL!!!</b></p><a class="web-fs-dl" href="/claim"><span>CLAIM</span>MY PRIZE</a><p class="web-fs-small">This offer expires in <b class="wk-blink">00:59</b>. Not really.</p></div></div>`);
+      return root;
+    }
+    if (kind === 'speed') {
+      ctx.title('Your computer may be running slow!!!');
+      const root = ctx.html(`<div class="web-fs web-fs-popup"><div class="web-fs-win">${K.img('icons/warning', 'web-fs-warnbig')}<h1>WARNING!!!</h1><p>Your computer may be running slow!!!</p><button type="button" class="web-fs-scan">SCAN NOW</button></div></div>`);
+      root.querySelector('.web-fs-scan').addEventListener('click', () => fsScan(ctx));
+      return root;
+    }
+    return ctx.notFound();
+  }
+  function fsClaim(ctx) {
+    ctx.title('Claim your FREE fishbowl!!!');
+    const root = ctx.html(`<div class="web-fs web-fs-popup"><div class="web-fs-win"><h1>CLAIM YOUR PRIZE!!!</h1><form class="web-fs-claim"><label>Your first name (just the first one!): <input name="n" type="text" maxlength="20"></label><label>Your favorite fish: <select name="f"><option>Goldfish</option><option>Betta</option><option>Clownfish</option><option>All of them</option></select></label><button type="submit">CLAIM!!!</button></form><p class="web-fs-claimed"></p></div></div>`);
+    root.querySelector('.web-fs-claim').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const n = e.target.n.value.trim() || 'friend';
+      root.querySelector('.web-fs-claimed').innerHTML = `Congratulations, <b>${esc(n)}</b>! Your free fishbowl will arrive in 6 to 8 weeks.<br><br><small>(There is no fishbowl. There never was. But the ${esc(e.target.f.value.toLowerCase())} thanks you for being so trusting. Nothing you typed went anywhere.)</small>`;
+      ctx.sound('win');
+    });
+  }
+  W.register({
+    id: 'free-screensavers', host: 'www.free-screensavers-4u.com', aliases: ['free-screensavers-4u.com'],
+    title: 'FREE SCREENSAVERS 4 U!!!', shortTitle: 'Free Screensavers!!', icon: 'icons/monitor', weight: 1.8,
+    shady: 'This website contains 7 blinking banners, 1 pop-up window and a free fishbowl that nobody has ever received. It is harmless, but please do not believe anything it says.',
+    pictures: ['images/banner_1000000.gif', 'images/new_star.gif', 'images/download_btn.gif', 'images/spacer.gif', 'images/punch_fish.swf', 'images/scan_now.gif'],
+    favicon: '<svg viewBox="0 0 16 16"><path d="M8 .5 L9.8 5.6 L15.3 5.8 L11 9.1 L12.6 14.4 L8 11.3 L3.4 14.4 L5 9.1 L.7 5.8 L6.2 5.6 Z" fill="#ff3a3a" stroke="#900" stroke-linejoin="round"/><text x="8" y="10.4" font-family="Arial" font-weight="bold" font-size="7" text-anchor="middle" fill="#ff0">!</text></svg>',
+    pages: [
+      { path: '/', title: 'FREE SCREENSAVERS 4 U!!! 100% FREE DOWNLOADS!!!', text: 'free screensavers download super bubbles 3D starfield warp aquarium paradise glass fireworks 3D tube maze aurora dreams 100% free no spyware' },
+      { path: '/download/bubbles3d', title: 'Downloading Super Bubbles 3D...', text: 'download super bubbles 3D screensaver free' },
+      { path: '/download/aquarium', title: 'Downloading Aquarium Paradise...', text: 'download aquarium paradise screensaver fish free' },
+    ],
+    render(ctx) {
+      const p = ctx.parts;
+      if (!p.length) return fsHome(ctx);
+      if (p[0] === 'download') return fsDownload(ctx, p[1]);
+      if (p[0] === 'popup') return fsPopup(ctx, p[1]);
+      if (p[0] === 'claim') return fsClaim(ctx);
+      return ctx.notFound();
+    },
+    css: `
+.web-fs { min-height: 100%; background: #ffff66; color: #000; font: calc(13px * var(--hz-text, 1))/1.35 Verdana, Arial, sans-serif; }
+.web-fs a { color: #0000ee; }
+.web-fs-banner { width: 728px; max-width: 100%; margin: 0 auto; padding: 14px 10px; text-align: center; cursor: pointer; border: 3px solid #000; font: 900 1.05em Arial, sans-serif; animation: web-fs-flash .5s steps(1) infinite; }
+@keyframes web-fs-flash { 0% { background: #ff0; color: #f00; } 33% { background: #f00; color: #ff0; } 66% { background: #0f0; color: #00f; } }
+.web-fs-head { text-align: center; padding: 8px 0 4px; }
+.web-fs-head h1 { margin: 0; }
+.web-fs-rain { font: 900 2.2em/1 Impact, "Arial Black", sans-serif; background: linear-gradient(90deg, #f00, #f90, #ff0, #0c0, #09f, #90f, #f00); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: web-geo-rain 1.5s linear infinite; -webkit-text-stroke: 1px #000; }
+@keyframes web-geo-rain { to { background-position: -200% 0; } }
+.web-fs-head p { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 6px 0; font-weight: 700; color: #c00; }
+.web-fs-nav { padding: 5px; text-align: center; background: #000; color: #0f0; font-weight: 700; }
+.web-fs-nav a { color: #0f0; }
+.web-fs-hot { color: #f0f !important; }
+.web-fs-cols { display: grid; grid-template-columns: 150px minmax(0, 1fr) 170px; gap: 10px; max-width: 980px; margin: 10px auto; padding: 0 8px; }
+.web-fs-box { padding: 8px; margin-bottom: 10px; background: #fff; border: 3px dashed #f00; font-size: .92em; line-height: 1.7; }
+.web-fs-box button { font: 700 1em Arial, sans-serif; background: #f00; color: #fff; border: 2px outset #f66; cursor: pointer; }
+.web-fs-new { color: #fff; background: #f00; font-size: .75em; padding: 0 3px; font-weight: 700; }
+.web-fs-ring { cursor: pointer; text-align: center; background: #000; color: #0f0; border-color: #0f0; }
+.web-fs-ringic { width: 40px; height: 40px; }
+.web-fs-h2 { margin: 0 0 8px; font: 900 1.4em Impact, "Arial Black", sans-serif; color: #c00; text-align: center; }
+.web-fs-item { display: flex; gap: 10px; align-items: center; padding: 8px; margin-bottom: 8px; background: #fff; border: 2px solid #000; box-shadow: 4px 4px 0 #f90; }
+.web-fs-info { flex: 1; min-width: 0; }
+.web-fs-info p { margin: 3px 0; font-size: .92em; }
+.web-fs-name { font: 900 1.2em Arial, sans-serif; }
+.web-fs-meta { font-size: .85em; color: #333; }
+.web-fs-dl { display: inline-flex; flex-direction: column; align-items: center; padding: 6px 12px; border-radius: 8px; color: #fff !important; font: 900 1em Arial, sans-serif; text-decoration: none; border: 2px solid #060; background: linear-gradient(#7f7 0, #0b0 50%, #080 51%, #0c0 100%); box-shadow: 0 3px 0 #040; animation: web-fs-pulse 1s ease-in-out infinite; }
+.web-fs-dl span { font-size: .75em; color: #ff0; }
+@keyframes web-fs-pulse { 50% { transform: scale(1.06); } }
+.web-fs-pv { position: relative; flex: none; display: block; width: 110px; height: 80px; overflow: hidden; border: 3px solid #333; background: #000; }
+.pv-bub { background: linear-gradient(#0a4f86, #1fb4d8); }
+.pv-bub i { position: absolute; bottom: -20px; width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.8); background: radial-gradient(circle at 35% 30%, #fff, rgba(255,255,255,.1) 45%, rgba(150,220,255,.4)); animation: web-fs-rise 3s linear infinite; }
+.pv-bub i:nth-child(1) { left: 8px; } .pv-bub i:nth-child(2) { left: 30px; animation-delay: -.5s; width: 10px; height: 10px; } .pv-bub i:nth-child(3) { left: 52px; animation-delay: -1.2s; } .pv-bub i:nth-child(4) { left: 74px; animation-delay: -2s; width: 20px; height: 20px; } .pv-bub i:nth-child(5) { left: 90px; animation-delay: -2.5s; } .pv-bub i:nth-child(6) { left: 18px; animation-delay: -1.6s; width: 8px; height: 8px; } .pv-bub i:nth-child(7) { left: 62px; animation-delay: -.2s; width: 12px; height: 12px; }
+@keyframes web-fs-rise { to { transform: translateY(-120px); } }
+.pv-warp i { position: absolute; inset: 0; background: radial-gradient(1px 1px at 20% 30%, #fff, transparent), radial-gradient(1px 1px at 70% 60%, #fff, transparent), radial-gradient(1.5px 1.5px at 40% 80%, #fff, transparent), radial-gradient(1px 1px at 85% 20%, #fff, transparent), radial-gradient(1px 1px at 10% 70%, #fff, transparent); animation: web-fs-warp 1.5s linear infinite; }
+.pv-warp i:nth-child(2) { animation-delay: -.5s; } .pv-warp i:nth-child(3) { animation-delay: -1s; }
+@keyframes web-fs-warp { from { transform: scale(.3); opacity: 0; } 30% { opacity: 1; } to { transform: scale(2.4); opacity: 0; } }
+.pv-aqua { background: linear-gradient(#39a9e8, #0b4f8f); }
+.pv-aqua img { position: absolute; width: 30px; height: 30px; }
+.pv-fish1 { top: 12px; animation: web-fs-swim 4s linear infinite; }
+.pv-fish2 { top: 42px; animation: web-fs-swim 6s linear infinite reverse; }
+@keyframes web-fs-swim { from { left: -30px; } to { left: 110px; } }
+.pv-fire i { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, transparent 30%, #ff0 32%, transparent 36%, transparent 55%, #f0f 57%, transparent 62%); animation: web-fs-boom 1.4s ease-out infinite; }
+.pv-fire i:nth-child(1) { left: 10px; top: 10px; } .pv-fire i:nth-child(2) { left: 60px; top: 20px; animation-delay: -.4s; } .pv-fire i:nth-child(3) { left: 30px; top: 40px; animation-delay: -.8s; } .pv-fire i:nth-child(4) { left: 70px; top: 44px; animation-delay: -1.1s; }
+@keyframes web-fs-boom { from { transform: scale(.1); opacity: 1; } to { transform: scale(1.4); opacity: 0; } }
+.pv-tube { background: #001; }
+.pv-tube i { position: absolute; height: 8px; border-radius: 4px; animation: web-fs-grow 3s ease-in-out infinite; }
+.pv-tube i:nth-child(1) { left: 5px; top: 10px; background: linear-gradient(#f99, #c00); } .pv-tube i:nth-child(2) { left: 20px; top: 30px; background: linear-gradient(#9f9, #0a0); animation-delay: -.7s; } .pv-tube i:nth-child(3) { left: 10px; top: 50px; background: linear-gradient(#99f, #00c); animation-delay: -1.4s; } .pv-tube i:nth-child(4) { left: 30px; top: 64px; background: linear-gradient(#ff9, #cc0); animation-delay: -2.1s; }
+@keyframes web-fs-grow { from { width: 0; } 70% { width: 90px; } to { width: 90px; opacity: 0; } }
+.pv-aur i { position: absolute; left: -20%; right: -20%; height: 40px; border-radius: 50%; filter: blur(6px); animation: web-fs-aur 5s ease-in-out infinite alternate; }
+.pv-aur i:nth-child(1) { top: 10px; background: linear-gradient(90deg, transparent, #3ee6a0, #2aceda, transparent); } .pv-aur i:nth-child(2) { top: 36px; background: linear-gradient(90deg, transparent, #2aceda, #9a5aff, transparent); animation-delay: -2s; }
+@keyframes web-fs-aur { from { transform: translateX(-12%) skewX(-10deg); } to { transform: translateX(12%) skewX(10deg); } }
+.web-fs-slow { padding: 10px; margin-bottom: 10px; text-align: center; cursor: pointer; border: 3px solid #000; font: 700 1em Arial, sans-serif; animation: web-fs-flash2 .8s steps(1) infinite; }
+@keyframes web-fs-flash2 { 0% { background: #f00; color: #fff; } 50% { background: #ff0; color: #f00; } }
+.web-fs-warnic { width: 44px; height: 44px; }
+.web-fs-boop { position: relative; padding: 8px; text-align: center; cursor: crosshair; background: #0af; color: #fff; border: 3px solid #000; font: 700 1em Arial, sans-serif; }
+.web-fs-tank { position: relative; height: 70px; margin-top: 6px; background: linear-gradient(#6cf, #06a); border: 2px solid #fff; overflow: hidden; }
+.web-fs-fish { position: absolute; top: 14px; width: 40px; height: 40px; cursor: crosshair; animation: web-fs-dart 1.3s ease-in-out infinite alternate; }
+.web-fs-fish img { width: 100%; height: 100%; }
+@keyframes web-fs-dart { from { left: 2px; transform: scaleX(1); } 49% { transform: scaleX(1); } 50% { transform: scaleX(-1); } to { left: calc(100% - 42px); transform: scaleX(-1); } }
+.web-fs-foot { max-width: 980px; margin: 10px auto 0; padding: 10px; text-align: center; font-size: .8em; color: #555; border-top: 2px dashed #f00; }
+.web-fs-dlpage { max-width: 640px; margin: 16px auto; padding: 16px; text-align: center; background: #fff; border: 3px solid #000; box-shadow: 6px 6px 0 #f90; }
+.web-fs-dlpage .web-fs-pv { margin: 10px auto; width: 220px; height: 150px; }
+.web-fs-count { font: 700 1.2em Arial, sans-serif; }
+.web-fs-toolbar { display: inline-flex; gap: 6px; align-items: center; padding: 4px 8px; background: #ffc; border: 1px dotted #990; font-size: .92em; }
+.web-fs-small { font-size: .8em; color: #666; }
+.web-fs-popup { display: grid; place-items: center; padding: 10px; }
+.web-fs-win { text-align: center; padding: 12px; background: #fff; border: 4px solid #f00; box-shadow: 0 0 0 4px #ff0; }
+.web-fs-win h1 { margin: 6px 0; }
+.web-fs-warnbig { width: 64px; height: 64px; }
+.web-fs-scan, .web-fs-claim button { font: 900 1.2em Arial, sans-serif; padding: 6px 16px; color: #fff; background: #f00; border: 3px outset #f66; cursor: pointer; }
+.web-fs-claim { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.web-fs-claim input, .web-fs-claim select { font: inherit; }
+.web-fs-claimed { max-width: 320px; }
+`,
+  });
+
+  // @@PART3
 })();

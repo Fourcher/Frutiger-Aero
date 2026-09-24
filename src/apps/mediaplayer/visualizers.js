@@ -278,7 +278,7 @@
             ctx.fillStyle = refl;
             ctx.fillRect(x, floor + 2, bw, Math.min(h - floor, bh * 0.55));
             if (bh >= caps[i]) { caps[i] = bh; capV[i] = 0; } else { capV[i] += f.dt * 240; caps[i] = Math.max(0, caps[i] - capV[i] * f.dt); }
-            ctx.fillStyle = hsl(hue - 22, 100, 90, 0.95);
+            ctx.fillStyle = hsl(hue - 22, 100, 90, f.playing ? 0.95 : 0.35);
             roundRect(ctx, x, floor - caps[i] - 7, bw, 3.5, 1.7);
             ctx.fill();
           }
@@ -302,7 +302,7 @@
         draw(f) {
           const { ctx, w, h, t } = f;
           ctx.globalCompositeOperation = 'source-over';
-          ctx.fillStyle = first ? '#01060f' : 'rgba(1,6,15,0.26)';
+          ctx.fillStyle = first ? '#01060f' : 'rgba(1,6,15,0.42)';
           first = false;
           ctx.fillRect(0, 0, w, h);
           ctx.strokeStyle = 'rgba(80,170,230,0.07)';
@@ -311,7 +311,7 @@
           for (let x = (w / 2) % 48; x < w; x += 48) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
           for (let y = (h / 2) % 48; y < h; y += 48) { ctx.moveTo(0, y); ctx.lineTo(w, y); }
           ctx.stroke();
-          const mid = h / 2, amp = h * 0.36, N = Math.min(512, Math.floor(w / 2)), wf = f.wf, step = wf.length / N;
+          const mid = h / 2, amp = h * 0.3, N = Math.min(256, Math.floor(w / 3)), wf = f.wf, step = wf.length / N;
           const hue = 188 + Math.sin(t * 0.23) * 26;
           ctx.globalCompositeOperation = 'lighter';
           const path = () => {

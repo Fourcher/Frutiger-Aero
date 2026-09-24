@@ -226,7 +226,7 @@
   // ---------------------------------------------------------------- backs
   function sheenAndFrame(c) {
     const sh = c.createLinearGradient(0, 14, 0, 170);
-    sh.addColorStop(0, 'rgba(255,255,255,.6)'); sh.addColorStop(1, 'rgba(255,255,255,.04)');
+    sh.addColorStop(0, 'rgba(255,255,255,.48)'); sh.addColorStop(1, 'rgba(255,255,255,.03)');
     c.fillStyle = sh;
     c.beginPath(); c.moveTo(14, 14); c.lineTo(236, 14); c.lineTo(236, 126); c.quadraticCurveTo(125, 166, 14, 126); c.closePath(); c.fill();
   }
@@ -303,16 +303,18 @@
       for (let i = 0; i < 5; i++) { const y = 186 + i * 30; c.beginPath(); c.moveTo(14, y); for (let x = 14; x <= 236; x += 20) c.quadraticCurveTo(x + 5, y - 6, x + 10, y); c.stroke(); }
       const dg = c.createLinearGradient(0, 0, 0, 64);
       dg.addColorStop(0, '#bfe6ff'); dg.addColorStop(0.5, '#4f9be0'); dg.addColorStop(1, '#1d5aa6');
-      [[36, 150, -0.55, 1], [214, 150, 0.55, -1]].forEach(([x, y, rot, dir]) => {
-        c.save(); c.translate(x, y); c.rotate(rot); c.scale(dir * 0.95, 0.95); c.translate(-60, -32);
+      [[84, 142, -0.42, 1], [166, 142, 0.42, -1]].forEach(([x, y, rot, dir]) => {
+        c.save(); c.translate(x, y); c.rotate(rot * dir); c.scale(dir * 0.72, 0.72); c.translate(-57, -34);
         c.fillStyle = dg; c.fill(DOLPHIN);
         c.strokeStyle = 'rgba(10,50,110,.5)'; c.lineWidth = 1.5; c.stroke(DOLPHIN);
         c.fillStyle = 'rgba(255,255,255,.5)'; c.beginPath(); c.ellipse(60, 26, 26, 5, 0.05, 0, Math.PI * 2); c.fill();
         c.fillStyle = '#0b2a4a'; c.beginPath(); c.arc(100, 32, 2.2, 0, Math.PI * 2); c.fill();
         c.restore();
       });
+      c.fillStyle = 'rgba(255,255,255,.35)';
+      [[70, 176, 26], [180, 176, 26]].forEach(([x, y, r]) => { c.beginPath(); c.ellipse(x, y, r, 5, 0, 0, Math.PI * 2); c.fill(); });
       c.fillStyle = '#fff';
-      [[125, 70], [100, 50], [150, 52]].forEach(([x, y]) => { c.beginPath(); c.moveTo(x, y - 7); c.lineTo(x + 2, y - 2); c.lineTo(x + 7, y); c.lineTo(x + 2, y + 2); c.lineTo(x, y + 7); c.lineTo(x - 2, y + 2); c.lineTo(x - 7, y); c.lineTo(x - 2, y - 2); c.fill(); });
+      [[125, 64], [104, 46], [146, 48]].forEach(([x, y]) => { c.beginPath(); c.moveTo(x, y - 7); c.lineTo(x + 2, y - 2); c.lineTo(x + 7, y); c.lineTo(x + 2, y + 2); c.lineTo(x, y + 7); c.lineTo(x - 2, y + 2); c.lineTo(x - 7, y); c.lineTo(x - 2, y - 2); c.fill(); });
     },
     sunburst(c) {
       c.fillStyle = '#ffb21e'; c.fillRect(0, 0, 250, 350);

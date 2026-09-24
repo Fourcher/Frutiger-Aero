@@ -138,42 +138,41 @@
 @media (prefers-reduced-motion: reduce) { .calc-num, .calc-panel-in { transition: none; animation: none; } }
 
 /* ============================================================ Command Prompt */
-.cmd { background: #000; }
+.cmd { background: var(--cmd-bg, #000); }
 .cmd-screen {
-  position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden;
-  padding: 6px 8px 10px; outline: none;
+  position: absolute; inset: 0; overflow-y: auto; overflow-x: hidden; padding: 4px 6px 10px;
   background: var(--cmd-bg, #000); color: var(--cmd-fg, #c0c0c0);
-  font: 400 14px/1.3 Consolas, "Lucida Console", "DejaVu Sans Mono", monospace;
-  cursor: text;
+  font: 400 14px/17px Consolas, "Lucida Console", "DejaVu Sans Mono", monospace;
+  cursor: text; user-select: text; -webkit-user-select: text;
 }
-.cmd-line { white-space: pre-wrap; overflow-wrap: anywhere; min-height: 1.3em; }
-.cmd-inputline { position: relative; display: block; }
-.cmd-prompt { color: var(--cmd-fg, #c0c0c0); }
-.cmd-typed-wrap { position: static; }
-.cmd-typed { white-space: pre-wrap; overflow-wrap: anywhere; }
-.cmd-input { position: absolute; left: 0; top: 0; right: 0; bottom: 0; width: 100%; height: 100%;
-  margin: 0; padding: 0; border: 0; background: transparent; color: transparent; caret-color: transparent;
-  font: inherit; outline: none; resize: none; }
-.cmd-cursor { display: inline-block; min-width: 8px; background: var(--cmd-fg, #c0c0c0); color: var(--cmd-bg, #000); animation: cmd-blink 1.06s steps(1) infinite; }
-.cmd-screen:not(:focus-within) .cmd-cursor { animation: none; box-shadow: inset 0 0 0 1px var(--cmd-fg, #c0c0c0); background: transparent; color: var(--cmd-fg, #c0c0c0); }
-@keyframes cmd-blink { 50% { opacity: 0; } }
-.cmd-cmdname { color: #ffffff; font-weight: 700; }
-.cmd-green { color: #00ff5a; }
-.cmd-red { color: #ff5a4a; }
-.cmd-dim { opacity: .55; }
-.cmd-rainbow .cmd-line {
-  background: linear-gradient(90deg, #ff5a4a, #ffd62e, #35e83a, #2cc6ea, #4db3ff, #d36bff, #ff5a4a);
-  background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
-  animation: cmd-rainbow 4s linear infinite;
-}
-@keyframes cmd-rainbow { to { background-position: 200% 0; } }
-.cmd-overlay { position: absolute; inset: 0; z-index: 5; background: #000; overflow: hidden; }
+.cmd-screen ::selection { background: var(--cmd-fg, #c0c0c0); color: var(--cmd-bg, #000); }
+.cmd-line { min-height: 17px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmd-typed { white-space: pre-wrap; }
+.cmd-kb { position: absolute; left: 0; bottom: 0; width: 1px; height: 1px; margin: 0; padding: 0; border: 0; opacity: 0; resize: none; overflow: hidden; pointer-events: none; }
+.cmd-cursor { display: inline-block; min-width: .56em; box-shadow: inset 0 0 0 1px var(--cmd-fg, #c0c0c0); }
+.cmd-focused .cmd-cursor { background: var(--cmd-fg, #c0c0c0); color: var(--cmd-bg, #000); box-shadow: none; animation: cmd-blink 1.06s steps(1) infinite; }
+.cmd-focused .cmd-cursor-over { background: linear-gradient(to bottom, transparent 55%, var(--cmd-fg, #c0c0c0) 55%); color: inherit; }
+@keyframes cmd-blink { 50% { background: transparent; color: inherit; } }
+.cmd-overlay { position: absolute; inset: 0; z-index: 5; overflow: hidden; background: #000; cursor: pointer; }
 .cmd-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.cmd-fishtank { position: absolute; inset: 0; margin: 0; padding: 8px; color: #7fe6ff; background: linear-gradient(180deg, #021a3a, #063a6a 60%, #0a558a);
-  font: 400 13px/1.05 Consolas, "Lucida Console", monospace; white-space: pre; overflow: hidden; }
-.cmd-overlay-hint { position: absolute; left: 0; right: 0; bottom: 8px; text-align: center; color: rgba(255,255,255,.7);
-  font: 400 12px/1 var(--font-aero); text-shadow: 0 1px 3px #000; }
-@media (prefers-reduced-motion: reduce) { .cmd-cursor { animation: none; } .cmd-rainbow .cmd-line { animation: none; } }
+.cmd-tank { position: absolute; inset: 0; margin: 0; padding: 6px 8px 24px; overflow: hidden; white-space: pre; background: #00061a; color: #5fafff; font: 400 14px/16px Consolas, "Lucida Console", monospace; }
+.cmd-overlay-hint { position: absolute; left: 0; right: 0; bottom: 6px; text-align: center; font: 400 12px/16px var(--font-aero); color: rgba(255,255,255,.75); text-shadow: 0 1px 3px #000; pointer-events: none; animation: cmd-hint 3s ease-in-out infinite; }
+@keyframes cmd-hint { 50% { opacity: .45; } }
+.cmd-hist { position: absolute; left: 50%; top: 45%; transform: translate(-50%, -50%); z-index: 6; min-width: 260px; max-width: 86%;
+  background: var(--cmd-bg, #000); color: var(--cmd-fg, #c0c0c0); border: 3px double var(--cmd-fg, #c0c0c0); box-shadow: 0 0 0 3px var(--cmd-bg, #000);
+  font: 400 14px/17px Consolas, "Lucida Console", monospace; }
+.cmd-hist-title { background: var(--cmd-fg, #c0c0c0); color: var(--cmd-bg, #000); text-align: center; }
+.cmd-hist-list { max-height: 220px; overflow: auto; padding: 2px 0; }
+.cmd-hist-row { padding: 0 8px; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.cmd-hist-row.on { background: var(--cmd-fg, #c0c0c0); color: var(--cmd-bg, #000); }
+/* the System Shutdown countdown window */
+.cmd-sd { display: flex; gap: 14px; padding: 16px 18px 14px; }
+.cmd-sd-icon { width: 40px; height: 40px; flex: none; }
+.cmd-sd-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; line-height: 18px; color: var(--ink); }
+.cmd-sd-title { font: 400 15.5px/21px var(--font-aero); color: var(--link); }
+.cmd-sd-comment { padding: 6px 8px; border: 1px solid var(--divider); border-radius: 4px; background: var(--surface-sunken); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cmd-sd-time { margin-left: 4px; font: 700 15px/1 Consolas, "Lucida Console", monospace; color: var(--danger); }
+@media (prefers-reduced-motion: reduce) { .cmd-focused .cmd-cursor, .cmd-overlay-hint { animation: none; } }
 
 /* ============================================================ Task Manager */
 .tm { display: flex; flex-direction: column; background: var(--surface); }

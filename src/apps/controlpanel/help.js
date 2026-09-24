@@ -309,6 +309,8 @@
           { separator: true },
           { label: 'Search Help', shortcut: 'Ctrl+F', onClick: () => { search.input.focus({ preventScroll: true }); search.input.select(); } },
           { label: 'Settings...', onClick: () => A.ui.messageBox({ parent: win, title: 'Help Settings', icon: 'icons/help', instruction: 'Include online Help: Yes', message: 'Aerium Help is always offline, but it likes to be asked. Everything here is stored right inside Aerium.' }) },
+          { separator: true },
+          { label: 'About Aerium', icon: 'icons/aerium', onClick: app('winver') },
         ], r.left, r.bottom + 2);
       }
 

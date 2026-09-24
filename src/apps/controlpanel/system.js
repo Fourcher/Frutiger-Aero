@@ -253,7 +253,7 @@
       A.ui.messageBox({ parent: ctx.win, title: 'Aerium Activation', icon: 'success', instruction: 'That key is genuine too', message: 'Every key is genuine here, and so are you. Your copy of Aerium stays activated either way.' });
     });
   }
-  const seeAlso = { title: 'See also', links: [{ label: 'Aerium Update', target: 'cp:update' }, { label: 'Security Center', target: 'cp:security' }, { label: 'Performance Information and Tools', target: 'sy:wei' }] };
+  const seeAlso = { title: 'See also', links: [{ label: 'Aerium Update', target: 'cp:update' }, { label: 'Security Center', target: 'cp:security' }, { label: 'Performance Information and Tools', target: 'sy:wei' }, { label: 'About Aerium', target: { app: 'winver' } }] };
   const systemTasks = (ctx) => ({ title: 'Tasks', links: [
     { label: 'Device Manager', target: () => K.dialogs.deviceManager(ctx.win), icon: 'icons/settings' },
     { label: 'Remote settings', target: () => joke(ctx, { title: 'Remote Assistance', icon: 'icons/users', instruction: 'Let a friend help you from far away', message: 'Your friends are busy playing Bubble Pop right now. Try sending them a nudge in Bubble Messenger instead.' }), icon: 'icons/users' },
@@ -281,7 +281,7 @@
             h('div.sy-logo', null, A.img('icons/aerium', { class: 'sy-logo-orb' }), A.img('icons/aerium', { class: 'sy-logo-reflect', 'aria-hidden': 'true' })))),
         K.section('System',
           h('dl.cp-kv.sy-kv', null,
-            row('Rating:', h('span.sy-rating', null, h('button.sy-wei-btn', { type: 'button', onclick: () => ctx.go('sy:wei'), 'aria-label': 'Aerium Experience Index details' }, weiBadge(w.base)), K.link('Aerium Experience Index', () => ctx.go('sy:wei')), A.ui.button('Rate this computer', { size: 'sm', icon: K.icons.gauge, onClick: () => K.assess(ctx) }))),
+            row('Rating:', h('span.sy-rating', null, h('button.sy-wei-btn', { type: 'button', onclick: () => ctx.go('sy:wei'), 'aria-label': 'Aerium Experience Index details', 'data-tip-title': 'Base score ' + fmtScore(w.base) + ' (lowest subscore)', 'data-tip': WEI_ROWS.map(([k, name]) => name + ' ' + fmtScore(w.sub[k] || 1)).join(' \u00b7 ') }, weiBadge(w.base)), K.link('Aerium Experience Index', () => ctx.go('sy:wei')), A.ui.button('Rate this computer', { size: 'sm', icon: K.icons.gauge, onClick: () => K.assess(ctx) }))),
             row('Processor:', K.sys.processor),
             row('Memory (RAM):', K.sys.memory),
             row('System type:', K.sys.type),

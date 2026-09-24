@@ -657,27 +657,42 @@
     const clouds = Array.from({ length: 15 }, (_, i) => ({ layer: i % 3, x0: rnd() * 1.4, y: 0.06 + rnd() * 0.36 + (i % 3) * 0.04, s: 0.65 + rnd() * 0.7, v: 0.012 + rnd() * 0.012, seed: Math.floor(rnd() * 1e6) }));
     clouds.sort((a, b) => a.layer - b.layer);
     const birds = Array.from({ length: 5 }, () => ({ t0: rnd() * 40, y: 0.2 + rnd() * 0.25, v: 0.03 + rnd() * 0.02, s: 3 + rnd() * 3 }));
+    // Soft cumulus: a union of puffs with a flat base, blurred, then shaded from below.
     function sprite(seed) {
-      const r = A.util.seeded(seed), W = 360, H = 170, c = document.createElement('canvas');
+      const r = A.util.seeded(seed), W = 380, H = 190;
+      const shape = document.createElement('canvas');
+      shape.width = W; shape.height = H;
+      const sx = shape.getContext('2d');
+      sx.fillStyle = '#fff';
+      const puffs = 10 + Math.floor(r() * 6);
+      for (let i = 0; i < puffs; i++) {
+        const u = i / (puffs - 1);
+        const px = W * (0.14 + u * 0.72) + (r() - 0.5) * 26;
+        const rr = (20 + r() * 22) * (0.5 + Math.sin(u * Math.PI) * 0.8);
+        const py = H * 0.68 - rr * (0.4 + r() * 0.4);
+        sx.beginPath(); sx.arc(px, py, rr, 0, TAU); sx.fill();
+      }
+      for (let i = 0; i < 5; i++) { const px = W * (0.3 + r() * 0.4), rr = 18 + r() * 16; sx.beginPath(); sx.arc(px, H * 0.4 - r() * 30, rr, 0, TAU); sx.fill(); }
+      sx.beginPath();
+      sx.ellipse(W * 0.5, H * 0.66, W * 0.36, H * 0.06, 0, 0, TAU);
+      sx.fill();
+      const c = document.createElement('canvas');
       c.width = W; c.height = H;
       const x = c.getContext('2d');
-      const puffs = 7 + Math.floor(r() * 5);
-      for (let i = 0; i < puffs; i++) {
-        const px = W * (0.18 + (i / (puffs - 1)) * 0.64) + (r() - 0.5) * 30, rr = 34 + r() * 36 * Math.sin((i / (puffs - 1)) * Math.PI + 0.3);
-        const py = H * 0.62 - rr * 0.55 - r() * 14;
-        const g = x.createRadialGradient(px - rr * 0.25, py - rr * 0.35, rr * 0.1, px, py, rr);
-        g.addColorStop(0, 'rgba(255,255,255,1)');
-        g.addColorStop(0.6, 'rgba(246,251,255,0.96)');
-        g.addColorStop(0.86, 'rgba(214,232,247,0.75)');
-        g.addColorStop(1, 'rgba(214,232,247,0)');
-        x.fillStyle = g;
-        x.beginPath(); x.arc(px, py, rr, 0, TAU); x.fill();
-      }
-      const base = x.createLinearGradient(0, H * 0.45, 0, H * 0.78);
-      base.addColorStop(0, 'rgba(160,190,220,0)');
-      base.addColorStop(1, 'rgba(150,180,210,0.45)');
+      x.filter = 'blur(5px)';
+      x.drawImage(shape, 0, 0);
+      x.filter = 'none';
       x.globalCompositeOperation = 'source-atop';
-      x.fillStyle = base;
+      const g = x.createLinearGradient(0, H * 0.18, 0, H * 0.72);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.55, 'rgba(210,226,243,0.3)');
+      g.addColorStop(1, 'rgba(146,170,200,0.62)');
+      x.fillStyle = g;
+      x.fillRect(0, 0, W, H);
+      const hl = x.createRadialGradient(W * 0.38, H * 0.22, 0, W * 0.38, H * 0.22, W * 0.42);
+      hl.addColorStop(0, 'rgba(255,255,255,0.7)');
+      hl.addColorStop(1, 'rgba(255,255,255,0)');
+      x.fillStyle = hl;
       x.fillRect(0, 0, W, H);
       return c;
     }
@@ -1819,11 +1834,14 @@
     P.offs.push(M.on('volume', () => P.syncVolume()));
     P.offs.push(A.bus.on('mediaplayer:art', () => { if (P.closed) return; P.updateNow(); if (P.tab === 'library') P.renderLibrary(); }));
 
+    // Explorer sends { path, playlist: [paths], folder, play: true }; a double-click sends { path }.
     P.handleArgs = (a) => {
       if (!a) return false;
       if (a.action === 'playall') { P.playAll(); return true; }
       if (a.action === 'shuffle') { if (!P.shuffle) P.toggleShuffle(); P.playAll(); return true; }
+      if (Array.isArray(a.playlist) && a.playlist.length) { openPlaylist(P, a.playlist, a.path); return true; }
       if (a.path) { openPath(P, a.path); return true; }
+      if (a.folder) { openPlaylist(P, A.fs.list(a.folder).filter((x) => x.type === 'file').map((x) => x.path), null); return true; }
       return false;
     };
   }
@@ -1841,6 +1859,31 @@
     a.src = it.url;
   }
 
+  function itemForPath(path) {
+    const data = String(A.fs.read(path) || '');
+    return data.startsWith('track:') || data.startsWith('video:') ? itemFromKey(data) : null;
+  }
+  function openPlaylist(P, paths, start) {
+    const items = [], skipped = [];
+    let idx = 0;
+    paths.forEach((p) => {
+      const it = itemForPath(p);
+      if (!it) { skipped.push(A.fs.basename(p)); return; }
+      if (start && A.fs.normalize(p) === A.fs.normalize(start)) idx = items.length;
+      items.push(it);
+    });
+    if (!items.length) { if (start) openPath(P, start); else unplayable(P, skipped[0] || 'This folder'); return; }
+    if (items[idx].kind === 'video') P.setTab('nowplaying');
+    P.playFromList(items, idx);
+  }
+  function unplayable(P, name) {
+    A.ui.messageBox({
+      parent: P.win, title: 'Media Player', icon: 'error',
+      instruction: 'Media Player cannot play the file',
+      message: name + '\n\nThe file might be damaged, or it might use a codec that is not installed on this computer.',
+      detail: 'To play music from your real computer, choose Open file in the Library.',
+    });
+  }
   function openPath(P, path) {
     const name = A.fs.basename(path);
     const data = String(A.fs.read(path) || '');
@@ -1856,12 +1899,7 @@
       const v = videoItem(data.slice(6));
       if (v) { P.setTab('nowplaying'); P.playFromList([v], 0); return; }
     }
-    A.ui.messageBox({
-      parent: P.win, title: 'Media Player', icon: 'error',
-      instruction: 'Media Player cannot play the file',
-      message: name + '\n\nThe file might be damaged, or it might use a codec that is not installed on this computer.',
-      detail: 'To play music from your real computer, choose Open file in the Library.',
-    });
+    unplayable(P, name);
   }
 
   // ---------------------------------------------------------------- menus and dialogs
@@ -1975,7 +2013,7 @@
     keywords: ['music', 'video', 'songs', 'mp3', 'player', 'visualization', 'audio', 'wmv', 'playlist'],
     fileTypes: ['mp3', 'wma', 'wav', 'ogg', 'm4a', 'wmv', 'avi', 'mp4'],
     single: true,
-    window: { width: 920, height: 610, minWidth: 600, minHeight: 440, glassBody: true },
+    window: { width: 980, height: 620, minWidth: 600, minHeight: 440, glassBody: true },
     tasks: [
       { label: 'Play all music', icon: 'icons/play', onClick() { A.apps.launch('mediaplayer', { action: 'playall' }); } },
       { label: 'Shuffle all music', icon: 'icons/sync', onClick() { A.apps.launch('mediaplayer', { action: 'shuffle' }); } },

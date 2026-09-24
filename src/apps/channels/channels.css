@@ -3,7 +3,7 @@
 
 /* ================================================================ root */
 .ch-root {
-  position: fixed; inset: 0; overflow: hidden; outline: none;
+  position: fixed; inset: 0; overflow: hidden; overflow: clip; outline: none;
   color: var(--ink); font-family: var(--font-zen);
   background: #f4f6f8;
   opacity: 0; transition: opacity .5s ease;
@@ -42,7 +42,7 @@
 @keyframes ch-pulse { 0%, 100% { opacity: .3; } 50% { opacity: 1; } }
 
 /* ================================================================ menu */
-.ch-menu { position: absolute; inset: 0; opacity: 0; transition: opacity .6s ease; }
+.ch-menu { position: absolute; inset: 0; overflow: hidden; overflow: clip; opacity: 0; transition: opacity .6s ease; }
 .ch-menu.show { opacity: 1; }
 .ch-stripes { position: absolute; inset: 0; background-color: #fff; background-size: 4px 4px; }
 .ch-stripes::after {
@@ -55,7 +55,7 @@
   transition: transform .52s cubic-bezier(.3, .7, .2, 1), opacity .45s ease;
 }
 .ch-zoomed .ch-menu-inner { transform: scale(1.12); opacity: 0; }
-.ch-pages { position: absolute; inset: 0; }
+.ch-pages { position: absolute; inset: 0; overflow: visible; }
 .ch-page {
   position: absolute; left: 0; right: 0; top: var(--ch-top);
   display: grid; grid-template-columns: repeat(4, var(--ch-tw)); grid-auto-rows: var(--ch-th); gap: var(--ch-gap);
@@ -72,7 +72,7 @@
   transition: transform .24s cubic-bezier(.3, 1.4, .5, 1), box-shadow .24s ease;
 }
 .ch-screen {
-  position: absolute; inset: 6px; overflow: hidden; isolation: isolate;
+  position: absolute; inset: 6px; overflow: hidden; overflow: clip; isolation: isolate;
   border-radius: 16px; background: #0b1622;
   container-type: size;
   box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .28);
@@ -165,9 +165,9 @@
 @keyframes ch-glowpulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 /* ================================================================ zoomed channel */
-.ch-zoom { position: absolute; inset: 0; z-index: 10; background: #0b1622; }
+.ch-zoom { position: absolute; inset: 0; z-index: 10; overflow: hidden; overflow: clip; background: #0b1622; }
 .ch-zoom-inner { position: absolute; inset: 0; transform-origin: 50% 50%; }
-.ch-zoom-screen { position: absolute; inset: 0; overflow: hidden; container-type: size; isolation: isolate; }
+.ch-zoom-screen { position: absolute; inset: 0; overflow: hidden; overflow: clip; container-type: size; isolation: isolate; }
 .ch-banner {
   position: absolute; left: 50%; top: 4.5vh; z-index: 3; pointer-events: none;
   opacity: 0; transform: translate(-50%, -24px); transition: opacity .35s ease, transform .4s cubic-bezier(.3, 1.3, .5, 1);

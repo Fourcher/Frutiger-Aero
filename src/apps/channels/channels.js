@@ -16,6 +16,13 @@
   function music(id) {
     try { if (A.music && A.music.play) Promise.resolve(A.music.play(id, { loop: true, fadeIn: true })).catch(() => {}); } catch (e) { /* no music yet */ }
   }
+  function ensureMusic(id) {
+    try {
+      const m = A.music;
+      if (m && m.state === 'playing' && m.current && m.current.id === id) return;
+    } catch (e) { /* no music yet */ }
+    music(id);
+  }
   function musicStop() {
     try { if (A.music && A.music.stop) A.music.stop({ fadeOut: true }); } catch (e) { /* no music yet */ }
   }
@@ -520,11 +527,13 @@
     layout();
     S.tiles.forEach((t) => { t.ctx = makePreview(t.ch, t.screen, false); setActive(t.ctx, false); });
     S.menu.classList.add('ch-off');
+    S.menu.inert = true;
     root.focus({ preventScroll: true });
     try { A.ui.closeMenus(); } catch (e) { /* ignore */ }
     try { if (A.startmenu && A.startmenu.close) A.startmenu.close(); } catch (e) { /* ignore */ }
     try { A.theme.pause(); } catch (e) { /* ignore */ }
     A.bus.emit('channels:open');
+    music('channels');
 
     const onKey = (e) => keydown(e);
     const onKeyUp = (e) => { if (e.key === 'Meta' || e.key === 'OS') e.stopPropagation(); };
@@ -570,7 +579,7 @@
     S.menu.classList.add('show', 'enter');
     activatePages();
     setTimeout(() => { if (S) S.menu.classList.remove('enter'); }, 1500);
-    music('channels');
+    ensureMusic('channels');
   }
 
   function buildMenu() {
@@ -613,13 +622,17 @@
     });
     S.arrowL.classList.toggle('gone', S.page === 0);
     S.arrowR.classList.toggle('gone', S.page >= PAGES - 1);
+    S.arrowL.disabled = S.page === 0;
+    S.arrowR.disabled = S.page >= PAGES - 1;
   }
   // Only the page on screen animates.
   function activatePages(also) {
     const menuOn = S.screen === 'menu';
+    S.menu.inert = !menuOn; // nothing behind a zoomed channel, the shop or the board can take focus
     S.pageEls.forEach((pg, i) => {
       const on = menuOn && (i === S.page || i === also);
       pg.classList.toggle('ch-off', !on);
+      pg.inert = !(menuOn && i === S.page);
     });
     S.tiles.forEach((t) => setActive(t.ctx, menuOn && (t.page === S.page || t.page === also)));
   }
@@ -753,7 +766,7 @@
       if (k === 'ArrowRight' && S.page < PAGES - 1 && document.activeElement === S.root) { flip(1); return; }
       if (k === 'ArrowLeft' && S.page > 0 && document.activeElement === S.root) { flip(-1); return; }
       const first = pageTiles.find((el) => !el.classList.contains('ch-empty'));
-      if (first) first.focus();
+      if (first) first.focus({ preventScroll: true });
       return;
     }
     const col = cur % 4, row = Math.floor(cur / 4);
@@ -814,8 +827,7 @@
       if (!S || S.zoom !== z) return;
       layer.classList.add('ready');
       S.busy = false;
-      S.pageEls.forEach((pg) => pg.classList.add('ch-off'));
-      S.tiles.forEach((tt) => setActive(tt.ctx, false));
+      activatePages();
       startBtn.focus({ preventScroll: true });
     }).catch(() => {});
   }
@@ -1076,8 +1088,7 @@
     setTimeout(() => {
       if (!S || !S.board || S.board.el !== el) return;
       S.busy = false;
-      S.pageEls.forEach((pg) => pg.classList.add('ch-off'));
-      S.tiles.forEach((t) => setActive(t.ctx, false));
+      activatePages();
       const first = el.querySelector('.ch-note-card');
       if (first) first.focus({ preventScroll: true });
     }, 420);

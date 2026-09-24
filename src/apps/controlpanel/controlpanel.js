@@ -1181,7 +1181,14 @@
           extra.push(upd);
           upd();
           const face2 = h('div.cp-clock-card', { class: !c.on && 'off' }, mini, label, day);
-          const zoneSel = A.ui.select({ options: zoneOptions(c.zone), value: c.zone, label: 'Time zone', onChange: (v) => { c.zone = v; if (!nameIn.input.value.trim() || nameIn.input.value === zoneName(ZONES.find((z) => z[0] === v) ? v : v)) { /* keep typed names */ } save(); upd(); } });
+          const city = (z) => z.split('/').pop().replace(/_/g, ' ');
+          const zoneSel = A.ui.select({ options: zoneOptions(c.zone), value: c.zone, label: 'Time zone', onChange: (v) => {
+            const typed = nameIn.input.value.trim();
+            if (!typed || typed === city(c.zone)) { c.name = city(v); nameIn.input.value = c.name; }
+            c.zone = v;
+            save();
+            upd();
+          } });
           const nameIn = A.ui.textField({ label: 'Display name', value: c.name, maxLength: 24, onInput: (v) => { c.name = v; save(); upd(); } });
           const show = A.ui.checkbox({ label: 'Show this clock', checked: c.on, onChange: (v) => { c.on = v; face2.classList.toggle('off', !v); save(); } });
           wrap.appendChild(h('div.cp-clock-slot', null, face2, h('div.cp-clock-form', null, show, h('label.cp-field', null, h('span', null, 'Select time zone:'), zoneSel), nameIn)));

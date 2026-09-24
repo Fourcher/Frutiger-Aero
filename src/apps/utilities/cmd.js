@@ -194,9 +194,8 @@
       let inputLine = null, promptEl = null, textEl = null;
 
       function applyColors() {
-        screen.style.setProperty('--cmd-fg', fg);
-        screen.style.setProperty('--cmd-bg', bg);
-        win.body.style.background = bg;
+        win.body.style.setProperty('--cmd-fg', fg);
+        win.body.style.setProperty('--cmd-bg', bg);
       }
 
       // ------------------------------------------------------------ output
@@ -462,12 +461,36 @@
       }
       function breakJob() {
         if (!job || job.aborted) return;
-        if (inputLine) commitInput('^C'); else print('^C');
+        if (inputLine) commitInput('^C');
+        else if (job.onBreak) job.onBreak();
+        else print('^C');
         job.aborted = true;
         job.stops.forEach((f) => { try { f(); } catch (e) { /* ignore */ } });
         job.stops.clear();
       }
       const aborted = () => !job || job.aborted;
+      // Keeps a steady number of lines per second even when timers run late,
+      // so the fast tree scroll looks the same on every computer.
+      function pacer(perSecond) {
+        const t0 = performance.now();
+        let n = 0;
+        return async () => {
+          n++;
+          const due = ((performance.now() - t0) * perSecond) / 1000;
+          if (n > due + 1) await wait(Math.min(200, ((n - due) * 1000) / perSecond));
+          else if (n % 40 === 0) await wait(0);
+        };
+      }
+      // Drives a progress bar by elapsed time: step(percent) until 100.
+      async function progress(ms, step) {
+        const t0 = performance.now();
+        for (;;) {
+          const pct = Math.min(100, Math.floor(((performance.now() - t0) / ms) * 100));
+          step(pct);
+          if (pct >= 100) return;
+          await wait(45);
+        }
+      }
 
       async function runLine(raw) {
         const line = raw.trim();
@@ -782,6 +805,7 @@
         print('Volume serial number is 2007-AE71');
         print(pathText(n.segs).toUpperCase());
         let count = 0;
+        const pace = pacer(170);
         const walk = async (node, prefix) => {
           const kids = listDir(node);
           const dirs = kids.filter((k) => k.dir);
@@ -794,7 +818,8 @@
             if (aborted()) throw ABORT;
             const last = i === dirs.length - 1;
             print(prefix + (last ? G.l : G.t) + dirs[i].name);
-            if (++count % 3 === 0) await wait(12); // the famous fast scroll
+            count++;
+            await pace(); // the famous fast scroll
             await walk(dirs[i].node, prefix + (last ? G.s : G.v));
           }
         };
@@ -956,7 +981,435 @@
         print('The system cannot find the file ' + t + '.');
       });
 
-      // @@CONTINUE@@
+      // ------------------------------------------------------------ programs
+      // Task Manager shares its process list (A.procmon) so PIDs match everywhere.
+      function processes() {
+        if (A.procmon) { A.procmon.tick(); return A.procmon.list(); }
+        const list = [{ image: 'System Idle Process', pid: 0, mem: 24, user: 'SYSTEM' }, { image: 'System', pid: 4, mem: 1320, user: 'SYSTEM' }];
+        A.wm.windows.filter((w) => w.app && w.taskbar).forEach((w, i) => list.push({ image: w.app + '.exe', pid: 2400 + i * 4, mem: 18000, user: USER, win: w }));
+        return list;
+      }
+      def('tasklist', 'Displays all currently running tasks.', 'Displays a list of the programs currently running.\n\nTASKLIST', () => {
+        blank();
+        print('Image Name                     PID Session Name        Session#    Mem Usage');
+        print('========================= ======== ================ =========== ============');
+        processes().forEach((p) => {
+          const sys = p.user === 'SYSTEM' || p.user === 'LOCAL SERVICE' || p.user === 'NETWORK SERVICE';
+          print(p.image.slice(0, 25).padEnd(25) + String(p.pid).padStart(9) + ' ' + (sys ? 'Services' : 'Console').padEnd(16) + String(sys ? 0 : 1).padStart(12) + (num(p.mem) + ' K').padStart(13));
+        });
+      });
+      def('taskkill', 'Ends one or more tasks or processes.', 'Ends one or more tasks or processes.\n\nTASKKILL [/F] /IM imagename\nTASKKILL [/F] /PID processid\n\nExamples:\n    TASKKILL /IM notepad.exe\n    TASKKILL /PID 1230', (a) => {
+        const low = a.map((x) => x.toLowerCase());
+        const im = low.indexOf('/im'), pidI = low.indexOf('/pid');
+        if ((im < 0 || !a[im + 1]) && (pidI < 0 || !a[pidI + 1])) { print('ERROR: Invalid syntax. Neither /FI nor /PID nor /IM were specified.'); print('Type "TASKKILL /?" for usage.'); return; }
+        const list = processes();
+        let hits;
+        if (im >= 0) {
+          const want = a[im + 1].toLowerCase();
+          const re = wild(want.includes('.') || want.includes('*') ? want : want + '.exe');
+          const byAlias = A.apps.get(want.replace(/\.exe$/, ''));
+          hits = list.filter((p) => re.test(p.image) || (byAlias && p.win && p.win.app === byAlias.id));
+          if (!hits.length) { print('ERROR: The process "' + a[im + 1] + '" not found.'); return; }
+        } else {
+          const pid = parseInt(a[pidI + 1], 10);
+          hits = list.filter((p) => p.pid === pid);
+          if (!hits.length) { print('ERROR: The process "' + a[pidI + 1] + '" not found.'); return; }
+        }
+        hits.forEach((p) => {
+          const r = A.procmon ? A.procmon.kill(p.pid) : (p.win ? (p.win.close(true), { ok: true }) : { ok: false, critical: true });
+          if (r.ok) print('SUCCESS: The process "' + p.image + '" with PID ' + p.pid + ' has been terminated.');
+          else {
+            print('ERROR: The process "' + p.image + '" with PID ' + p.pid + ' could not be terminated.');
+            print('Reason: ' + (r.critical ? 'This is critical system process. Taskkill cannot end this process.' : 'Access is denied.'));
+          }
+        });
+      });
+
+      // ------------------------------------------------------------ network
+      function resolveHost(host) {
+        const x = host.toLowerCase();
+        const me = hostName().toLowerCase();
+        if (x === 'localhost' || x === me || x === 'fish.tank' || /^127\.\d+\.\d+\.\d+$/.test(x)) return { name: x === 'fish.tank' ? 'fish.tank' : hostName(), ip: /^127\./.test(x) ? x : '127.0.0.1', local: true, ttl: 128 };
+        const n = hash(x);
+        if (/^\d{1,3}(\.\d{1,3}){3}$/.test(x)) {
+          if (x.split('.').some((o) => Number(o) > 255)) return null;
+          const lan = /^(192\.168|10\.)/.test(x);
+          return { name: x, ip: x, base: lan ? 2 : 20 + (n % 70), jitter: lan ? 3 : 12, ttl: lan ? 64 : 44 + (n % 12), lost: x === '192.168.1.254' };
+        }
+        if (!/^[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(x)) return null;
+        return { name: x, ip: (12 + (n % 200)) + '.' + ((n >>> 8) & 255) + '.' + ((n >>> 16) & 255) + '.' + (1 + ((n >>> 24) % 253)), base: 18 + (n % 80), jitter: 14, ttl: 44 + (n % 12) };
+      }
+      def('ping', 'Checks whether another computer answers.', 'Usage: ping [-t] [-n count] [-l size] target_name\n\nOptions:\n    -t         Ping the specified host until stopped (press Ctrl+C).\n    -n count   Number of echo requests to send.\n    -l size    Send buffer size.', async (a) => {
+        let count = 4, forever = false, host = null, size = 32;
+        for (let i = 0; i < a.length; i++) {
+          const x = a[i].toLowerCase();
+          if (x === '-t' || x === '/t') forever = true;
+          else if ((x === '-n' || x === '/n') && a[i + 1]) count = Math.max(1, Math.min(9999, parseInt(a[++i], 10) || 4));
+          else if ((x === '-l' || x === '/l') && a[i + 1]) size = Math.max(0, Math.min(65500, parseInt(a[++i], 10) || 32));
+          else if (!/^[-/]/.test(x)) host = a[i];
+        }
+        if (!host) { print(HELP.ping); return; }
+        const r = resolveHost(host);
+        if (!r) { print('Ping request could not find host ' + host + '. Please check the name and try again.'); return; }
+        blank();
+        print('Pinging ' + (r.name !== r.ip ? r.name + ' [' + r.ip + ']' : r.ip) + ' with ' + size + ' bytes of data:');
+        const times = [];
+        let sent = 0;
+        const stats = () => {
+          blank();
+          print('Ping statistics for ' + r.ip + ':');
+          const lost = sent - times.length;
+          print('    Packets: Sent = ' + sent + ', Received = ' + times.length + ', Lost = ' + lost + ' (' + (sent ? Math.round((lost / sent) * 100) : 0) + '% loss),');
+          if (times.length) {
+            print('Approximate round trip times in milli-seconds:');
+            print('    Minimum = ' + Math.min(...times) + 'ms, Maximum = ' + Math.max(...times) + 'ms, Average = ' + Math.round(times.reduce((s, t) => s + t, 0) / times.length) + 'ms');
+          }
+        };
+        job.onBreak = () => { stats(); print('Control-C'); print('^C'); };
+        for (let i = 0; forever || i < count; i++) {
+          await wait(i === 0 ? 350 : 1000);
+          sent++;
+          if (r.lost || (!r.local && Math.random() < 0.02)) { print('Request timed out.'); continue; }
+          const t = r.local ? 0 : Math.max(1, Math.round(r.base + (Math.random() - 0.35) * r.jitter));
+          times.push(t);
+          print('Reply from ' + r.ip + ': bytes=' + size + ' time' + (t < 1 ? '<1ms' : '=' + t + 'ms') + ' TTL=' + r.ttl);
+        }
+        job.onBreak = null;
+        stats();
+      });
+      const HOPS = [
+        ['home-router.lan', '192.168.1.1'], ['your-isp-says-hi.local', '10.64.0.1'], ['series-of-tubes.backbone.net', '72.14.215.1'],
+        ['a-much-bigger-tube.backbone.net', '72.14.232.66'], ['seagull-relay-07.coastal.net', '64.233.174.9'], ['dolphin-approved.undersea-cable.net', '209.85.250.3'],
+        ['cloud-nine.sky-exchange.net', '216.239.49.1'], ['coffee-break.slow-router.org', '66.249.94.2'], ['almost-there.last-mile.net', '209.85.241.7'],
+      ];
+      def('tracert', 'Traces the route packets take to another computer.', 'Usage: tracert [-d] [-h maximum_hops] target_name', async (a) => {
+        const host = a.find((x) => !/^[-/]/.test(x));
+        if (!host) { print(HELP.tracert); return; }
+        const r = resolveHost(host);
+        if (!r) { print('Unable to resolve target system name ' + host + '.'); return; }
+        blank();
+        print('Tracing route to ' + (r.name !== r.ip ? r.name + ' [' + r.ip + ']' : r.ip));
+        print('over a maximum of 30 hops:');
+        blank();
+        const n = hash(host.toLowerCase());
+        const hops = r.local ? [] : HOPS.slice(0, 2).concat(HOPS.slice(2).filter((h0, i) => ((n >> i) & 1) || i === 1 || i === 5)).slice(0, 8);
+        let ms = 1;
+        const cell = (t) => (t == null ? '*'.padStart(4) + '    ' : ((t < 1 ? '<1' : String(t)).padStart(4) + ' ms '));
+        for (let i = 0; i <= hops.length; i++) {
+          await wait(260 + Math.random() * 520);
+          const last = i === hops.length;
+          const hop = last ? [r.name !== r.ip ? r.name : null, r.ip] : hops[i];
+          ms = last ? (r.local ? 0 : r.base) : Math.max(ms, (i === 0 ? 1 : i * 9) + Math.floor(Math.random() * 8)) + (hop[0] && hop[0].startsWith('coffee') ? 60 : 0);
+          const timeout = !last && i > 1 && Math.random() < 0.12;
+          const t = () => (timeout ? null : Math.max(r.local ? 0 : 1, ms + Math.round((Math.random() - 0.5) * 6)));
+          print(String(i + 1).padStart(3) + '  ' + cell(t()) + ' ' + cell(t()) + ' ' + cell(t()) + ' ' + (timeout ? 'Request timed out.' : (hop[0] ? hop[0] + ' [' + hop[1] + ']' : hop[1])));
+        }
+        blank();
+        print('Trace complete.');
+      });
+      def('ipconfig', 'Displays the network settings.', 'USAGE:\n    ipconfig [/all | /release | /renew]\n\n    /all     Display full configuration information.\n    /release Release the IPv4 address.\n    /renew   Renew the IPv4 address.', async (a) => {
+        const opt = (a[0] || '').toLowerCase();
+        const all = opt === '/all';
+        const net = A.store.get('net.connected', 'Aerium Home Network');
+        blank();
+        print('Aerium IP Configuration');
+        blank();
+        if (all) {
+          print('   Host Name . . . . . . . . . . . . : ' + hostName());
+          print('   Primary Dns Suffix  . . . . . . . : ');
+          print('   Node Type . . . . . . . . . . . . : Hybrid');
+          print('   IP Routing Enabled. . . . . . . . : No');
+          blank();
+        }
+        if (opt === '/release' || opt === '/renew') { print('Asking the router nicely...'); await wait(900); }
+        print('Wireless LAN adapter Wireless Network Connection:');
+        blank();
+        print('   Connection-specific DNS Suffix  . : home');
+        if (all) {
+          print('   Description . . . . . . . . . . . : Aerium Wireless 54G Adapter (' + net + ')');
+          print('   Physical Address. . . . . . . . . : 00-1B-77-AE-20-07');
+          print('   DHCP Enabled. . . . . . . . . . . : Yes');
+        }
+        print('   Link-local IPv6 Address . . . . . : fe80::a3e1:2007:fa1b:c0de%11');
+        print('   IPv4 Address. . . . . . . . . . . : ' + (opt === '/release' ? '0.0.0.0' : '192.168.1.101'));
+        print('   Subnet Mask . . . . . . . . . . . : 255.255.255.0');
+        print('   Default Gateway . . . . . . . . . : 192.168.1.1');
+        if (all) print('   DNS Servers . . . . . . . . . . . : 192.168.1.1');
+        blank();
+        print('Ethernet adapter Local Area Connection:');
+        blank();
+        print('   Media State . . . . . . . . . . . : Media disconnected');
+        print('   Connection-specific DNS Suffix  . : ');
+      });
+      def('netstat', 'Displays network connections.', 'Displays protocol statistics and current TCP/IP network connections.\n\nNETSTAT [-a] [-n]', async (a) => {
+        const numeric = a.some((x) => /^[-/][a-z]*n/i.test(x));
+        const running = (id) => A.wm.windows.some((w) => w.app === id);
+        const rows = [['TCP', '127.0.0.1:5357', hostName() + ':49157', 'ESTABLISHED']];
+        if (running('messenger')) rows.push(['TCP', '192.168.1.101:49160', 'bubble-messenger:https', 'ESTABLISHED']);
+        if (running('browser')) rows.push(['TCP', '192.168.1.101:49163', 'horizon-cdn:http', 'ESTABLISHED'], ['TCP', '192.168.1.101:49164', 'horizon-cdn:http', 'TIME_WAIT']);
+        if (running('mediaplayer')) rows.push(['TCP', '192.168.1.101:49170', 'radio-lagoon:http', 'ESTABLISHED']);
+        rows.push(['TCP', '192.168.1.101:49175', 'fish-food-updates:http', 'CLOSE_WAIT'], ['TCP', '192.168.1.101:49181', 'weather-gadget:http', 'TIME_WAIT']);
+        blank();
+        print('Active Connections');
+        blank();
+        print('  Proto  Local Address          Foreign Address        State');
+        for (const [p, l, f, s] of rows) {
+          await wait(numeric ? 30 : 160);
+          const far = numeric ? (72 + (hash(f) % 150)) + '.' + (hash(f) % 250) + '.' + ((hash(f) >> 8) % 250) + '.' + ((hash(f) >> 16) % 250) + ':' + (f.endsWith('https') ? 443 : 80) : f;
+          print('  ' + p.padEnd(6) + ' ' + l.padEnd(22) + ' ' + far.padEnd(22) + ' ' + s);
+        }
+      });
+      def('systeminfo', "Displays this computer's configuration.", 'Displays operating system configuration information.\n\nSYSTEMINFO', async () => {
+        const line = print('Loading Operating System Information ...');
+        await wait(700);
+        line.textContent = 'Loading Hotfix Information ...';
+        await wait(600);
+        line.remove();
+        lineCount--;
+        const mem = A.procmon ? A.procmon.memory() : { total: 2047, free: 912 };
+        const boot = new Date(BOOTED);
+        const rows = [
+          ['Host Name', hostName()], ['OS Name', 'Aerium Home Premium'], ['OS Version', '7.0.2007 Service Pack 1 Build 2007'],
+          ['OS Manufacturer', 'Aerium Playground'], ['OS Configuration', 'Standalone Workstation'], ['OS Build Type', 'Multiprocessor Free'],
+          ['Registered Owner', USER], ['Registered Organization', ''], ['Product ID', '00427-AER-2007070-00742'],
+          ['Original Install Date', '9/1/2007, 3:07:00 PM'], ['System Boot Time', A.util.fmtDate(boot) + ', ' + A.util.fmtTime(boot, true)],
+          ['System Manufacturer', 'Aerium Playground'], ['System Model', 'Glass Tower 2007'], ['System Type', 'X86-based PC'],
+          ['Processor(s)', '1 Processor(s) Installed.'], ['', '[01]: AeroCore Duo CPU @ 2.40GHz'], ['BIOS Version', 'AeriumBIOS v2.07, 9/1/2007'],
+          ['Aerium Directory', 'C:\\Aerium'], ['System Directory', 'C:\\Aerium\\System32'], ['Boot Device', '\\Device\\HarddiskVolume1'],
+          ['System Locale', 'en-us;English (United States)'], ['Input Locale', 'en-us;English (United States)'],
+          ['Time Zone', Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'],
+          ['Total Physical Memory', num(mem.total) + ' MB'], ['Available Physical Memory', num(mem.free) + ' MB'],
+          ['Virtual Memory: Max Size', '4,094 MB'], ['Page File Location(s)', 'C:\\pagefile.sys'], ['Domain', 'WORKGROUP'], ['Logon Server', '\\\\' + hostName()],
+          ['Hotfix(s)', '3 Hotfix(s) Installed.'], ['', '[01]: AE-000071 (Shinier glass)'], ['', '[02]: AE-000314 (Fish swim 3% faster)'], ['', '[03]: AE-007734 (Says hello)'],
+          ['Network Card(s)', '1 NIC(s) Installed.'], ['', '[01]: Aerium Wireless 54G Adapter'], ['', '      Connection Name: Wireless Network Connection'], ['', '      IP address(es): 192.168.1.101'],
+        ];
+        blank();
+        for (const [k, v] of rows) print((k ? k + ':' : '').padEnd(27) + v);
+      });
+
+      // ------------------------------------------------------------ shutdown
+      def('shutdown', 'Shuts down, restarts or logs off the computer.', 'Usage: shutdown [-s | -r | -l | -h | -a] [-t xxx] [-c "comment"]\n\n    -s    Shut down the computer.\n    -r    Restart the computer.\n    -l    Log off.\n    -h    Hibernate the computer.\n    -a    Abort a system shutdown.\n    -t    Set the time-out before shutdown to xxx seconds (default 30).\n    -c    Show a comment in the shutdown window.', (a) => {
+        const f = a.map((x) => x.toLowerCase().replace(/^\//, '-'));
+        if (f.includes('-a')) { if (!abortShutdown()) print('Unable to abort the system shutdown because no shutdown was in progress.(1116)'); return; }
+        if (f.includes('-i')) { print('The graphical shutdown tool is not installed. Try: shutdown -s -t 60'); return; }
+        const action = f.includes('-r') ? 'restart' : f.includes('-l') ? 'logoff' : f.includes('-h') ? 'hibernate' : f.includes('-s') ? 'shutdown' : null;
+        if (!action) { print(HELP.shutdown); return; }
+        const ti = f.indexOf('-t');
+        let secs = action === 'hibernate' ? 0 : action === 'logoff' ? 10 : 30;
+        if (ti >= 0) {
+          secs = parseInt(a[ti + 1], 10);
+          if (!(secs >= 0) || secs > 315360000) { print('Invalid time-out. Use a number of seconds, for example: shutdown -s -t 60'); return; }
+        }
+        const ci = f.indexOf('-c');
+        const comment = ci >= 0 && a[ci + 1] ? a[ci + 1].slice(0, 127) : '';
+        if (pending) { print('A system shutdown has already been scheduled.(1190)'); return; }
+        if (secs === 0) { runAction(action); return; }
+        scheduleShutdown(action, secs, comment);
+      });
+
+      // ------------------------------------------------------------ fun
+      def('about', 'Tells you about this Command Prompt.', 'Tells you about this Command Prompt.\n\nABOUT', () => {
+        const aq = '#5fd7ff', gr = '#87ff5f';
+        blank();
+        [['        .-~~~~-.', aq], ['      .\'  o     \'.       Aerium Command Processor', aq], ['     /   o    O   \\      ' + VERSION, aq], ['    |  ~~~~~~~~~~  |', gr], ['     \\ ~~~~~~~~~~ /       A Frutiger Aero playground.', gr], ['      \'.  ~~~~  .\'        Made of glass, water and light.', gr], ['        \'-....-\'', aq]].forEach(([t, c]) => print(t, rainbow ? null : c));
+        blank();
+        print('Type HELP for the list of commands. Some commands are secret.');
+        print('Hint: the fish know one. So does anyone who has seen a certain movie about green rain.');
+      });
+      def('sudo', null, null, (a, rest) => {
+        if (/make me a sandwich/i.test(rest)) { print('Okay.'); print('   _______'); print('  (_______)   one sandwich, as requested'); print('  (~~~~~~~)'); print('  (_______)'); A.sound.play('coin'); return; }
+        print(USER + ' is not in the sudoers file. This incident will be reported.');
+        print('(Just kidding. This is not that kind of computer, but we admire the confidence.)');
+      });
+      def('cowsay', null, null, (a, rest) => {
+        const msg = rest.trim() || 'Moo. Have you fed the fish today?';
+        print(' ' + '_'.repeat(msg.length + 2));
+        print('< ' + msg + ' >');
+        print(' ' + '-'.repeat(msg.length + 2));
+        ['        \\   ^__^', '         \\  (oo)\\_______', '            (__)\\       )\\/\\', '                ||----w |', '                ||     ||'].forEach((l) => print(l));
+      });
+      def('format', null, 'Formats a disk for use with Aerium.\n\nFORMAT volume\n\nTry: FORMAT C: (it is safe, promise)', async (a) => {
+        const d = (a[0] || '').toLowerCase();
+        if (!d) { print('Required parameter missing -'); return; }
+        if (d === 'a:' || d === 'b:') {
+          await readLine('Insert new disk for drive ' + d.toUpperCase() + '\nand press ENTER when ready...');
+          print('The device is not ready.');
+          return;
+        }
+        if (d !== 'c:') { print('The system cannot find the drive specified.'); return; }
+        const red = '#ff5f5f';
+        print('The type of the file system is AERFS.');
+        blank();
+        print('WARNING, ALL DATA ON NON-REMOVABLE DISK', red);
+        print('DRIVE C: WILL BE LOST!', red);
+        A.sound.play('exclamation');
+        const ans = await readLine('Proceed with Format (Y/N)? ');
+        if (!/^y/i.test(ans.trim())) return;
+        print('Verifying 152625M');
+        const bar = print('Formatting 0 percent completed.');
+        await progress(3200, (pct) => { bar.textContent = 'Formatting ' + pct + ' percent completed.'; });
+        bar.textContent = 'Format complete.';
+        await wait(900);
+        blank();
+        print('Just kidding. Your fish are safe.', '#87ff5f');
+        print('Nothing was erased. It never is, here.', '#87ff5f');
+        A.sound.play('ding');
+      });
+      def('hack', null, null, async () => {
+        const g = '#00ff5f', dim = '#008f3f';
+        const hex = () => Array.from({ length: 8 }, () => Math.floor(Math.random() * 65536).toString(16).toUpperCase().padStart(4, '0')).join(' ');
+        print('ESTABLISHING TOTALLY SECURE CONNECTION TO GRANDMA-PC...', g);
+        await wait(500);
+        for (const st of ['Bypassing firewall', 'Decrypting mainframe', 'Downloading more RAM', 'Rerouting through the fish tank', 'Guessing the password']) {
+          const bar = print(st.padEnd(32) + '[' + ' '.repeat(24) + ']   0%', g);
+          await progress(900 + Math.random() * 700, (p) => {
+            const fill = Math.round((p / 100) * 24);
+            bar.textContent = st.padEnd(32) + '[' + '#'.repeat(fill) + ' '.repeat(24 - fill) + '] ' + String(p).padStart(3) + '%';
+            if (p < 100 && Math.random() < 0.6) print('  0x' + Math.floor(Math.random() * 0xffffff).toString(16).toUpperCase().padStart(6, '0') + '  ' + hex(), dim);
+          });
+        }
+        print('Password found: ********  (it was "password")', g);
+        await wait(600);
+        blank();
+        print('   >>> ACCESS GRANTED <<<', g);
+        await wait(700);
+        print('Opening secret file: COOKIES.TXT', g);
+        await wait(900);
+        blank();
+        print('  Grandma\'s secret cookie recipe:', '#ffd75f');
+        print('    - extra chocolate chips', '#ffd75f');
+        print('    - a pinch of cinnamon', '#ffd75f');
+        print('    - bake with someone you love', '#ffd75f');
+        blank();
+        print('Hack complete. Real hackers use their powers to help people.', g);
+        print('Now go call your grandma. She misses you.', g);
+        A.sound.play('win');
+      });
+      def('matrix', null, null, () => matrix());
+      def('fish', null, null, () => fishTank());
+
+      // ------------------------------------------------------------ full-window animations
+      function overlay(content, hint) {
+        const wrap = h('div.cmd-overlay', null, content, h('div.cmd-overlay-hint', null, hint));
+        win.body.appendChild(wrap);
+        wrap.addEventListener('pointerdown', (e) => { e.preventDefault(); if (overlayStop) overlayStop(); });
+        return wrap;
+      }
+      function endOverlay(wrap, stopFn) {
+        stopFn();
+        wrap.remove();
+        overlayStop = null;
+        if (!closed) { blank(); showPrompt(); }
+      }
+      function matrix() {
+        const canvas = h('canvas.cmd-canvas');
+        const wrap = overlay(canvas, 'Wake up... press any key to leave the Matrix.');
+        const ctx = canvas.getContext('2d');
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const CH = 'ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789ABCDEFZ';
+        let W = 0, H = 0, drops = [], raf = null, last = 0;
+        const size = () => {
+          W = canvas.clientWidth; H = canvas.clientHeight;
+          canvas.width = Math.max(1, W * dpr); canvas.height = Math.max(1, H * dpr);
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          ctx.fillStyle = '#000'; ctx.fillRect(0, 0, W, H);
+          drops = Array.from({ length: Math.ceil(W / 14) }, () => Math.floor(Math.random() * -H / 16));
+        };
+        size();
+        const offResize = win.on('resize', size);
+        const frame = (t) => {
+          raf = requestAnimationFrame(frame);
+          if (win.state === 'minimized' || t - last < 45) return;
+          last = t;
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.09)';
+          ctx.fillRect(0, 0, W, H);
+          ctx.font = '15px "MS Gothic", "Meiryo", monospace';
+          drops.forEach((y, i) => {
+            const ch = CH[Math.floor(Math.random() * CH.length)];
+            ctx.fillStyle = '#d7ffd7';
+            ctx.fillText(ch, i * 14, y * 16);
+            ctx.fillStyle = '#00d948';
+            ctx.fillText(CH[Math.floor(Math.random() * CH.length)], i * 14, (y - 1) * 16);
+            drops[i] = y * 16 > H && Math.random() > 0.975 ? 0 : y + 1;
+          });
+        };
+        raf = requestAnimationFrame(frame);
+        A.sound.play('zap');
+        overlayStop = () => endOverlay(wrap, () => { cancelAnimationFrame(raf); offResize(); });
+      }
+      function fishTank() {
+        const pre = h('pre.cmd-tank');
+        const wrap = overlay(pre, 'Your ASCII aquarium. Press any key to close.');
+        const cols = () => Math.max(40, Math.floor(pre.clientWidth / 8.2));
+        const rows = () => Math.max(12, Math.floor(pre.clientHeight / 16));
+        const RIGHT = [['><>', '#ffd75f'], ['><(((\u00b0>', '#ff8f5f'], ['>=\u00b0>', '#5fd7ff'], ['><((\u00b0>', '#ff5fd7'], ['>))\u00b0>', '#87ff5f']];
+        const flip = (s) => s.split('').reverse().map((c) => ({ '>': '<', '<': '>', '(': ')', ')': '(' }[c] || c)).join('');
+        let W = cols(), H = rows();
+        const fish = Array.from({ length: 7 }, (_, i) => {
+          const [art, color] = RIGHT[i % RIGHT.length];
+          return { art, color, x: Math.random() * W, y: 2 + Math.floor(Math.random() * (H - 5)), dir: Math.random() < 0.5 ? 1 : -1, sp: 0.18 + Math.random() * 0.5 };
+        });
+        const bubbles = [];
+        let tick = 0, raf = null, last = 0;
+        const frame = (t) => {
+          raf = requestAnimationFrame(frame);
+          if (win.state === 'minimized' || t - last < 90) return;
+          last = t;
+          tick++;
+          W = cols(); H = rows();
+          const grid = Array.from({ length: H }, () => Array.from({ length: W }, () => [' ', null]));
+          const put = (x, y, ch, c) => { if (y >= 0 && y < H && x >= 0 && x < W) grid[y][x] = [ch, c]; };
+          for (let x = 0; x < W; x++) { put(x, 0, '~', '#5fafff'); put(x, H - 1, (x * 7) % 5 ? '.' : ',', '#d7af5f'); }
+          for (let s = 3; s < W - 2; s += 9) for (let k = 0; k < 3 + (s % 3); k++) put(s + ((tick + k + s) % 6 < 3 ? 0 : 1), H - 2 - k, k % 2 ? '(' : ')', '#5fd75f');
+          const cx = Math.floor(W * 0.72);
+          ['  __', ' |==|', ' |__|'].forEach((l, i) => l.split('').forEach((c, j) => put(cx + j, H - 4 + i, c, '#d7af5f')));
+          if (tick % 3 === 0) bubbles.push({ x: cx + 2, y: H - 5 });
+          fish.forEach((f) => {
+            f.x += f.dir * f.sp;
+            if (f.x < 0) { f.x = 0; f.dir = 1; }
+            if (f.x > W - f.art.length) { f.x = W - f.art.length; f.dir = -1; }
+            if (Math.random() < 0.01) f.dir = -f.dir;
+            if (Math.random() < 0.02) bubbles.push({ x: Math.floor(f.x) + (f.dir > 0 ? f.art.length : 0), y: f.y - 1 });
+            const art = f.dir > 0 ? f.art : flip(f.art);
+            art.split('').forEach((c, j) => put(Math.floor(f.x) + j, f.y, c, f.color));
+          });
+          for (let i = bubbles.length - 1; i >= 0; i--) {
+            const b = bubbles[i];
+            b.y -= 0.5;
+            if (Math.random() < 0.3) b.x += Math.random() < 0.5 ? -1 : 1;
+            if (b.y < 1) { bubbles.splice(i, 1); continue; }
+            put(b.x, Math.floor(b.y), b.y < H / 3 ? 'O' : b.y < H / 1.6 ? 'o' : '.', '#bfefff');
+          }
+          pre.textContent = '';
+          grid.forEach((row, y) => {
+            let run = '', color = undefined;
+            const flush = () => { if (run) pre.appendChild(color ? h('span', { style: { color } }, run) : document.createTextNode(run)); run = ''; };
+            row.forEach(([ch, c]) => { if (c !== color) { flush(); color = c; } run += ch; });
+            flush();
+            if (y < H - 1) pre.appendChild(document.createTextNode('\n'));
+          });
+        };
+        raf = requestAnimationFrame(frame);
+        A.sound.play('bubble');
+        overlayStop = () => endOverlay(wrap, () => cancelAnimationFrame(raf));
+      }
+
+      // ------------------------------------------------------------ start
+      print(VERSION);
+      print('Copyright (c) 2007 Aerium Playground.  All rights reserved.');
+      blank();
+      if (args && args.title) win.setTitle(String(args.title));
+      showPrompt();
+
+      return {
+        onClose() {
+          closed = true;
+          queue.length = 0;
+          if (job) { job.aborted = true; job.stops.forEach((f) => { try { f(); } catch (e) { /* ignore */ } }); job.stops.clear(); }
+          if (overlayStop) overlayStop();
+        },
+        keepAwake: () => !!overlayStop,
+      };
     },
   });
 })();

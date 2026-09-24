@@ -368,7 +368,7 @@
       .concat([{ path: '/horoscope/leo', title: 'Daily horoscope - Aerium Live', text: 'horoscope zodiac signs aries taurus gemini cancer leo virgo libra scorpio sagittarius capricorn aquarius pisces lucky color lucky number' }]),
     render: aliveRender,
     css: `
-.web-al { background: #eaf5fd linear-gradient(to bottom, #9fd3f7 0, #d6edfc 170px, #f1f8fe 420px, #f7fbfe 100%) no-repeat; color: #16293d; font: 400 calc(12px * var(--hz-text, 1))/1.45 "Segoe UI", Tahoma, Verdana, sans-serif; }
+.web-al { background: #eaf5fd linear-gradient(to bottom, #9fd3f7 0, #d6edfc 170px, #f1f8fe 420px, #f7fbfe 100%) no-repeat; color: #16293d; font: 400 calc(12px * var(--hz-text, 1))/1.45 Selawik, "Segoe UI", Tahoma, Verdana, sans-serif; }
 .web-al a { color: #0a57b0; text-decoration: none; }
 .web-al a:hover { text-decoration: underline; }
 .web-al-wrap { width: 980px; margin: 0 auto; }
@@ -381,10 +381,10 @@
 .web-al-refl { display: inline-flex; align-items: center; gap: 8px; }
 .web-al-refl > .wk-refl-copy { display: flex; align-items: center; gap: 8px; }
 .web-al-orb { width: 46px; height: 46px; }
-.web-al-word { font: 300 2.9em/1 "Segoe UI", Selawik, sans-serif; color: #0d3f78; letter-spacing: -.02em; }
+.web-al-word { font: 300 2.9em/1 Selawik, Selawik, "Segoe UI", sans-serif; color: #0d3f78; letter-spacing: -.02em; }
 .web-al-live { font: 700 1.25em/1 "Trebuchet MS", sans-serif; color: #fff; padding: 5px 11px; border-radius: 999px; border: 1px solid #2f8a1c; background: linear-gradient(to bottom, #b7f39a 0, #62cc3f 50%, #3aaa22 51%, #5fcf3c 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.7); text-shadow: 0 1px 1px rgba(0,60,0,.5); align-self: flex-start; margin-top: 2px; }
 .web-al-search { display: flex; align-items: center; gap: 8px; flex: 1; }
-.web-al-search input { flex: 1; max-width: 420px; height: 30px; padding: 0 12px; font: 1.15em "Segoe UI", Tahoma, sans-serif; border: 1px solid #7fa9cf; border-radius: 15px; background: #fff; box-shadow: inset 0 2px 3px rgba(0,40,90,.15), 0 0 0 3px rgba(255,255,255,.5); outline: none; }
+.web-al-search input { flex: 1; max-width: 420px; height: 30px; padding: 0 12px; font: 1.15em Selawik, "Segoe UI", Tahoma, sans-serif; border: 1px solid #7fa9cf; border-radius: 15px; background: #fff; box-shadow: inset 0 2px 3px rgba(0,40,90,.15), 0 0 0 3px rgba(255,255,255,.5); outline: none; }
 .web-al-search input:focus { border-color: #2e86de; box-shadow: inset 0 2px 3px rgba(0,40,90,.15), 0 0 8px rgba(46,134,222,.6); }
 .web-al-go { --c1: #9fd8ff; --c2: #2f8fe0; --c3: #1466b8; }
 .web-al-by { color: #4a6a8a; font-size: .92em; }
@@ -407,7 +407,7 @@
 .web-al-fimg { width: 100%; height: 100%; object-fit: cover; display: block; }
 .web-al-fcap { position: absolute; left: 0; right: 0; bottom: 0; padding: 40px 16px 14px; color: #fff; background: linear-gradient(to bottom, rgba(0,20,50,0), rgba(0,20,50,.85)); }
 .web-al-fcap small { display: inline-block; padding: 1px 8px; border-radius: 9px; background: #37b24d; font-weight: 700; margin-bottom: 5px; }
-.web-al-fcap b { display: block; font: 300 1.75em/1.15 "Segoe UI", Selawik, sans-serif; margin-bottom: 4px; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
+.web-al-fcap b { display: block; font: 300 1.75em/1.15 Selawik, Selawik, "Segoe UI", sans-serif; margin-bottom: 4px; text-shadow: 0 1px 3px rgba(0,0,0,.5); }
 .web-al-fcap span { color: #d9ecff; }
 .web-al-stories { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: #e2eef8; }
 .web-al-story { display: grid; grid-template-columns: 44px 1fr; gap: 3px 10px; padding: 10px; background: #fff; color: #33506d; }
@@ -416,7 +416,7 @@
 .web-al-story b { color: #0a57b0; line-height: 1.3; }
 .web-al-channels { display: flex; align-items: center; gap: 10px; padding: 14px; background: repeating-linear-gradient(to bottom, #fff 0 2px, #f1f5f9 2px 4px); }
 .web-al-chtext { flex: 1; }
-.web-al-chtitle { font: 500 1.6em/1.2 "M PLUS Rounded 1c", "Segoe UI", sans-serif; color: #3a4a58; }
+.web-al-chtitle { font: 500 1.6em/1.2 "M PLUS Rounded 1c", Selawik, "Segoe UI", sans-serif; color: #3a4a58; }
 .web-al-chtext p { margin: 4px 0 10px; color: #56636e; }
 .web-al-chbtn { --c1: #e8f6ff; --c2: #9fd0f5; --c3: #5ea7dd; color: #1e3a52 !important; text-shadow: 0 1px 0 rgba(255,255,255,.7); }
 .web-al-chtiles { display: grid; grid-template-columns: repeat(3, 52px); gap: 6px; }
@@ -430,7 +430,7 @@
 .web-al-wxicons { position: relative; width: 58px; height: 58px; flex: none; }
 .web-al-wxi { width: 54px; height: 54px; }
 .web-al-wxi2 { position: absolute; left: 14px; top: 20px; width: 44px; height: 44px; }
-.web-al-wxt { font: 300 2.6em/1 "Segoe UI", Selawik, sans-serif; }
+.web-al-wxt { font: 300 2.6em/1 Selawik, Selawik, "Segoe UI", sans-serif; }
 .web-al-wxc { font-size: .92em; line-height: 1.35; }
 .web-al-wxc b { display: block; font-size: 1.1em; }
 .web-al-wxdays { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; padding: 6px 4px; border-top: 1px solid #d6e9f9; }
@@ -465,9 +465,9 @@
 .web-al-foot div { margin-top: 6px; }
 .web-al-storybox { padding: 16px 22px 20px; font-size: 1.08em; line-height: 1.6; }
 .web-al-crumb { font-size: .88em; color: #6c8298; margin-bottom: 8px; }
-.web-al-h1 { font: 300 2em/1.2 "Segoe UI", Selawik, sans-serif; color: #0d3f78; margin: 0 0 6px; }
+.web-al-h1 { font: 300 2em/1.2 Selawik, Selawik, "Segoe UI", sans-serif; color: #0d3f78; margin: 0 0 6px; }
 .web-al-h1 small { font-size: .5em; color: #6c8298; }
-.web-al-h2 { font: 400 1.3em "Segoe UI", sans-serif; color: #0d3f78; margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #d6e9f9; }
+.web-al-h2 { font: 400 1.3em Selawik, "Segoe UI", sans-serif; color: #0d3f78; margin: 16px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #d6e9f9; }
 .web-al-byline { color: #6c8298; font-size: .88em; margin-bottom: 12px; }
 .web-al-storyimg { text-align: center; margin: 4px 0 12px; }
 .web-al-photo { width: 100%; height: 260px; object-fit: cover; border-radius: 6px; box-shadow: 0 2px 8px rgba(0,40,90,.25); }
@@ -1117,7 +1117,7 @@
       .concat([{ path: '/wiki/Main_Page', title: 'Aeropedia, the bubbly encyclopedia', text: 'Welcome to Aeropedia, the bubbly encyclopedia that anyone can polish. Featured article, in the news, did you know, on this day.' }]),
     render: apRender,
     css: `
-.web-ap { display: flex; min-height: 100%; background: #f6f9fc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Ccircle cx='40' cy='50' r='18' fill='none' stroke='%23dfeaf5'/%3E%3Ccircle cx='150' cy='140' r='26' fill='none' stroke='%23e3eef8'/%3E%3Ccircle cx='120' cy='40' r='8' fill='none' stroke='%23e3eef8'/%3E%3C/svg%3E"); color: #000; font: calc(12.7px * var(--hz-text, 1))/1.5 "Segoe UI", Tahoma, Verdana, sans-serif; }
+.web-ap { display: flex; min-height: 100%; background: #f6f9fc url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Ccircle cx='40' cy='50' r='18' fill='none' stroke='%23dfeaf5'/%3E%3Ccircle cx='150' cy='140' r='26' fill='none' stroke='%23e3eef8'/%3E%3Ccircle cx='120' cy='40' r='8' fill='none' stroke='%23e3eef8'/%3E%3C/svg%3E"); color: #000; font: calc(12.7px * var(--hz-text, 1))/1.5 Selawik, "Segoe UI", Tahoma, Verdana, sans-serif; }
 .web-ap a { color: #0645ad; text-decoration: none; }
 .web-ap a:hover { text-decoration: underline; }
 .web-ap a.web-ap-new { color: #cc2200; }
@@ -1147,7 +1147,7 @@
 .web-ap-sub { font-size: .92em; color: #555; margin-bottom: 10px; }
 .web-ap-redir { font-size: .88em; color: #555; margin: -8px 0 10px; }
 .web-ap-content h2 { font: 400 1.4em/1.3 Georgia, "Times New Roman", serif; border-bottom: 1px solid #aaa; margin: 18px 0 6px; padding-bottom: 1px; }
-.web-ap-editsec { float: right; font: .6em "Segoe UI", sans-serif; }
+.web-ap-editsec { float: right; font: .6em Selawik, "Segoe UI", sans-serif; }
 .web-ap-content p { margin: .4em 0 .6em; }
 .web-ap-content ul { margin: .3em 0 .6em; padding-left: 22px; list-style: square; }
 .web-ap-ref { font-size: .75em; line-height: 1; }
