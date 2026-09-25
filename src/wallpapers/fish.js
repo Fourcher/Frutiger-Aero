@@ -1,12 +1,14 @@
-/* Aerium fish: side-view aquarium fish, painted to look real but glossy.
-   Each fish's body is painted once into a cached skin (rounded shading,
-   scales, markings, gill cover, glossy highlights and a detailed eye) and
-   drawn every frame in thin vertical slices that follow the swimming wave,
-   so the body flexes and foreshortens as the tail beats. Fins and tail are
-   drawn live as translucent membranes with fine rays. */
+/* Aerium fish: side-view aquarium fish. Palettes with a photo are drawn
+   from real photographs (fish-photo.js). The rest are painted: each body is
+   painted once into a cached skin (rounded shading, scales, markings, gill
+   cover, glossy highlights and a detailed eye) and drawn every frame in thin
+   vertical slices that follow the swimming wave, so the body flexes and
+   foreshortens as the tail beats. Fins and tail are drawn live as
+   translucent membranes with fine rays. */
 (function () {
   'use strict';
   const A = window.Aerium;
+  const PH = A.fishPhoto || null;
   const TAU = Math.PI * 2;
   const lerp = (a, b, t) => a + (b - a) * t;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -52,11 +54,11 @@
       pectoral: 0.24, pelvic: { s: 0.3, len: 0.36 },
       scale: 0.085, gill: 0.3, eye: [0.1, -0.06, 0.13], mouthY: -0.02, rays: 1.4,
       palettes: [
-        { name: 'Cobalt', back: '#0e2574', body: '#1d4ec9', belly: '#4b7fe0', sheen: '#5fdcff', fin: '#1a2c9c', finEdge: '#6a86ff', rim: '#b7c8ff', eye: '#050a18', iris: '#27449a' },
-        { name: 'Ruby', back: '#560914', body: '#b3142a', belly: '#dc4048', sheen: '#ff8fa8', fin: '#98102a', finEdge: '#ff5a6e', rim: '#ffc0c8', eye: '#140404', iris: '#7a1a24' },
-        { name: 'Violet', back: '#2a0f5c', body: '#5a2aae', belly: '#8156d6', sheen: '#78dcff', fin: '#3f2294', finEdge: '#b58aff', rim: '#e0ccff', eye: '#0c0718', iris: '#4a2e8a' },
-        { name: 'Koi', back: '#d9dfe7', body: '#f1f4f7', belly: '#ffffff', sheen: '#ffd0c4', fin: '#f06a4a', finEdge: '#ffd6c8', rim: '#ffffff', eye: '#0e1620', iris: '#6a7a8a', koi: true },
-        { name: 'Beta blue', back: '#07196e', body: '#1947c8', belly: '#4a80f6', sheen: '#48d4ff', fin: '#16209c', finEdge: '#6f7dff', rim: '#bff4ff', eye: '#040a18', iris: '#2649b0', finAlpha: [0.9, 0.72, 0.55], iridescent: true },
+        { name: 'Halfmoon', photo: 'betta-blue', swatch: ['#2f86c4', '#c8303f'], back: '#0e2574', body: '#1d4ec9', belly: '#4b7fe0', sheen: '#5fdcff', fin: '#1a2c9c', finEdge: '#6a86ff', rim: '#b7c8ff', eye: '#050a18', iris: '#27449a' },
+        { name: 'Ruby', photo: 'betta-cambodian', swatch: ['#eadccb', '#b3182c'], back: '#560914', body: '#b3142a', belly: '#dc4048', sheen: '#ff8fa8', fin: '#98102a', finEdge: '#ff5a6e', rim: '#ffc0c8', eye: '#140404', iris: '#7a1a24' },
+        { name: 'Violet', photo: 'betta-royal', swatch: ['#6b4fd8', '#a13bc9'], tone: { hue: 48, sat: 1.05 }, back: '#2a0f5c', body: '#5a2aae', belly: '#8156d6', sheen: '#78dcff', fin: '#3f2294', finEdge: '#b58aff', rim: '#e0ccff', eye: '#0c0718', iris: '#4a2e8a' },
+        { name: 'Koi', photo: 'betta-marble', swatch: ['#f2f2f2', '#2f55c8'], back: '#d9dfe7', body: '#f1f4f7', belly: '#ffffff', sheen: '#ffd0c4', fin: '#f06a4a', finEdge: '#ffd6c8', rim: '#ffffff', eye: '#0e1620', iris: '#6a7a8a', koi: true },
+        { name: 'Beta blue', photo: 'betta-royal', swatch: ['#2346c8', '#5a2fc0'], back: '#07196e', body: '#1947c8', belly: '#4a80f6', sheen: '#48d4ff', fin: '#16209c', finEdge: '#6f7dff', rim: '#bff4ff', eye: '#040a18', iris: '#2649b0', finAlpha: [0.9, 0.72, 0.55], iridescent: true },
       ],
     },
     goldfish: {
@@ -66,9 +68,9 @@
       pectoral: 0.3, pelvic: { s: 0.42, len: 0.25 },
       scale: 0.105, gill: 0.29, eye: [0.11, -0.1, 0.12], mouthY: -0.04, rays: 1,
       palettes: [
-        { name: 'Orange', back: '#c23d08', body: '#f5821c', belly: '#ffd58a', sheen: '#fff0b0', fin: '#ff8a20', finEdge: '#ffd07a', rim: '#fff4d0', eye: '#101a26', iris: '#f2b01e', metallic: true, finAlpha: [0.95, 0.74, 0.42] },
-        { name: 'Red cap', back: '#e6ebf1', body: '#f7f9fb', belly: '#ffffff', sheen: '#ffffff', fin: '#fdf2e6', finEdge: '#ffffff', rim: '#ffffff', eye: '#101a26', iris: '#e8a040', cap: '#e3321f' },
-        { name: 'Calico', back: '#e0730c', body: '#fbab47', belly: '#fff1d9', sheen: '#ffffff', fin: '#ffe5c6', finEdge: '#fff6ea', rim: '#ffffff', eye: '#101a26', iris: '#f2b01e', spots: '#20222e', calico: true },
+        { name: 'Orange', photo: 'goldfish-fantail', swatch: ['#ff6a1a', '#e03a16'], back: '#c23d08', body: '#f5821c', belly: '#ffd58a', sheen: '#fff0b0', fin: '#ff8a20', finEdge: '#ffd07a', rim: '#fff4d0', eye: '#101a26', iris: '#f2b01e', metallic: true, finAlpha: [0.95, 0.74, 0.42] },
+        { name: 'Red cap', photo: 'goldfish-redcap', swatch: ['#f7f4ef', '#e3321f'], back: '#e6ebf1', body: '#f7f9fb', belly: '#ffffff', sheen: '#ffffff', fin: '#fdf2e6', finEdge: '#ffffff', rim: '#ffffff', eye: '#101a26', iris: '#e8a040', cap: '#e3321f' },
+        { name: 'Calico', photo: 'goldfish-calico', swatch: ['#e8452a', '#d8d8d0'], back: '#e0730c', body: '#fbab47', belly: '#fff1d9', sheen: '#ffffff', fin: '#ffe5c6', finEdge: '#fff6ea', rim: '#ffffff', eye: '#101a26', iris: '#f2b01e', spots: '#20222e', calico: true },
       ],
     },
     tetra: {
@@ -77,7 +79,7 @@
       dorsal: { s0: 0.42, s1: 0.58, height: 0.45, sweep: 0.6 }, anal: { s0: 0.58, s1: 0.8, height: 0.3, sweep: 0.5 },
       pectoral: 0.3,
       scale: 0.12, gill: 0.26, eye: [0.11, -0.02, 0.17], mouthY: 0, rays: 0.7,
-      palettes: [{ name: 'Neon', back: '#6a6448', body: '#b9c4c6', belly: '#eef3f2', sheen: '#ffffff', fin: '#e8f0f2', finEdge: '#ffffff', rim: '#ffffff', eye: '#07101a', iris: '#a9d2ee', stripe: '#3ee8ff', stripe2: '#2a6cff', red: '#f4283a' }],
+      palettes: [{ name: 'Neon', photo: 'tetra-neon', swatch: ['#2a8cff', '#f4283a'], back: '#6a6448', body: '#b9c4c6', belly: '#eef3f2', sheen: '#ffffff', fin: '#e8f0f2', finEdge: '#ffffff', rim: '#ffffff', eye: '#07101a', iris: '#a9d2ee', stripe: '#3ee8ff', stripe2: '#2a6cff', red: '#f4283a' }],
     },
     angelfish: {
       name: 'Angelfish', size: [42, 52], h: 0.72, bodyLen: 0.66, peak: 0.42, ped: 0.26, noseRound: 0.9, topK: 1, botK: 1, arch: 0,
@@ -86,8 +88,9 @@
       pectoral: 0.26, pelvic: { s: 0.34, len: 1.1, filament: true },
       scale: 0.055, gill: 0.3, eye: [0.13, -0.12, 0.075], mouthY: -0.03, rays: 1.2,
       palettes: [
-        { name: 'Silver', back: '#7f8c97', body: '#dfe6ec', belly: '#fafcfd', sheen: '#ffffff', fin: '#d3dde5', finEdge: '#ffffff', rim: '#ffffff', eye: '#141414', iris: '#d8281a', bars: '#1c2129', crown: '#e8b85a' },
-        { name: 'Marble', back: '#343942', body: '#e6e0d0', belly: '#fffaf0', sheen: '#ffffff', fin: '#d6cfbd', finEdge: '#fff8e8', rim: '#ffffff', eye: '#141414', iris: '#d8281a', bars: '#23252b', crown: '#f0a640', marble: true },
+        { name: 'Silver', photo: 'angelfish-silver', swatch: ['#d8d4c0', '#2a2e34'], back: '#7f8c97', body: '#dfe6ec', belly: '#fafcfd', sheen: '#ffffff', fin: '#d3dde5', finEdge: '#ffffff', rim: '#ffffff', eye: '#141414', iris: '#d8281a', bars: '#1c2129', crown: '#e8b85a' },
+        { name: 'Marble', photo: 'angelfish-koi', swatch: ['#ffffff', '#f08a1a'], back: '#343942', body: '#e6e0d0', belly: '#fffaf0', sheen: '#ffffff', fin: '#d6cfbd', finEdge: '#fff8e8', rim: '#ffffff', eye: '#141414', iris: '#d8281a', bars: '#23252b', crown: '#f0a640', marble: true },
+        { name: 'Platinum', photo: 'angelfish-platinum', swatch: ['#f4f2ee', '#d8d2c8'], back: '#c9ccd2', body: '#eef0f3', belly: '#ffffff', sheen: '#ffffff', fin: '#e8ebef', finEdge: '#ffffff', rim: '#ffffff', eye: '#141414', iris: '#b8a8a0', bars: '#dfe3e8', crown: '#f4e8d8' },
       ],
     },
     guppy: {
@@ -97,9 +100,11 @@
       pectoral: 0.3,
       scale: 0.1, gill: 0.28, eye: [0.11, -0.05, 0.15], mouthY: -0.06, rays: 1,
       palettes: [
-        { name: 'Sunset', back: '#6c7462', body: '#b9c2ac', belly: '#eef2e6', sheen: '#ffffff', fin: '#ff6a1f', finEdge: '#ffd02e', rim: '#fff0c0', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#2238a0', patch: '#ff8a3a' },
-        { name: 'Blue grass', back: '#5b6a82', body: '#aebcd2', belly: '#e8eef7', sheen: '#ffffff', fin: '#1f8fe6', finEdge: '#7fe6ff', rim: '#e0f6ff', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#0b3d73', patch: '#3ab0ff' },
-        { name: 'Tuxedo', back: '#4e4e58', body: '#c6beb4', belly: '#f4eee8', sheen: '#ffffff', fin: '#e63a26', finEdge: '#ffb13b', rim: '#ffe0c8', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#1e2530', tux: true },
+        { name: 'Sunset', photo: 'guppy-red', swatch: ['#8a4ab0', '#ff3a1f'], back: '#6c7462', body: '#b9c2ac', belly: '#eef2e6', sheen: '#ffffff', fin: '#ff6a1f', finEdge: '#ffd02e', rim: '#fff0c0', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#2238a0', patch: '#ff8a3a' },
+        { name: 'Blue grass', photo: 'guppy-blue', swatch: ['#3a90b0', '#e8c830'], back: '#5b6a82', body: '#aebcd2', belly: '#e8eef7', sheen: '#ffffff', fin: '#1f8fe6', finEdge: '#7fe6ff', rim: '#e0f6ff', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#0b3d73', patch: '#3ab0ff' },
+        { name: 'Tuxedo', photo: 'guppy-lace', swatch: ['#c04030', '#1a1a20'], back: '#4e4e58', body: '#c6beb4', belly: '#f4eee8', sheen: '#ffffff', fin: '#e63a26', finEdge: '#ffb13b', rim: '#ffe0c8', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#1e2530', tux: true },
+        { name: 'Leopard', photo: 'guppy-leopard', swatch: ['#c8b8c0', '#e0a030'], back: '#6a6a70', body: '#c4bcc0', belly: '#f2eef0', sheen: '#ffffff', fin: '#d8a23a', finEdge: '#ffe08a', rim: '#fff2d0', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#1c1c22', patch: '#e8b040' },
+        { name: 'Koi', photo: 'guppy-koi', swatch: ['#fbe8e0', '#f25a30'], back: '#e8d8d0', body: '#fbeee8', belly: '#ffffff', sheen: '#ffffff', fin: '#ff7a4a', finEdge: '#ffd0b8', rim: '#fff0e8', eye: '#0b0b0b', iris: '#d8dcd8', tailSpots: '#e8452a', patch: '#f25a30' },
       ],
     },
     cory: {
@@ -108,7 +113,7 @@
       dorsal: { s0: 0.26, s1: 0.44, height: 0.75, sweep: 0.5, pointed: true }, anal: { s0: 0.7, s1: 0.8, height: 0.25, sweep: 0.4 },
       pectoral: 0.26, barbels: true,
       plates: true, gill: 0.28, eye: [0.17, -0.16, 0.12], mouthY: 0.18, rays: 1,
-      palettes: [{ name: 'Peppered', back: '#5e584a', body: '#b8ac92', belly: '#efe6d2', sheen: '#ffffff', fin: '#e2d8c6', finEdge: '#fff8ea', rim: '#ffffff', eye: '#0b0b0b', iris: '#a8b4bc', spots: '#3a3228', gillSheen: '#6fd6b0' }],
+      palettes: [{ name: 'Peppered', photo: 'cory-peppered', swatch: ['#c8a050', '#3a3a28'], back: '#5e584a', body: '#b8ac92', belly: '#efe6d2', sheen: '#ffffff', fin: '#e2d8c6', finEdge: '#fff8ea', rim: '#ffffff', eye: '#0b0b0b', iris: '#a8b4bc', spots: '#3a3228', gillSheen: '#6fd6b0' }],
     },
   };
 
@@ -431,7 +436,7 @@
   }
 
   function markings(g, f, sh, pal, R, px) {
-    const sp = f.sp, H = sh.H;
+    const H = sh.H;
     const soft = (u) => { g.filter = `blur(${Math.max(0.3, px(u)).toFixed(2)}px)`; };
     g.save();
     if (f.species === 'tetra') {
@@ -1001,9 +1006,15 @@
 
   // ------------------------------------------------------------ draw
   // f: { species, sp, pal, len, phase, finPhase, bend, seed, flare, fog }
-  // Draws the fish centered at the current transform, facing +x. Pass
-  // wantPath to get the body outline back (for lighting effects).
-  function draw(ctx, f, t, alpha = 1, wantPath = false) {
+  // Draws the fish centered at the current transform, facing +x. Palettes
+  // with a photo are drawn from the photograph (see fish-photo.js); fx.light
+  // then paints the tank's rippling light onto it. Painted fish return their
+  // body outline when wantPath is set, for the caller to light.
+  function draw(ctx, f, t, alpha = 1, wantPath = false, fx = null) {
+    if (PH && f.pal && f.pal.photo) {
+      const r = PH.draw(ctx, f, t, alpha, fx);
+      if (r !== undefined) return r;
+    }
     const sh = shape(f);
     const m = ctx.getTransform();
     const scale = Math.hypot(m.c, m.d) || 1;
@@ -1029,9 +1040,29 @@
     return wantPath ? bodyPath(sh) : null;
   }
 
-  // Mouth position in local space (for eating and blowing bubbles).
+  // Mouth position in local space (for eating and blowing bubbles). A photo
+  // fish's mouth already faces the way the fish is turned; see isPhoto.
   function mouth(f) {
+    if (PH && f.pal && f.pal.photo) {
+      const m = PH.mouth(f);
+      if (m) return m;
+    }
     return [f.len * 0.5, f.len * f.sp.h * 0.02];
+  }
+
+  // Photo fish steer themselves: callers skip the flip-around squash and
+  // tilt by heading(f) instead of the turn.
+  function isPhoto(f) { return !!(PH && f.pal && f.pal.photo && PH.has(f)); }
+  const ready = (f) => (PH ? PH.ready(f.pal) : true);
+  const whenReady = (f, cb) => (PH ? PH.whenReady(f.pal, cb) : cb());
+  function heading(f) { return isPhoto(f) ? PH.heading(f) : Math.sign(f.turn || 1); }
+
+  // The fish's straight-pose bounds in local units (for framing portraits).
+  function extent(f) {
+    const e = isPhoto(f) ? PH.extent(f) : null;
+    if (e) return e;
+    const tail = f.len * (1 - f.sp.bodyLen) * f.sp.tailScale;
+    return { x0: -f.len * 0.5 - tail * 0.6, x1: f.len * 0.5, y0: -f.len * f.sp.h * 1.1, y1: f.len * f.sp.h * 1.1 };
   }
 
   function makeFish(species, opts = {}) {
@@ -1051,5 +1082,6 @@
     };
   }
 
-  A.fish = { SPECIES, draw, makeFish, mouth, rgba, mix };
+  if (PH) PH.preload(SPECIES);
+  A.fish = { SPECIES, draw, makeFish, mouth, isPhoto, heading, extent, ready, whenReady, rgba, mix };
 })();

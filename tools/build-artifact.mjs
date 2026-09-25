@@ -6,12 +6,14 @@
 //   node tools/build-artifact.mjs            writes dist/artifact/
 //
 // Output: dist/artifact/index.html plus every stylesheet and script it
-// references (same relative paths), a _preview.html that wraps the page
-// the way the host does for local testing, and files.json listing the
-// published files.
+// references (same folders, with a content hash in each file name so a
+// republished page never picks up a stale cached copy), a _preview.html
+// that wraps the page the way the host does for local testing, and
+// files.json listing the published files.
 import { readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'dist', 'artifact');
@@ -44,22 +46,26 @@ function inlineFonts(css, base) {
 }
 
 const files = [];
+const published = {};
 for (const rel of [...styles, ...scripts]) {
   let text = readFileSync(join(root, rel), 'utf8');
   if (rel.endsWith('fonts.css')) text = inlineFonts(text, dirname(rel));
   text = renameTheme(text);
-  mkdirSync(join(out, dirname(rel)), { recursive: true });
-  writeFileSync(join(out, rel), text);
-  files.push(rel);
+  const hash = createHash('sha1').update(text).digest('hex').slice(0, 8);
+  const pub = rel.replace(/(\.[a-z0-9]+)$/i, `.${hash}$1`);
+  mkdirSync(join(out, dirname(pub)), { recursive: true });
+  writeFileSync(join(out, pub), text);
+  files.push(pub);
+  published[rel] = pub;
 }
 
 const page = [
   `<title>${title}</title>`,
   // The host adds img { max-width: 100% }; Aerium sizes its own images.
   '<style>img { max-width: none; } html, body { height: 100%; background: #000; }</style>',
-  ...styles.map((s) => `<link rel="stylesheet" href="${s}">`),
+  ...styles.map((s) => `<link rel="stylesheet" href="${published[s]}">`),
   renameTheme(body),
-  ...scripts.map((s) => `<script src="${s}"></script>`),
+  ...scripts.map((s) => `<script src="${published[s]}"></script>`),
 ].join('\n');
 writeFileSync(join(out, 'index.html'), page + '\n');
 

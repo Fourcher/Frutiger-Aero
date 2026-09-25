@@ -100,6 +100,7 @@ All icons and pictures are embedded; reference them by key. `Aerium.asset(key)` 
 - Textures (tile them): `textures/` + caustics chrome-stripes dot-grid honeycomb-glass pinstripe-dark pinstripe-light.
 - Decorative overlays: `decorative/` + bubble-cluster bubble-single flourish lens-flare light-rays loader reflection-floor sparkles swoosh-aqua swoosh-aurora swoosh-white.
 - Avatars (96x96 framed messenger pictures): `avatars/avatar-` + butterfly dolphin fish flower globe leaf music sun.
+- Photos (the aquarium's real fish and scenery, cut out on transparent backgrounds): `Aerium.photoURL(key)` returns a `blob:` URL for a key in `Aerium.PHOTOS`, such as `fish/betta-blue` or `scene/moss`. Each entry carries its size and a `credit` (title, author, license, source); show the credit wherever you show the photo.
 
 Never use emoji. Draw anything else you need as inline SVG or canvas in the same glossy recipe (body gradient lit from the top left, darker rim, white shine clipped to the upper half, caustic glow at the base).
 

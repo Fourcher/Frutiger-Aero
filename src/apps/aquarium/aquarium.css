@@ -39,3 +39,8 @@
 .aqa-swatch { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); position: relative; }
 .aqa-swatch::after { content: ""; position: absolute; left: 5px; top: 3px; width: 16px; height: 9px; border-radius: 50%; background: linear-gradient(rgba(255,255,255,.85), rgba(255,255,255,0)); }
 .aqa-swatch.on { box-shadow: 0 0 0 2px var(--accent), 0 0 10px rgba(58,166,245,.7); }
+.aqa-credits { padding: 12px 16px 6px; max-height: 380px; overflow-y: auto; font-size: 12.5px; line-height: 18px; color: var(--ink); }
+.aqa-credits p { margin: 0 0 8px; }
+.aqa-credits ul { margin: 0; padding-left: 18px; }
+.aqa-credits li { margin: 2px 0; }
+.aqa-credits a { color: var(--link); }
