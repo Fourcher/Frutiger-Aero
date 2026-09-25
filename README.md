@@ -22,7 +22,7 @@ Turn your sound on. Every sound and song is synthesized live in the browser.
 
 The shell
 - A power button, a quick POST screen, a glowing boot animation, the startup chord and a logon screen where you pick your name and picture
-- The living aquarium desktop: lifelike glossy fish with scales, flexing bodies and see-through fins in a planted tank with gravel, driftwood, sunbeams and rippling light. They school, explore, eat the food you drop and come say hello when you hold the cursor still, with name tags, a snail on the glass and a moonlit mode at night
+- The living aquarium desktop: real fish, cut out of photographs and brought to life so they swim, beat their tails and curl round when they turn, in a planted tank of real gravel, stones, driftwood, ferns and moss balls under sunbeams and rippling light. They school, explore, eat the food you drop and come say hello when you hold the cursor still, with name tags, an apple snail on the gravel and a moonlit mode at night
 - Glass windows you can drag, resize, snap to the screen edges, shake to clear the desktop, minimize into the taskbar and flip through in 3D
 - A taskbar with a glowing start orb, hover glow that follows your cursor, live window thumbnails, jump lists, a clock with a calendar, and volume, network and battery flyouts
 - A start menu with search, All Programs and the user picture that turns into whatever you hover
@@ -70,6 +70,8 @@ Handy URL options for tinkering: `?boot=skip` goes straight to the desktop, `&op
 
 Aerium evokes the era without copying it. The names, icons, wallpapers, sounds and music are all original, and no real company's logos or product names appear in the interface. The look comes from the Frutiger Aero design system in `design-system/` (tokens, components, glossy icons, wallpapers and textures). Fonts are Selawik, M PLUS Rounded 1c and Michroma, all under the SIL Open Font License.
 
+The aquarium photos come from Wikimedia Commons and ambientCG under open licenses (CC0, public domain, CC BY and CC BY-SA). Each one is credited in `src/photos/CREDITS.md` and in the Aquarium app under Photo credits.
+
 The research behind the details lives in `docs/FEEL.md`, and `docs/APP_API.md` explains how to build a new app.
 
 ## Project layout
@@ -80,8 +82,9 @@ design-system/          Frutiger Aero tokens, component styles, fonts and assets
 src/core/               runtime: DOM helpers, settings, sound, music, files, theming, UI kit, windows, apps
 src/shell/              boot and logon, desktop, taskbar, start menu, effects, screensaver host
 src/wallpapers/         the aquarium, the betta and the other animated wallpapers
+src/photos/             the aquarium's fish, plant, stone and gravel photos, with their credits
 src/apps/               every app, one folder each
-tools/                  build scripts for tokens, icons and assets, plus a screenshot helper
+tools/                  build scripts for tokens, icons, assets and photos, plus screenshot helpers
 ```
 
-After editing anything in `design-system/assets` or `src/icons`, run `node tools/build-icons.mjs && node tools/build-assets.mjs`. After editing `design-system/tokens.json`, run `node tools/build-tokens.mjs`.
+After editing anything in `design-system/assets` or `src/icons`, run `node tools/build-icons.mjs && node tools/build-assets.mjs`. After editing `design-system/tokens.json`, run `node tools/build-tokens.mjs`. After adding or changing a photo in `src/photos` (and its entry in `photos.json`), run `node tools/build-photos.mjs`.

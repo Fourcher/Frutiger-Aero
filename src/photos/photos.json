@@ -1,0 +1,493 @@
+{
+  "fish/betta-blue": {
+    "file": "fish/betta-blue.webp",
+    "fish": {
+      "nose": 1010,
+      "tip": 7,
+      "root": 385,
+      "axis": 340,
+      "mouth": [
+        1004,
+        330
+      ],
+      "flare": 0.1
+    },
+    "credit": {
+      "title": "Male Betta -34245661920",
+      "author": "ivabalk",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Male_Betta_-34245661920.jpg"
+    }
+  },
+  "fish/betta-cambodian": {
+    "file": "fish/betta-cambodian.webp",
+    "fish": {
+      "nose": 1012,
+      "tip": 8,
+      "root": 540,
+      "axis": 222,
+      "mouth": [
+        1008,
+        244
+      ],
+      "flare": 0.1
+    },
+    "credit": {
+      "title": "Betta cambodian",
+      "author": "Pharaoh Hound at English Wikipedia",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Betta_cambodian.jpg"
+    }
+  },
+  "fish/betta-marble": {
+    "file": "fish/betta-marble.webp",
+    "fish": {
+      "nose": 1012,
+      "tip": 8,
+      "root": 280,
+      "axis": 350,
+      "mouth": [
+        1005,
+        426
+      ],
+      "flare": 0.1
+    },
+    "credit": {
+      "title": "Colorful betta",
+      "author": "Dominique Lyon",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Colorful_betta.jpg"
+    }
+  },
+  "fish/goldfish-fantail": {
+    "file": "fish/goldfish-fantail.webp",
+    "fish": {
+      "nose": 709,
+      "tip": 15,
+      "root": 354,
+      "axis": 145,
+      "mouth": [
+        705,
+        142
+      ]
+    },
+    "credit": {
+      "title": "Goldfish (3230447306)",
+      "author": "Elma from Reykjav\u00edk",
+      "license": "CC BY 2.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Goldfish_(3230447306).jpg"
+    }
+  },
+  "fish/goldfish-redcap": {
+    "file": "fish/goldfish-redcap.webp",
+    "fish": {
+      "nose": 706,
+      "tip": 5,
+      "root": 397,
+      "axis": 140,
+      "mouth": [
+        700,
+        188
+      ]
+    },
+    "credit": {
+      "title": "Aquarium tropical de Pierrefitte-Nestalas 03082018 Carassius auratus Lionhead goldfish 2",
+      "author": "Vassil",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Aquarium_tropical_de_Pierrefitte-Nestalas_03082018_Carassius_auratus_Lionhead_goldfish_2.jpg"
+    }
+  },
+  "fish/goldfish-calico": {
+    "file": "fish/goldfish-calico.webp",
+    "fish": {
+      "nose": 709,
+      "tip": 5,
+      "root": 215,
+      "axis": 240,
+      "mouth": [
+        705,
+        255
+      ]
+    },
+    "credit": {
+      "title": "Shubunkin Goldfish",
+      "author": "Michelle Jo",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Shubunkin_Goldfish.JPG"
+    }
+  },
+  "fish/tetra-neon": {
+    "file": "fish/tetra-neon.webp",
+    "fish": {
+      "nose": 469,
+      "tip": 13,
+      "root": 95,
+      "axis": 110,
+      "mouth": [
+        468,
+        112
+      ]
+    },
+    "credit": {
+      "title": "Gfp-neon-tetra",
+      "author": "Yinan Chen",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Gfp-neon-tetra.jpg"
+    }
+  },
+  "fish/angelfish-silver": {
+    "file": "fish/angelfish-silver.webp",
+    "fish": {
+      "nose": 590,
+      "tip": 7,
+      "root": 160,
+      "axis": 345,
+      "mouth": [
+        588,
+        270
+      ]
+    },
+    "credit": {
+      "title": "Pterophyllum scalare DSC00532 2200",
+      "author": "Alexxx1979",
+      "license": "CC BY-SA 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Pterophyllum_scalare_DSC00532_2200.jpg"
+    }
+  },
+  "fish/angelfish-koi": {
+    "file": "fish/angelfish-koi.webp",
+    "fish": {
+      "nose": 588,
+      "tip": 12,
+      "root": 232,
+      "axis": 285,
+      "mouth": [
+        585,
+        282
+      ]
+    },
+    "credit": {
+      "title": "Pterophyllum scalare",
+      "author": "Ldehaen",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Pterophyllum_scalare.jpg"
+    }
+  },
+  "fish/angelfish-platinum": {
+    "file": "fish/angelfish-platinum.webp",
+    "fish": {
+      "nose": 590,
+      "tip": 7,
+      "root": 190,
+      "axis": 196,
+      "mouth": [
+        588,
+        132
+      ]
+    },
+    "credit": {
+      "title": "Pterophyllum scalare, Wei\u00dffisch Scalria 29.12.2025",
+      "author": "SmallSonMarex",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Pterophyllum_scalare,_Wei%C3%9Ffisch_Scalria_29.12.2025.jpg"
+    }
+  },
+  "fish/guppy-red": {
+    "file": "fish/guppy-red.webp",
+    "fish": {
+      "nose": 472,
+      "tip": 6,
+      "root": 185,
+      "axis": 80,
+      "mouth": [
+        470,
+        80
+      ]
+    },
+    "credit": {
+      "title": "Guppy-male",
+      "author": "Jdiemer",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Guppy-male.jpg"
+    }
+  },
+  "fish/guppy-blue": {
+    "file": "fish/guppy-blue.webp",
+    "fish": {
+      "nose": 472,
+      "tip": 6,
+      "root": 150,
+      "axis": 90,
+      "mouth": [
+        470,
+        94
+      ]
+    },
+    "credit": {
+      "title": "Poecilia reticulata - Guppy, male, cobra-green morph",
+      "author": "5snake5",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Poecilia_reticulata_-_Guppy,_male,_cobra-green_morph.jpg"
+    }
+  },
+  "fish/guppy-lace": {
+    "file": "fish/guppy-lace.webp",
+    "fish": {
+      "nose": 397,
+      "tip": 12,
+      "root": 190,
+      "axis": 55,
+      "mouth": [
+        394,
+        50
+      ]
+    },
+    "credit": {
+      "title": "Guppy breeds",
+      "author": "Melanochromis",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Guppy_breeds.jpg"
+    }
+  },
+  "fish/guppy-leopard": {
+    "file": "fish/guppy-leopard.webp",
+    "fish": {
+      "nose": 406,
+      "tip": 10,
+      "root": 180,
+      "axis": 88,
+      "mouth": [
+        404,
+        84
+      ]
+    },
+    "credit": {
+      "title": "Guppy breeds",
+      "author": "Melanochromis",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Guppy_breeds.jpg"
+    }
+  },
+  "fish/guppy-koi": {
+    "file": "fish/guppy-koi.webp",
+    "fish": {
+      "nose": 408,
+      "tip": 8,
+      "root": 150,
+      "axis": 115,
+      "mouth": [
+        406,
+        118
+      ]
+    },
+    "credit": {
+      "title": "Guppy breeds",
+      "author": "Melanochromis",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Guppy_breeds.jpg"
+    }
+  },
+  "fish/cory-peppered": {
+    "file": "fish/cory-peppered.webp",
+    "fish": {
+      "nose": 510,
+      "tip": 4,
+      "root": 150,
+      "axis": 120,
+      "mouth": [
+        500,
+        140
+      ]
+    },
+    "credit": {
+      "title": "Corydoras paleatus in current",
+      "author": "Ude",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Corydoras_paleatus_in_current.jpg"
+    }
+  },
+  "fish/betta-royal": {
+    "file": "fish/betta-royal.webp",
+    "fish": {
+      "nose": 1010,
+      "tip": 7,
+      "root": 385,
+      "axis": 340,
+      "mouth": [
+        1004,
+        330
+      ],
+      "flare": 0.1
+    },
+    "credit": {
+      "title": "Male Betta (recolored blue)",
+      "author": "ivabalk",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Male_Betta_-34245661920.jpg"
+    }
+  },
+  "scene/gravel": {
+    "file": "scene/gravel.webp",
+    "credit": {
+      "title": "Rocks 022",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rocks022"
+    }
+  },
+  "scene/rock-a": {
+    "file": "scene/rock-a.webp",
+    "credit": {
+      "title": "Rock 030 (rendered as a stone)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rock030"
+    }
+  },
+  "scene/rock-b": {
+    "file": "scene/rock-b.webp",
+    "credit": {
+      "title": "Rock 020 (rendered as a stone)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rock020"
+    }
+  },
+  "scene/rock-c": {
+    "file": "scene/rock-c.webp",
+    "credit": {
+      "title": "Rock 058 (rendered as a stone)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rock058"
+    }
+  },
+  "scene/rock-d": {
+    "file": "scene/rock-d.webp",
+    "credit": {
+      "title": "Rock 030 (rendered as a stone)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rock030"
+    }
+  },
+  "scene/rock-e": {
+    "file": "scene/rock-e.webp",
+    "credit": {
+      "title": "Rock 020 (rendered as a stone)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Rock020"
+    }
+  },
+  "scene/wood": {
+    "file": "scene/wood.webp",
+    "credit": {
+      "title": "Wood 062 (rendered as driftwood)",
+      "author": "ambientCG",
+      "license": "CC0",
+      "source": "https://ambientcg.com/view?id=Wood062"
+    }
+  },
+  "scene/java-fern": {
+    "file": "scene/java-fern.webp",
+    "anchor": [
+      0.5,
+      0.88
+    ],
+    "credit": {
+      "title": "Microsorum pteropus",
+      "author": "Tsunamicarlos at English Wikipedia",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Microsorum_pteropus.jpg"
+    }
+  },
+  "scene/sword": {
+    "file": "scene/sword.webp",
+    "anchor": [
+      0.5,
+      0.93
+    ],
+    "credit": {
+      "title": "Echinodorus bleheri",
+      "author": "Salvatore vitale",
+      "license": "Public domain",
+      "source": "https://commons.wikimedia.org/wiki/File:Echinodorus_bleheri.jpg"
+    }
+  },
+  "scene/anubias-a": {
+    "file": "scene/anubias-a.webp",
+    "anchor": [
+      0.31,
+      0.95
+    ],
+    "credit": {
+      "title": "Anubias Butterfly",
+      "author": "Abhik.Mazumdar.73",
+      "license": "CC BY 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Anubias_Butterfly.jpg"
+    }
+  },
+  "scene/anubias-b": {
+    "file": "scene/anubias-b.webp",
+    "anchor": [
+      0.47,
+      0.77
+    ],
+    "credit": {
+      "title": "Anubias barteri var. nana",
+      "author": "Abhik.Mazumdar.73",
+      "license": "CC BY 4.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Anubias_barteri_var._nana.jpg"
+    }
+  },
+  "scene/moss": {
+    "file": "scene/moss.webp",
+    "anchor": [
+      0.5,
+      0.97
+    ],
+    "credit": {
+      "title": "Aegagropila conical flask",
+      "author": "Nefronus",
+      "license": "CC0",
+      "source": "https://commons.wikimedia.org/wiki/File:Aegagropila_conical_flask.jpg"
+    }
+  },
+  "scene/snail": {
+    "file": "scene/snail.webp",
+    "anchor": [
+      0.62,
+      0.92
+    ],
+    "shell": [
+      0.75,
+      0.45,
+      0.25
+    ],
+    "credit": {
+      "title": "Pomacea",
+      "author": "Stijn Ghesquiere",
+      "license": "CC BY-SA 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Pomacea.jpg"
+    }
+  },
+  "scene/bank-left": {
+    "file": "scene/bank-left.webp",
+    "credit": {
+      "title": "Forests Underwater",
+      "author": "Georg Pirrung",
+      "license": "CC BY 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Forests_Underwater_(122868199).jpeg"
+    }
+  },
+  "scene/bank-right": {
+    "file": "scene/bank-right.webp",
+    "credit": {
+      "title": "Forests Underwater",
+      "author": "Georg Pirrung",
+      "license": "CC BY 3.0",
+      "source": "https://commons.wikimedia.org/wiki/File:Forests_Underwater_(122868199).jpeg"
+    }
+  }
+}

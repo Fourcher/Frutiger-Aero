@@ -62,6 +62,31 @@
     silhouette: '#0a2450', glow: 1, light: 'rgba(150,190,255,0.18)', specks: 0.12,
   };
 
+  // ------------------------------------------------------------ photos
+  // The gravel, stones, wood, plants and snail are photographs (A.PHOTOS
+  // 'scene/...', see src/photos). They are decoded once, up front, and shared
+  // by every tank. Until they are ready a tank waits; if they never load it
+  // falls back to the painted scenery.
+  const scenePhotos = {};
+  let sceneReady = false, sceneFailed = false;
+  (function loadScene() {
+    const all = A.PHOTOS || {};
+    const keys = Object.keys(all).filter((k) => k.indexOf('scene/') === 0);
+    if (!keys.length) { sceneFailed = true; return; }
+    let left = keys.length;
+    keys.forEach((k) => {
+      const img = new Image();
+      img.onload = () => {
+        scenePhotos[k.slice(6)] = { img, meta: all[k] };
+        if (--left === 0) sceneReady = true;
+      };
+      img.onerror = () => { sceneFailed = true; };
+      img.src = A.photoURL ? A.photoURL(k) : all[k].src;
+    });
+    // never keep a tank waiting for long
+    setTimeout(() => { if (!sceneReady) sceneFailed = true; }, 4000);
+  })();
+
   // ------------------------------------------------------------ tank
   function create(container, opts = {}) {
     const mode = opts.mode || 'tank';
@@ -132,6 +157,9 @@
 
     function buildStatic() {
       if (mode === 'betta') { buildBettaStatic(); buildSprites(); return; }
+      // photo scenery when it's decoded; otherwise wait a moment (see tick)
+      S.photo = sceneReady;
+      S.photoWait = !sceneReady && !sceneFailed;
       S.bubblers = preview ? [{ x: W * 0.8 }] : [{ x: W * 0.78 }, { x: W * 0.17 }];
       buildWater();
       buildSand();
@@ -183,6 +211,7 @@
       x.fillStyle = lg; x.fillRect(0, 0, W, H);
       const sr = A.util.seeded(7);
       [[0.8, 8, 0.5, 26], [0.45, 3, 0.8, 38]].forEach(([fogK, blurPx, hK, step], li) => {
+        if (li && S.photo) { photoBanks(x); return; }
         const [c, cx] = layer(W, H);
         cx.fillStyle = F.mix(P.silhouette, P.fog, fogK * 0.6);
         for (let i = 0; i < 6; i++) {
@@ -217,6 +246,178 @@
       x.fillStyle = sg; x.fillRect(0, 0, W, S.surfaceY + 40);
     }
 
+    // ---------------------------------------------------------- photo scenery
+    // A photo drawn at w x h (CSS px) into a canvas of its own, hazed toward
+    // the water color with distance (fog 0..1) and dimmed at night. Far
+    // things are drawn at a lower resolution, which softens them like depth
+    // of field.
+    function photoCanvas(name, w, h, fog = 0, flip = false) {
+      const ph = scenePhotos[name];
+      const soft = fog > 0.3 ? 0.6 : 1;
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * dpr * soft));
+      c.height = Math.max(1, Math.round(h * dpr * soft));
+      const g = c.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      if (flip) { g.translate(c.width, 0); g.scale(-1, 1); }
+      g.drawImage(ph.img, 0, 0, c.width, c.height);
+      g.setTransform(1, 0, 0, 1, 0, 0);
+      g.globalCompositeOperation = 'source-atop';
+      if (P === NIGHT) { g.fillStyle = 'rgba(3,12,34,0.52)'; g.fillRect(0, 0, c.width, c.height); }
+      // everything under water takes on a little of its color
+      g.globalAlpha = Math.min(0.9, (P === NIGHT ? 0.18 : 0.1) + fog);
+      g.fillStyle = P.fog;
+      g.fillRect(0, 0, c.width, c.height);
+      return c;
+    }
+    const photoAspect = (name) => { const im = scenePhotos[name].img; return im.naturalHeight / im.naturalWidth; };
+
+    // A far bank of real plants behind everything, lost in the blue.
+    function photoBanks(x) {
+      const hgt = H * 0.52;
+      [['bank-left', -W * 0.03, 1], ['bank-right', W * 1.03, -1]].forEach(([name, ax, side]) => {
+        const w = hgt / photoAspect(name);
+        const c = photoCanvas(name, w, hgt, 0.5);
+        const left = side > 0 ? ax : ax - w;
+        x.save();
+        x.globalAlpha = 0.85;
+        x.drawImage(c, left, S.sandY + 10 - hgt, w, hgt);
+        x.restore();
+      });
+    }
+
+    // Mip levels of the gravel photo, so far-away rows are drawn from a copy
+    // near their size instead of sparkling.
+    let gravelMips = null;
+    function gravelLevels() {
+      if (gravelMips) return gravelMips;
+      const img = scenePhotos.gravel.img;
+      const base = document.createElement('canvas');
+      base.width = img.naturalWidth; base.height = img.naturalHeight;
+      base.getContext('2d').drawImage(img, 0, 0);
+      gravelMips = [base];
+      while (gravelMips[gravelMips.length - 1].width > 96) {
+        const prev = gravelMips[gravelMips.length - 1];
+        const c = document.createElement('canvas');
+        c.width = prev.width >> 1; c.height = prev.height >> 1;
+        const g = c.getContext('2d');
+        g.imageSmoothingQuality = 'high';
+        g.drawImage(prev, 0, 0, c.width, c.height);
+        gravelMips.push(c);
+      }
+      return gravelMips;
+    }
+
+    // Photo gravel laid in thin rows, smaller and flatter toward the back so
+    // the bed recedes, then lit: hazy at the far edge, a little darker at the
+    // front, tinted by the water.
+    function photoGravel(x, bed) {
+      const mips = gravelLevels();
+      const T = mips[0].width;
+      const big = Math.max(0.75, S.decor);
+      const depth = Math.max(1, H - S.sandY);
+      const step = preview ? 3 : 2;
+      let v = 0;
+      x.save();
+      x.clip(bed);
+      for (let y = S.sandY - 16; y < H + 12; y += step) {
+        const u = clamp((y - S.sandY) / depth, 0, 1);
+        const sc = lerp(0.2, 0.5, u) * big; // photo px -> CSS px across
+        const sy = sc * lerp(0.42, 0.8, u); // ... and down: flatter far away
+        const rows = step / sy;
+        const tw = T * sc;
+        let lvl = mips[0];
+        for (const m of mips) { if (m.width >= tw * dpr * 1.2) lvl = m; else break; }
+        const k = lvl.width / T;
+        const v0 = v % T;
+        const x0 = W / 2 - Math.ceil(W / 2 / tw) * tw; // tiles spread from the middle
+        for (let xx = x0; xx < W; xx += tw) {
+          if (v0 + rows <= T) {
+            x.drawImage(lvl, 0, v0 * k, lvl.width, rows * k, xx, y, tw + 0.6, step + 0.6);
+          } else {
+            const r1 = T - v0, h1 = (step * r1) / rows;
+            x.drawImage(lvl, 0, v0 * k, lvl.width, r1 * k, xx, y, tw + 0.6, h1 + 0.3);
+            x.drawImage(lvl, 0, 0, lvl.width, (rows - r1) * k, xx, y + h1, tw + 0.6, step - h1 + 0.6);
+          }
+        }
+        v += rows;
+      }
+      // light: dim at night, water-tinted, a soft shade toward the front
+      if (P === NIGHT) { x.fillStyle = 'rgba(3,12,34,0.55)'; x.fillRect(0, S.sandY - 20, W, depth + 40); }
+      x.fillStyle = F.rgba(P.fog, P === NIGHT ? 0.2 : 0.14);
+      x.fillRect(0, S.sandY - 20, W, depth + 40);
+      const fg = x.createLinearGradient(0, S.sandY - 16, 0, H);
+      fg.addColorStop(0, F.rgba(P.fog, 0.78));
+      fg.addColorStop(0.3, F.rgba(P.fog, 0.18));
+      fg.addColorStop(0.6, 'rgba(0,20,40,0)');
+      fg.addColorStop(1, 'rgba(0,16,32,0.3)');
+      x.fillStyle = fg;
+      x.fillRect(0, S.sandY - 16, W, depth + 28);
+      x.restore();
+    }
+
+    // A photo stone or piece of wood standing on the gravel: a soft contact
+    // shadow, the picture sunk a little into the bed, then a few pebbles
+    // spilled over its foot.
+    function photoProp(x, name, cx, by, w, fog = 0, flip = false) {
+      const h = w * photoAspect(name);
+      softShadow(x, cx + w * 0.06, by - h * 0.02, w * 0.58, Math.max(4, h * 0.09), P === NIGHT ? 0.3 : 0.45);
+      const c = photoCanvas(name, w, h, fog, flip);
+      // shade where it meets the gravel
+      const g = c.getContext('2d');
+      const ao = g.createLinearGradient(0, c.height * 0.72, 0, c.height);
+      ao.addColorStop(0, 'rgba(0,15,25,0)'); ao.addColorStop(1, 'rgba(0,15,25,0.4)');
+      g.globalCompositeOperation = 'source-atop';
+      g.globalAlpha = 1;
+      g.fillStyle = ao;
+      g.fillRect(0, 0, c.width, c.height);
+      x.save();
+      x.beginPath();
+      x.rect(cx - w, 0, w * 2, by + 3); // the rest is under the gravel
+      x.clip();
+      x.drawImage(c, cx - w / 2, by - h * 0.95, w, h);
+      x.restore();
+      gravelSpill(x, cx, by, w * 0.92);
+      return h;
+    }
+
+    // A drift of pebbles over the foot of a stone or log so it sits in the
+    // bed rather than on it: a strip of the finished bed from just in front,
+    // laid over the base with soft edges.
+    function gravelSpill(x, cx, by, w) {
+      const hh = Math.max(6, 11 * Math.max(0.75, S.decor));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * dpr)); c.height = Math.max(1, Math.round(hh * dpr));
+      const g = c.getContext('2d');
+      const sy = (by + 3 - S.sandY + 30) * dpr;
+      g.drawImage(sand, (cx - w / 2) * dpr, sy, c.width, c.height, 0, 0, c.width, c.height);
+      g.globalCompositeOperation = 'destination-in';
+      g.translate(c.width / 2, c.height);
+      g.scale(c.width / 2, c.height);
+      const m = g.createRadialGradient(0, 0.35, 0, 0, 0.35, 1.05);
+      m.addColorStop(0, 'rgba(0,0,0,1)'); m.addColorStop(0.6, 'rgba(0,0,0,0.9)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+      g.fillStyle = m;
+      g.fillRect(-1, -1.2, 2, 1.2);
+      x.drawImage(c, cx - w / 2, by - hh + 4, w, hh);
+    }
+
+    function buildPhotoFront(dk) {
+      let x;
+      [front, x] = layer(W, H);
+      const base = S.sandY + 12;
+      // driftwood first: the stones sit in front of it
+      const ww = 390 * dk;
+      photoProp(x, 'wood', W * 0.36 + ww * 0.3, base + 4, ww);
+      [[W * 0.08, 150, 'rock-a'], [W * 0.14, 84, 'rock-d'], [W * 0.62, 158, 'rock-e'], [W * 0.7, 104, 'rock-b'], [W * 0.93, 124, 'rock-c']].forEach(([rx, rw, name], i) => {
+        photoProp(x, name, rx, base + (i % 2 ? 6 : 2), rw * dk, 0, i === 4);
+      });
+      // the bubbles rise from a small porous stone
+      S.bubblers.forEach((b, i) => {
+        const h = photoProp(x, 'rock-d', b.x, base + 6, 30 * dk, 0, i % 2 === 1);
+        b.y = base + 6 - h * 0.78;
+      });
+    }
+
     // A gravel bed: thousands of small shaded grains, bigger toward the
     // front, with the far edge fading into the water.
     function buildSand() {
@@ -228,6 +429,11 @@
       bed.moveTo(0, dune(0));
       for (let px = 20; px <= W + 20; px += 20) bed.lineTo(px, dune(px));
       bed.lineTo(W + 20, H + 12); bed.lineTo(0, H + 12); bed.closePath();
+      if (S.photo) {
+        photoGravel(x, bed);
+        crest(x, dune);
+        return;
+      }
       const g = x.createLinearGradient(0, S.sandY - 10, 0, H);
       g.addColorStop(0, P.sandA); g.addColorStop(0.4, P.sandB); g.addColorStop(1, P.sandC);
       x.fillStyle = g; x.fill(bed);
@@ -268,7 +474,10 @@
       fg.addColorStop(0, F.rgba(P.fog, 0.55)); fg.addColorStop(1, F.rgba(P.fog, 0));
       x.fillStyle = fg; x.fillRect(0, S.sandY - 14, W, 48);
       x.restore();
-      // light catching the crest of the bed
+      crest(x, dune);
+    }
+    // light catching the crest of the bed
+    function crest(x, dune) {
       x.beginPath();
       x.moveTo(0, dune(0));
       for (let px = 20; px <= W + 20; px += 20) x.lineTo(px, dune(px));
@@ -279,6 +488,7 @@
 
     // Stones, driftwood and the air stones the bubbles rise from.
     function buildFront(dk) {
+      if (S.photo) { buildPhotoFront(dk); return; }
       let x;
       [front, x] = layer(W, H);
       const rocks = [[W * 0.08, 62, 50, '#9fb1c2'], [W * 0.135, 40, 30, '#c9b89a'], [W * 0.62, 72, 58, '#8fa0b0'], [W * 0.695, 46, 34, '#b8a88c'], [W * 0.93, 54, 44, '#a4b6a8']].map(([a, b, c, tint]) => [a, b * dk, c * dk, tint]);
@@ -581,26 +791,49 @@
           S.plants.push({ type: 'stem', x: cx + (sr() - 0.5) * 36 * S.decor, h: H * (hmin + sr() * (hmax - hmin)), pairs: 13 + Math.floor(sr() * 6), ph: sr() * TAU, lean: (sr() - 0.5) * 0.3, layer: layerIdx, red, size: (7 + sr() * 3) * sc });
         }
       };
-      addGrass(W * 0.05, 9, 0, 0.3, 0.55);
-      addStems(W * 0.8, preview ? 3 : 5, 0, 0.26, 0.44, false);
-      addGrass(W * 0.24, 7, 1, 0.2, 0.42);
-      addSword(W * 0.3, 0, 0.2);
-      addGrass(W * 0.5, 8, 0, 0.35, 0.6);
-      addStems(W * 0.43, preview ? 3 : 5, 1, 0.2, 0.36, true);
-      addSword(W * 0.57, 1, 0.16);
-      addGrass(W * 0.84, 10, 1, 0.25, 0.5);
-      addGrass(W * 0.97, 6, 0, 0.3, 0.52);
-      addSword(W * 0.9, 0, 0.22);
-      if (!preview) {
-        addGrass(W * 0.72, 5, 2, 0.12, 0.24);
-        addGrass(W * 0.12, 4, 2, 0.1, 0.2);
+      // Photo plants: a picture of a real plant, anchored where it grows out
+      // of the gravel and swaying from there (see drawPhotoPlant).
+      const addPhoto = (name, cx, h, layerIdx, o = {}) => {
+        const meta = scenePhotos[name].meta;
+        const w = h / photoAspect(name);
+        S.plants.push({ type: 'photo', name, x: cx, base: S.sandY + (o.drop || 8), w, h, layer: layerIdx, anchor: meta.anchor || [0.5, 1], flip: !!o.flip, sway: (o.sway == null ? 6 : o.sway) * S.decor, ph: sr() * TAU, speed: 0.55 + sr() * 0.3 });
+      };
+      if (S.photo) {
+        addGrass(W * 0.05, 9, 0, 0.3, 0.55);
+        addGrass(W * 0.5, 8, 0, 0.35, 0.6);
+        addGrass(W * 0.97, 6, 0, 0.3, 0.52);
+        addPhoto('java-fern', W * 0.79, H * 0.3, 0, { sway: 4 });
+        addPhoto('sword', W * 0.27, H * 0.32, 0, { sway: 7 });
+        addPhoto('sword', W * 0.555, H * 0.24, 0, { flip: true, sway: 6 });
+        addGrass(W * 0.84, 8, 1, 0.25, 0.46);
+        addPhoto('java-fern', W * 0.2, H * 0.21, 1, { flip: true, sway: 4, drop: 10 });
+        addPhoto('anubias-b', W * 0.66, H * 0.19, 1, { sway: 3, drop: 12 });
+        addPhoto('sword', W * 0.885, H * 0.24, 1, { flip: true, sway: 6, drop: 12 });
+        addPhoto('anubias-a', W * 0.035, H * 0.15, 2, { sway: 2, drop: 16 });
+        if (!preview) addGrass(W * 0.72, 5, 2, 0.12, 0.24);
+        [[W * 0.225, 48, 30], [W * 0.475, 36, 40], [W * 0.765, 44, 34]].forEach(([mx, d, drop], i) => addPhoto('moss', mx, d * S.decor, 2, { sway: 0, flip: i === 1, drop }));
+      } else {
+        addGrass(W * 0.05, 9, 0, 0.3, 0.55);
+        addStems(W * 0.8, preview ? 3 : 5, 0, 0.26, 0.44, false);
+        addGrass(W * 0.24, 7, 1, 0.2, 0.42);
+        addSword(W * 0.3, 0, 0.2);
+        addGrass(W * 0.5, 8, 0, 0.35, 0.6);
+        addStems(W * 0.43, preview ? 3 : 5, 1, 0.2, 0.36, true);
+        addSword(W * 0.57, 1, 0.16);
+        addGrass(W * 0.84, 10, 1, 0.25, 0.5);
+        addGrass(W * 0.97, 6, 0, 0.3, 0.52);
+        addSword(W * 0.9, 0, 0.22);
+        if (!preview) {
+          addGrass(W * 0.72, 5, 2, 0.12, 0.24);
+          addGrass(W * 0.12, 4, 2, 0.1, 0.2);
       }
-      [[W * 0.2, 16], [W * 0.46, 11], [W * 0.76, 14]].forEach(([mx, r]) => S.plants.push({ type: 'moss', x: mx, r: r * S.decor, layer: 2 }));
+        [[W * 0.2, 16], [W * 0.46, 11], [W * 0.76, 14]].forEach(([mx, r]) => S.plants.push({ type: 'moss', x: mx, r: r * S.decor, layer: 2 }));
+      }
       if (!preview) {
         [0.04, 0.27, 0.41, 0.55, 0.86, 0.98].forEach((fx, i) => {
           const blades = [];
-          const n = 14 + Math.floor(sr() * 10);
-          for (let k = 0; k < n; k++) blades.push([(sr() - 0.5) * 34 * sc, (14 + sr() * 26) * sc, (sr() - 0.5) * 0.7, sr() * TAU]);
+          const n = (S.photo ? 26 : 14) + Math.floor(sr() * 10);
+          for (let k = 0; k < n; k++) blades.push([(sr() - 0.5) * 34 * sc, (14 + sr() * 26) * sc * (S.photo ? 0.8 : 1), (sr() - 0.5) * 0.7, sr() * TAU]);
           S.plants.push({ type: 'tuft', x: W * fx + (sr() - 0.5) * 30, y: S.sandY + (H - S.sandY) * (0.3 + sr() * 0.35), blades, layer: 2, ph: i });
         });
       }
@@ -624,9 +857,34 @@
         } else if (p.type === 'moss') {
           p.tex = mossSprite(p.r);
         } else if (p.type === 'tuft') {
-          p.cols = [F.mix(P.plantA, P.plantB, 0.3), F.mix(P.plantB, P.plantC, 0.5)];
+          p.cols = S.photo ? [F.mix(F.mix(P.plantA, P.plantB, 0.45), P.fog, 0.12), F.mix(F.mix(P.plantB, P.plantC, 0.25), P.fog, 0.08)] : [F.mix(P.plantA, P.plantB, 0.3), F.mix(P.plantB, P.plantC, 0.5)];
+        } else if (p.type === 'photo') {
+          p.tex = photoCanvas(p.name, p.w, p.h, p.layer === 0 ? 0.36 : p.layer === 1 ? 0.12 : 0, p.flip);
         }
       });
+    }
+
+    // A photo plant swaying in the current: drawn in horizontal bands, each
+    // sheared so its top and bottom edges line up with its neighbors', the
+    // sway growing from nothing at the roots to its most at the tips.
+    function drawPhotoPlant(p) {
+      const tex = p.tex, n = p.sway ? 10 : 1;
+      const ax = p.flip ? 1 - p.anchor[0] : p.anchor[0];
+      const x0 = p.x - p.w * ax, top = p.base - p.h * p.anchor[1];
+      const off = (u) => (p.sway ? p.sway * Math.pow(u, 1.5) * Math.sin(t * p.speed + p.ph + u * 1.3) : 0);
+      const bandH = p.h / n, texH = tex.height / n;
+      let oTop = off(1);
+      for (let i = 0; i < n; i++) {
+        const ya = top + bandH * i;
+        const ub = Math.max(0, (p.base - (ya + bandH)) / (p.h * p.anchor[1]));
+        const oBot = off(ub);
+        const c = (oBot - oTop) / bandH;
+        const extra = i < n - 1 ? 0.8 : 0; // overlap the next band a little
+        ctx.setTransform(dpr, 0, c * dpr, dpr, (oTop - c * ya) * dpr, 0);
+        ctx.drawImage(tex, 0, texH * i, tex.width, texH + (extra * tex.height) / p.h, x0, ya, p.w, bandH + extra);
+        oTop = oBot;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
     // ---------------------------------------------------------- fish
@@ -813,8 +1071,9 @@
     function mouthWorld(f) {
       const scale = (0.55 + 0.6 * f.z) * (f.heroScale || S.fishScale || 1);
       const m = F.mouth(f);
-      const cs = Math.cos(f.pitch * Math.sign(f.turn || 1)), sn = Math.sin(f.pitch * Math.sign(f.turn || 1));
-      const lx = m[0] * scale * f.turn, ly = m[1] * scale;
+      const dir = F.heading(f);
+      const cs = Math.cos(f.pitch * dir), sn = Math.sin(f.pitch * dir);
+      const lx = m[0] * scale * (F.isPhoto(f) ? 1 : f.turn), ly = m[1] * scale;
       return [f.x + lx * cs - ly * sn, f.y + lx * sn + ly * cs];
     }
 
@@ -827,7 +1086,8 @@
 
     // Hero betta for the Betta wallpaper: hovers, turns slowly, blows seven bubbles.
     function updateHero(f, dt) {
-      const scale = f.heroScale = Math.max(1.2, (W * 0.28) / (f.len * 1.55));
+      const e = F.isPhoto(f) ? F.extent(f) : null;
+      const scale = f.heroScale = Math.max(1.2, e ? (W * 0.3) / (e.x1 - e.x0) : (W * 0.28) / (f.len * 1.55));
       const home = { x: W * 0.4, y: H * 0.52 };
       if (S.pointer.inside && S.pointer.still > 0.4 && !preview) {
         f.target = { x: clamp(S.pointer.x - Math.sign(S.pointer.x - f.x) * f.len * scale * 0.9, W * 0.15, W * 0.85), y: clamp(S.pointer.y, H * 0.25, H * 0.75) };
@@ -997,6 +1257,7 @@
         else if (p.type === 'leaf') drawSwordLeaf(p);
         else if (p.type === 'stem') drawStem(p);
         else if (p.type === 'tuft') drawTuft(p);
+        else if (p.type === 'photo') drawPhotoPlant(p);
         else if (p.type === 'moss') {
           const m = p.r + 4;
           ctx.drawImage(p.tex, p.x - m, S.sandY + 4 - p.r * 0.7 - m, m * 2, m * 2);
@@ -1012,7 +1273,7 @@
       for (let i = 0; i <= n; i++) {
         const u = i / n;
         const sway = Math.sin(t * 0.9 + p.ph + u * 1.6) * 16 * Math.pow(u, 1.4) + p.lean * p.h * u * u;
-        const cx = p.x + sway, cy = base - seg * i;
+        const cx = p.x + sway;
         const twist = Math.abs(Math.cos(p.tw + u * p.tn * Math.PI));
         const w = p.w * Math.pow(1 - u, 0.5) * 0.5 * (0.3 + 0.7 * twist) + 0.35;
         L.push(cx - w); R.push(cx + w); C.push(cx);
@@ -1026,7 +1287,16 @@
       const g = ctx.createLinearGradient(p.x, base, C[n], base - p.h);
       for (let k = 0; k < 5; k++) g.addColorStop(k / 4, p.cols[k]);
       ctx.fillStyle = g;
+      if (S.photo) ctx.globalAlpha = 0.88;
       ctx.fill();
+      ctx.globalAlpha = 1;
+      if (S.photo) {
+        ctx.beginPath();
+        for (let i = 0; i <= n; i++) i ? ctx.lineTo(R[i], base - seg * i) : ctx.moveTo(R[i], base);
+        ctx.strokeStyle = 'rgba(0,30,10,0.22)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
       ctx.beginPath();
       for (let i = 1; i < n; i++) i === 1 ? ctx.moveTo(C[i], base - seg * i) : ctx.lineTo(C[i], base - seg * i);
       ctx.strokeStyle = 'rgba(235,255,220,0.16)';
@@ -1105,7 +1375,7 @@
           ctx.quadraticCurveTo(p.x + dx + sway * 0.3, p.y - h * 0.6, p.x + dx + sway, p.y - h);
         }
         ctx.strokeStyle = p.cols[pass];
-        ctx.lineWidth = pass ? 1 : 1.5;
+        ctx.lineWidth = S.photo ? (pass ? 0.7 : 1) : pass ? 1 : 1.5;
         ctx.stroke();
       }
     }
@@ -1191,7 +1461,7 @@
         ctx.restore();
       } else {
         // Farther fish take on the water's color and soften (baked into the skin).
-        const amt = clamp((1 - f.z) * (P === DAY ? 0.55 : 0.62) - 0.04, 0, 0.55);
+        const amt = clamp((1 - f.z) * (P === DAY ? 0.55 : 0.62) - 0.04 + (P === NIGHT ? 0.3 : 0), 0, 0.75);
         const blur = f.z < 0.35 ? Math.round((0.35 - f.z) * 20) / 10 : 0;
         const key = P.fog + amt.toFixed(2) + blur;
         if (f._fogKey !== key) {
@@ -1201,12 +1471,14 @@
       }
       ctx.save();
       ctx.translate(f.x, f.y);
-      ctx.rotate(f.pitch * Math.sign(f.turn || 1));
-      const tx = Math.abs(f.turn) < 0.12 ? 0.12 * Math.sign(f.turn || 1) : f.turn;
+      // photo fish fold round by themselves; painted ones flip like a card
+      const photo = F.isPhoto(f);
+      ctx.rotate(f.pitch * F.heading(f));
+      const tx = photo ? 1 : Math.abs(f.turn) < 0.12 ? 0.12 * Math.sign(f.turn || 1) : f.turn;
       ctx.scale(scale * tx, scale);
       const tt = mode === 'betta' ? t * 0.55 : t;
       const lit = mode !== 'betta' && P.caustic > 0.05;
-      const body = F.draw(ctx, f, tt, 1, lit);
+      const body = F.draw(ctx, f, tt, 1, lit, lit ? fishLight(f) : null);
       if (body) {
         // the same rippling light that plays on the sand plays on their backs
         ctx.clip(body);
@@ -1229,6 +1501,22 @@
       }
     }
 
+    // The rippling light from the surface, painted onto a photo fish.
+    function fishLight(f) {
+      if (!f._light) {
+        f._light = {
+          light(g, ox, oy) {
+            const up = clamp(1 - (f.y - S.surfaceY) / Math.max(1, S.sandY - S.surfaceY), 0, 1);
+            g.globalCompositeOperation = 'source-atop';
+            g.globalAlpha = Math.min(1, P.caustic * (0.3 + 0.7 * up) * (0.45 + 0.55 * f.z) * 1.05);
+            g.setTransform(dpr, 0, 0, dpr, -ox, -oy);
+            g.drawImage(caus, 0, 0, W, S.sandY * 0.85);
+          },
+        };
+      }
+      return f._light;
+    }
+
     // Hover near a fish to see its name.
     function drawNameLabel() {
       const pt = S.pointer;
@@ -1246,7 +1534,8 @@
       ctx.save();
       ctx.font = '600 12px Selawik, sans-serif';
       const tw = ctx.measureText(label).width + 18;
-      const lx = clamp(best.x - tw / 2, 6, W - tw - 6), ly = Math.max(6, best.y - best.len * sc * best.sp.h * 1.4 - 26);
+      const top = F.isPhoto(best) ? F.extent(best).y0 * sc - 8 : -best.len * sc * best.sp.h * 1.4;
+      const lx = clamp(best.x - tw / 2, 6, W - tw - 6), ly = Math.max(6, best.y + top - 26);
       const g = ctx.createLinearGradient(0, ly, 0, ly + 22);
       g.addColorStop(0, 'rgba(255,255,255,0.92)'); g.addColorStop(0.5, 'rgba(230,246,255,0.85)'); g.addColorStop(0.5, 'rgba(205,236,252,0.85)'); g.addColorStop(1, 'rgba(230,246,255,0.9)');
       ctx.fillStyle = g;
@@ -1273,9 +1562,39 @@
       if (sn.x > W - 40) sn.dir = -1;
       if (sn.x < 40) sn.dir = 1;
     }
+    // With the photo scenery the snail is a real apple snail gliding along
+    // the front of the gravel; clicked, it pulls back into its shell.
+    const snailW = () => 64 * Math.max(0.8, S.decor);
+    const snailY = () => S.sandY + (H - S.sandY) * 0.38;
+    function drawPhotoSnail(sn) {
+      const w = snailW(), h = w * photoAspect('snail');
+      const key = P.fog + dpr + w;
+      if (sn.texKey !== key) { sn.tex = photoCanvas('snail', w, h, 0); sn.texKey = key; }
+      const meta = scenePhotos.snail.meta, an = meta.anchor, shell = meta.shell;
+      const out = sn.hide > 0 ? 0 : Math.min(1, sn.ph * 1.5);
+      const y = snailY();
+      ctx.save();
+      ctx.globalAlpha = P === NIGHT ? 0.35 : 0.5;
+      ctx.drawImage(shadowTex, sn.x - w * 0.42, y - h * 0.1, w * 0.84, h * 0.24);
+      ctx.globalAlpha = 1;
+      ctx.translate(sn.x, y);
+      ctx.scale(sn.dir > 0 ? -1 : 1, 1); // the photo faces left
+      if (out < 1) {
+        // tucked in: only the shell shows, the body slides back out after
+        const sx = (shell[0] - an[0]) * w, sy = (shell[1] - an[1]) * h + (1 - out) * h * 0.08;
+        ctx.beginPath();
+        ctx.arc(sx, sy, shell[2] * w * 1.04 + out * w, 0, TAU);
+        ctx.clip();
+      }
+      const stretch = 1 + Math.sin(sn.ph * 2) * 0.02 * out;
+      ctx.drawImage(sn.tex, -an[0] * w * stretch, -an[1] * h, w * stretch, h);
+      ctx.restore();
+    }
+
     function drawSnail() {
       const sn = S.snail;
       if (!sn) return;
+      if (S.photo) { drawPhotoSnail(sn); return; }
       const k = Math.max(0.8, S.decor * 1.2);
       ctx.save();
       ctx.translate(sn.x, sn.y);
@@ -1325,7 +1644,8 @@
       const sn = S.snail;
       if (!sn) return false;
       const k = Math.max(0.8, S.decor * 1.2);
-      if (Math.hypot(x - sn.x, y - (sn.y - 2 * k)) < 16 * k) {
+      const hit = S.photo ? Math.hypot(x - sn.x, y - (snailY() - snailW() * 0.22)) < snailW() * 0.42 : Math.hypot(x - sn.x, y - (sn.y - 2 * k)) < 16 * k;
+      if (hit) {
         sn.hide = 4;
         sn.ph = 0;
         A.sound.play('pop');
@@ -1520,6 +1840,10 @@
       if (S.fish.some((f) => f.gone)) S.fish = S.fish.filter((f) => !f.gone);
       updateBubbles(dt);
 
+      if (S.photoWait) {
+        if (sceneReady || sceneFailed) buildStatic();
+        else if (!S.still) { ctx.clearRect(0, 0, W, H); return; }
+      }
       updateCaustics();
       ctx.drawImage(bg, 0, 0, W, H);
       drawWallCaustics();
@@ -1612,7 +1936,11 @@
       tap() { startle(W / 2, H / 2, Math.max(W, H), 1.4); A.sound.play('click'); },
       party,
       setLights(v) { lightsOverride = v; P = isNight() ? NIGHT : DAY; buildStatic(); },
-      renderStill(steps = 30) { for (let i = 0; i < steps; i++) tick(1 / 30); },
+      renderStill(steps = 30) {
+        S.still = true;
+        for (let i = 0; i < steps; i++) tick(1 / 30);
+        S.still = false;
+      },
       fish: () => S.fish.slice(),
     };
     ctrl.resume();

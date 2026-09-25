@@ -15,18 +15,23 @@
     tetra: 'A school of tiny fish with a glowing blue stripe. They glow at night.',
   };
 
-  // Draws one fish into a small canvas for lists and cards.
+  // Draws one fish into a small canvas for lists and cards (again once its
+  // photo has decoded, if it hadn't yet).
   function fishPortrait(species, palette, w = 72, hgt = 48) {
     const c = h('canvas.aqa-portrait', { width: w * 2, height: hgt * 2, style: { width: w + 'px', height: hgt + 'px' } });
-    const ctx = c.getContext('2d');
-    ctx.scale(2, 2);
     const f = A.fish.makeFish(species, { palette });
     f.phase = 0.8; f.finPhase = 0.5;
-    const total = f.len * (1 + (1 - f.sp.bodyLen) * f.sp.tailScale);
-    const scale = Math.min((w * 0.82) / total, (hgt * 0.8) / (f.len * f.sp.h * 2.2));
-    ctx.translate(w / 2 + total * scale * 0.12, hgt / 2);
-    ctx.scale(scale, scale);
-    A.fish.draw(ctx, f, 1.2);
+    const paint = () => {
+      const ctx = c.getContext('2d');
+      ctx.setTransform(2, 0, 0, 2, 0, 0);
+      ctx.clearRect(0, 0, w, hgt);
+      const e = A.fish.extent(f);
+      const scale = Math.min((w * 0.9) / (e.x1 - e.x0), (hgt * 0.88) / (e.y1 - e.y0));
+      ctx.translate(w / 2 - ((e.x0 + e.x1) / 2) * scale, hgt / 2 - ((e.y0 + e.y1) / 2) * scale);
+      ctx.scale(scale, scale);
+      A.fish.draw(ctx, f, 1.2);
+    };
+    if (A.fish.ready(f)) paint(); else A.fish.whenReady(f, paint);
     return c;
   }
 
@@ -105,7 +110,7 @@
           detail.append(fishPortrait(chosen, palette, 200, 120), h('div', null, h('b', null, sp.name), h('p', null, BLURB[chosen])));
           swatches.innerHTML = '';
           sp.palettes.forEach((p, i) => {
-            const b = h('button.aqa-swatch', { type: 'button', class: i === palette && 'on', 'data-tip': p.name, style: { background: `linear-gradient(135deg, ${p.body}, ${p.fin})` } });
+            const b = h('button.aqa-swatch', { type: 'button', class: i === palette && 'on', 'data-tip': p.name, style: { background: `linear-gradient(135deg, ${(p.swatch || [p.body])[0]}, ${(p.swatch || [0, p.fin])[1]})` } });
             b.addEventListener('click', () => { palette = i; renderDetail(); A.sound.play('hover'); });
             swatches.appendChild(b);
           });
@@ -127,6 +132,24 @@
           parent: win, title: 'Add a fish', icon: 'icons/aquarium', width: 560,
           content: h('div.aqa-add', null, grid, h('div.aqa-add-side', null, detail, h('div.aqa-sw-label', null, 'Color'), swatches)),
           buttons: [{ label: 'Add to tank', tone: 'grass', default: true, onClick: () => { addFish(chosen, palette); } }, { label: 'Cancel', cancel: true }],
+        });
+      }
+
+      // Who took the photographs the tank is made of.
+      function creditsDialog() {
+        const seen = new Set(), rows = [];
+        Object.keys(A.PHOTOS || {}).sort().forEach((k) => {
+          const c = A.PHOTOS[k].credit;
+          if (!c || seen.has(c.source)) return;
+          seen.add(c.source);
+          rows.push(h('li', null, h('a', { href: c.source, target: '_blank', rel: 'noopener' }, c.title || 'Photo'), ` by ${c.author}, ${c.license}`));
+        });
+        A.ui.dialog({
+          parent: win, title: 'Photo credits', icon: 'icons/aquarium', width: 540,
+          content: h('div.aqa-credits', null,
+            h('p', null, 'The fish, plants, stones and wood in the tank are real photographs, cut out and color-matched, used under open licenses. Thank you to everyone who shared them.'),
+            h('ul', null, rows)),
+          buttons: [{ label: 'Close', default: true, cancel: true }],
         });
       }
 
@@ -164,7 +187,8 @@
         h('span.aqa-spacer'),
         A.ui.button('Fish party', { size: 'sm', icon: 'icons/star', onClick: () => { const wc = A.theme.wallpaperController(); if (A.store.get('wallpaper') !== 'aquarium') A.theme.setWallpaper('aquarium'); setTimeout(() => { const c = A.theme.wallpaperController(); c && c.party && c.party(); }, 300); tankCtl.party(); A.sound.play('win'); void wc; } }),
         A.ui.button('Use as wallpaper', { size: 'sm', onClick: () => { A.theme.setWallpaper('aquarium'); A.notify({ title: 'Aquarium wallpaper', text: 'Your fish tank is now your desktop.', icon: 'icons/aquarium', sound: false }); } }),
-        A.ui.button('Betta wallpaper', { size: 'sm', onClick: () => A.theme.setWallpaper('betta') }));
+        A.ui.button('Betta wallpaper', { size: 'sm', onClick: () => A.theme.setWallpaper('betta') }),
+        A.PHOTOS ? A.ui.button('Photo credits', { size: 'sm', onClick: creditsDialog }) : null);
 
       win.body.classList.add('aqa');
       win.body.append(
